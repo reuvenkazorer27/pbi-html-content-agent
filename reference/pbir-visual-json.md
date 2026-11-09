@@ -1,6 +1,6 @@
 # PBIR authoring - HTML Content visual.json
 
-Verified against the official PBIR Implementation Guide (html-content.com/docs/pbir-guide), 9 Nov 2026. Valid for HTML Content 2.0 and above; 1.x persists a different property set. Not executed in Power BI; validate by opening the report in Desktop.
+Verified against the official PBIR Implementation Guide (html-content.com/docs/pbir-guide), 9 Nov 2026. Valid for HTML Content 2.0 and above; 1.x persists a different property set. The container, padding, slicer-color and `report.json` registration settings the pipeline writes (`gen_pbip.py`) were opened and checked in Desktop; sections marked *not yet run in Desktop* are source-verified only - validate them by opening the report in Desktop.
 
 ## The short version
 

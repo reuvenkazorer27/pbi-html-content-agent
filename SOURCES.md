@@ -1,6 +1,6 @@
 # Sources
 
-Every factual claim in this folder traces to one of these sources, all accessed 9 Nov 2026. The folder's code and layout conventions were authored from these docs and were not executed in Power BI.
+Every documented claim in this folder traces to one of these sources, all accessed 9 Nov 2026. The pipeline and the rules in `reference/design-system.md` and `reference/build-workflow.md` were then measured in Power BI Desktop; the static components in `library/` and `examples/` are doc-based and are labeled `not run in Power BI` (see README, *Verification status*).
 
 ## HTML Content official documentation (html-content.com, Daniel Marsh-Patrick)
 
