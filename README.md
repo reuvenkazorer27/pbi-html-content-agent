@@ -1,41 +1,89 @@
+<div align="center">
+
 # PBI HTML Content Agent
 
-An agent folder for working with the **HTML Content** custom visual in Power BI: building dashboards from DAX-generated HTML, either as a complete dashboard inside one full-canvas visual, or as a composite dashboard of several visuals working together over a regular Power BI page background.
+**An AI agent kit that builds pixel-exact, RTL-correct Power BI dashboards on the HTML Content visual - written straight into PBIP/PBIR, checked automatically, versioned like code.**
 
-## What the agent can do
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Power BI](https://img.shields.io/badge/Power%20BI-PBIP%20%2F%20PBIR-F2C811?logo=powerbi&logoColor=black)
+![HTML Content](https://img.shields.io/badge/HTML%20Content-2.0%20Secure-0F6CBD)
+![RTL](https://img.shields.io/badge/RTL-Hebrew%20first-7C3AED)
+![Gates](https://img.shields.io/badge/gates-fit%20%C2%B7%20WCAG%20%C2%B7%20stress%20%C2%B7%20regression-15803D)
 
-- Produce visuals that Power BI does not ship built-in: a bullet chart with quality bands, IBCS variance columns (actual / plan / variance), a dumbbell chart for period comparison, lollipop, a GitHub-style calendar heatmap, waffle, a scorecard table with an in-cell sparkline, a conditional alert banner and a styled filter-state banner, a flat milestone timeline, and a fixed hierarchy chart (org strip) - plus foundation components (KPI cards, column/line/donut charts, tables) for fullscreen mode.
-- Build a **complete dashboard inside one visual** that covers the whole canvas (a fullscreen shell with header, side menu and content area).
-- Build a **composite dashboard** of several HTML Content visuals at exact sizes that blend with the page background and with native visuals.
-- Wire **real slicers and filtering**: the visual responds to slicers and filters, and can also filter other visuals (cross-filter) when it is built correctly with the Context role.
-- Build a side menu and header, including real page navigation (through native buttons layered over the HTML - no fake navigation).
-- Work **fully in Hebrew with correct RTL**: mixed text with numbers, currency, dates and English names, charts that start from the right, a right-docked menu.
-- Work with a **color palette library** and the theme color variables (`--pbi-theme-*`), so the content matches a background that is not drawn in HTML.
-- Write HTML Content visuals directly into PBIR files (`visual.json`), including the GUIDs of both editions.
-- Build, check and version a dashboard end to end with `tools/pbip-html-pipeline/`: live DAX test against the open model, exact-size preview, automatic fit / WCAG contrast / filter-stress gates, a byte-level regression gate, palettes (light, dark, colorful), and snapshots with diff and revert (git commit + tag per snapshot).
+<img src="docs/images/dashboard-vivid.png" alt="A Hebrew RTL project-portfolio dashboard built by the agent: gradient background, filled KPI cards, lifecycle tracker, segmented bar lists, timeline and donut (anonymized data)" width="100%">
+
+<sub>Rendered by the kit's exact-size preview (headless Edge) from the same measures that were verified in Power BI Desktop (1920×1080, HTML Content Secure, palette <code>vivid</code>). Names and projects anonymized.</sub>
+
+</div>
+
+---
+
+## Why this exists
+
+Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar per owner or a milestone strip, and the built-in Card cannot hold an in-card sparkline or progress strip - the HTML Content visual can, but only if every card fits its frame, every Hebrew sentence runs right-to-left, and every color stays readable. Getting that right by hand is slow and fragile. This kit makes it repeatable:
+
+| Problem we hit in Desktop | What the kit does about it |
+| --- | --- |
+| Cards clipped at the bottom, titles wrapping | Reads the theme's padding and writes **padding 0** on every visual (LESSONS L1); an **exact-size fit check** with 8px slack gates every build |
+| Hebrew titles left-aligned despite `dir="rtl"` | Inline `direction:rtl; text-align:right` on every card root (L2) |
+| 12px text unreadable after Fit-to-page | A central **type scale** for 1920×1080 (L3) |
+| Colors that fail contrast on soft fills | **Palette tokens** with separate text-safe colors, and a **WCAG contrast gate** (L11) |
+| "Looks fine" until a filter empties a list | **Stress scenarios** re-render every card under several filter states, including an empty selection (L10) |
+| A change that breaks something unnoticed | A **byte-level regression gate** + **versions with revert**, committed and tagged in git (L10, L13) |
+
+## Features
+
+- **Composite or fullscreen dashboards** of HTML Content visuals at exact coordinates, mixed with native slicers and buttons.
+- **A component library** (`library/components/`) - bullet, IBCS variance, dumbbell, lollipop, waffle, calendar heatmap, milestone timeline, org strip, KPI cards and more - each a paste-ready DAX measure.
+- **Real interactivity** - cards respond to every slicer and filter; row-bound cards cross-filter other visuals through the Context role; page navigation through native buttons layered over the HTML.
+- **Theme-aware** - colors from palette tokens or the report theme (`--pbi-theme-*` CSS variables), PBIR GUIDs for both editions (Regular and Secure).
+- **Hebrew / RTL done right** - bidi isolation of numbers, currency and dates; right-docked menus; RTL charts.
+- **Palettes** - `ocean` (light), `midnight` (dark), `berry` and `vivid` (colorful: gradient page + filled KPI cards). Switch with one variable; every palette passes the fit and contrast gates.
+- **Direct PBIR authoring** - TMDL measures and `visual.json` files written by script; Desktop picks them up with *Apply external changes*.
+- **Honest by design** - no fake buttons, no promises the Secure sandbox cannot keep, and every claim labeled as measured or doc-based.
 
 ## What the agent will not do (and will not pretend to do)
 
-- It will not build "HTML buttons" that look clickable but do nothing. Page navigation happens only through native Power BI buttons or through a real cross-filter.
-- It will not promise that scripts work in the Secure (certified) edition. There, the sanitizer removes them.
-- It will not use localStorage, cookies, pop-up windows or external scripts. The Power BI sandbox blocks them in every edition.
-- It will not present anything as "tested" unless it was run. Every component states what is based on official documentation and what still needs validation in Desktop.
+- Build "HTML buttons" that look clickable but do nothing. Page navigation happens only through native Power BI buttons or a real cross-filter.
+- Promise that scripts work in the Secure (certified) edition - its sanitizer removes them.
+- Use localStorage, cookies, pop-up windows or external scripts - the Power BI sandbox blocks them in every edition.
+- Present anything as "tested" unless it was run. Every component states what is doc-based and what still needs validation in Desktop.
 
-## Folder structure
+## Quick start
+
+1. Copy this folder next to your PBIP (or anywhere your agent can read it).
+2. Tell your agent (Claude Code, Cursor, ...) to read `AGENTS.md` and `LESSONS.md` first.
+3. Ask in plain language: *"Build an RTL portfolio dashboard on table X with a KPI row, a right filter panel and a timeline."*
+
+To drive the pipeline yourself, copy `tools/pbip-html-pipeline/` next to the PBIP as `_build/`, then **adapt it to your model first**: replace the measures and `LAYOUT` in `measures.py` (start from `measures_example_projects.py`, the demo) and set `ROOT`, `TMDL`, `PAGE_ID`, `ENTITY` and `BACKUP` in `gen_pbip.py`. Make a backup copy of the PBIP, open it in Power BI Desktop, and take a baseline once with `python -I versions.py snapshot "baseline" --results r_all.json` after the first run of steps 1-2. Then run the loop:
+
+```bash
+python -I gen_query.py q_all.dax                                     # define + evaluate every HTML measure
+powershell -File runq.ps1 -QueryFile q_all.dax -OutFile r_all.json   # run it on the open Desktop model
+python -I regress.py r_all.json                                      # only intended cards changed?
+python -I gen_preview.py r_all.json preview.html                     # exact-size preview
+node fitcheck.mjs preview.html --shot full.png                       # GATE: FIT OK + CONTRAST OK
+python -I stress.py                                                  # GATE: filter scenarios (all, one status, one owner, blanks, empty)
+python -I versions.py snapshot "what changed" --fit "FIT OK" --results r_all.json --shot full.png
+python -I gen_pbip.py                                                # write TMDL + visual.json
+```
+
+Then in Desktop: **Apply external changes → Home ▸ Refresh**. Requirements: **Windows** with Power BI Desktop (PBIP enabled; `runq.ps1` uses Windows PowerShell and Desktop's own AdomdClient), Python 3, Node 22+ and Microsoft Edge (found in the default install paths, or set `EDGE_PATH`) - no npm or pip packages. Details: [`tools/pbip-html-pipeline/README.md`](tools/pbip-html-pipeline/README.md).
+
+## Repository map
 
 | Path | What is there |
 | --- | --- |
-| `AGENTS.md` | The agent's main brief - the file the agent reads first, including the fit-to-canvas contract. |
-| `LESSONS.md` | Lessons measured in real Power BI Desktop sessions. They override the docs. |
-| `ROADMAP.md` | The 20-step plan with built / researched status. |
-| `reference/` | Verified knowledge about the visual: capabilities, limits, canvas sizes, PBIR. With links to sources. |
-| `research/` | Demand research: what users actually ask for and do not have, and how each library component was decided against demand and the built-in visuals. |
-| `skills/` | Five skills: dashboard-shell, composite-dashboard, html-slicers-filters, navigation-header-menu, rtl-hebrew. |
-| `library/` | Ready-to-paste components: `.dax` files with CSS, color palettes, and a shell for a fullscreen dashboard. |
-| `examples/` | A complete working example: a Hebrew RTL sales dashboard on a 720p canvas, with exact coordinates. |
-| `tools/pbip-html-pipeline/` | The build / gate / version / write pipeline (see its README). |
-| `checklists/` | Validation checklist: what to check in Desktop, in the Service, on mobile and in export before a dashboard is handed over. |
-| `SOURCES.md` | Every factual claim in the folder linked to its live source, with the check date. |
+| [`AGENTS.md`](AGENTS.md) | The agent's brief, starting with the **fit-to-canvas contract** |
+| [`LESSONS.md`](LESSONS.md) | Lessons measured in Power BI Desktop - they override the docs |
+| [`ROADMAP.md`](ROADMAP.md) | 20-step plan: what is built and measured, what is researched next |
+| [`tools/pbip-html-pipeline/`](tools/pbip-html-pipeline/) | Build · gate · version · write pipeline |
+| [`library/`](library/) | Components (`.dax`), palettes, icons (Kubai, MIT), fullscreen shell |
+| [`skills/`](skills/) | dashboard-shell, composite-dashboard, html-slicers-filters, navigation-header-menu, rtl-hebrew |
+| [`reference/`](reference/) | Verified PBIR / HTML Content properties, capabilities, canvas and layout |
+| [`examples/`](examples/) | Worked examples (sales dashboard, context interaction, KPI with icon) |
+| [`checklists/validation.md`](checklists/validation.md) | What to check in Desktop, Service, mobile and export |
+| [`research/`](research/) · [`SOURCES.md`](SOURCES.md) | Demand research and dated sources for every factual claim |
 
 ## What is in the component library (`library/components/`)
 
@@ -86,12 +134,6 @@ Hard limits (every edition): no writeback to the model, no triggering export, no
 
 **Custom icons (Kubai, MIT):** `library/icons/` - 12 static SVGs for inline embedding in KPI cards and the side menu, with embedding instructions and license. Example: `examples/kpi-with-icon.dax`.
 
-## How to work with it
-
-1. Copy the folder into the project (next to the PBIP, or into a general working folder).
-2. Point the agent (Claude Code, Cursor or any other agent) to read `AGENTS.md` and `LESSONS.md` at the start of the session.
-3. Ask for a dashboard in natural language, for example: "Build me an RTL sales dashboard with a KPI row, a right side menu and a working year slicer". The agent picks the matching pattern, uses the component library and the pipeline, and states explicitly what was verified and what still needs your validation.
-
 ## Visual editions (important before you start)
 
 The HTML Content visual (by Daniel Marsh-Patrick, free and open source) ships as two separate editions on AppSource:
@@ -101,7 +143,17 @@ The HTML Content visual (by Daniel Marsh-Patrick, free and open source) ships as
 
 Every library component is marked with the edition it suits. The agent's default is Secure, unless the need requires Regular (for example scripts or external content).
 
-## Verification status
+## Verification status (honesty label)
 
 - **Measured in Power BI Desktop (Oct 2026 release, 9 Nov 2026):** the fit-to-canvas contract, the pipeline (`tools/pbip-html-pipeline/`) and the lessons in `LESSONS.md`, on a real 1920×1080 Hebrew RTL dashboard with the Secure edition - including padding 0, RTL alignment, the type scale, palette-driven slicers, the gradient background layer and filled KPI cards.
 - **Documentation-based, not yet run in Desktop:** the components in `library/components/` and the example in `examples/` (written from the HTML Content 2.0 docs, the PBIR Implementation Guide and Microsoft Learn, 9 Nov 2026), and the items marked 📋 in `ROADMAP.md`. Before production use, run `checklists/validation.md`. Every component that needs checking is marked `not run in Power BI`.
+
+## Contributing
+
+Work happens through pull requests: one branch per change, a code review on the PR, merge through the PR - never directly to `main`. Every dashboard change must pass `regress.py`, `fitcheck.mjs` and `stress.py`, and every lesson measured in Desktop is added to `LESSONS.md` the same day. Never commit keys, env files, pulled data or `.pbi` caches (see `.gitignore`, LESSONS L13).
+
+## License
+
+[MIT](LICENSE) © 2026 Reuven Kazorer.
+
+Third-party: the **HTML Content** custom visual is a separate free, open-source project by Daniel Marsh-Patrick ([html-content.com](https://html-content.com), MIT) and is not included here. Icons in `library/icons/` are from Kubai Icons (MIT, see `library/icons/LICENSE-MIT-kubai`). Power BI is a trademark of Microsoft.
