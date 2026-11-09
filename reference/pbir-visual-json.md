@@ -91,7 +91,7 @@ Templates persist under `objects.templates` with `bodyTemplate` and `rowTemplate
 }
 ```
 
-## Container chrome: padding 0 (measured in Desktop, LESSONS.md L1)
+## Container chrome: padding 0 (measured in Desktop - see `design-system.md` §1)
 
 The Fluent 2 base theme pads every visual 16/14/16/16. Without overriding it the HTML viewport is 30px shorter and 32px narrower than `position`, and every card clips. Ship every HTML Content visual (and slicers that sit on an HTML panel) with:
 

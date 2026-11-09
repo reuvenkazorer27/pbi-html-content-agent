@@ -18,12 +18,16 @@ The project's .gitignore must exclude env/key files, .pbi caches and localSettin
 import datetime, hashlib, io, json, os, re, shutil, sys, zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)                         # the PBIP project folder
+sys.path.insert(0, HERE)
+try:                                                 # read-only commands (list/diff, regress.py) work without pipeline.json
+    from config import ROOT, PROJECT                 # ROOT = the PBIP project folder
+except SystemExit:
+    ROOT, PROJECT = os.path.dirname(HERE), None
 VDIR = os.path.join(ROOT, "_versions")
 INDEX = os.path.join(VDIR, "index.json")
 # what a version contains (relative to ROOT); caches, localSettings and data files are excluded
-INCLUDE_DIRS = ["demo.Report/definition", "demo.Report/StaticResources", "demo.SemanticModel/definition"]
-INCLUDE_FILES = ["demo.pbip", "demo.Report/definition.pbir", "demo.SemanticModel/definition.pbism"]
+INCLUDE_DIRS = [f"{PROJECT}.Report/definition", f"{PROJECT}.Report/StaticResources", f"{PROJECT}.SemanticModel/definition"]
+INCLUDE_FILES = [f"{PROJECT}.pbip", f"{PROJECT}.Report/definition.pbir", f"{PROJECT}.SemanticModel/definition.pbism"]
 BUILD_EXT = (".py", ".m", ".ps1", ".sh", ".md")
 # restore only these on revert (never the data folder, env files, or _versions itself)
 RESTORE_DIRS = INCLUDE_DIRS
@@ -46,7 +50,7 @@ def _files():
             out += [os.path.relpath(os.path.join(dp, f), ROOT).replace("\\", "/") for f in fs]
     out += [f for f in INCLUDE_FILES if os.path.exists(os.path.join(ROOT, f))]
     for f in os.listdir(HERE):
-        if f.endswith(BUILD_EXT) and os.path.isfile(os.path.join(HERE, f)):
+        if (f.endswith(BUILD_EXT) or f == "pipeline.json") and os.path.isfile(os.path.join(HERE, f)):
             out.append("_build/" + f)
     return sorted(set(out))
 
@@ -55,7 +59,13 @@ def _sha(path):
     return hashlib.sha256(open(path, "rb").read()).hexdigest()[:16]
 
 
+def _need_project():
+    if not PROJECT:
+        sys.exit("pipeline.json is required for snapshot/revert - copy pipeline.example.json and fill it")
+
+
 def snapshot(label, fit=None, results=None, shot=None):
+    _need_project()
     ix = _index()
     n = (max([v["n"] for v in ix]) + 1) if ix else 1
     vid = f"v{n:03d}"
@@ -73,7 +83,7 @@ def snapshot(label, fit=None, results=None, shot=None):
             z.write(results, "_outputs/r_all.json")
         if shot and os.path.exists(shot):
             z.write(shot, "_outputs/" + os.path.basename(shot))
-    entry = {"n": n, "id": vid, "zip": zname, "time": stamp, "label": label, "fit": fit,
+    entry = {"n": n, "id": vid, "zip": zname, "time": stamp, "label": label, "fit": fit, "project": PROJECT,
              "files": len(files), "hashes": hashes, "has_outputs": bool(results and os.path.exists(results))}
     ix.append(entry)
     _save_index(ix)
@@ -149,7 +159,10 @@ def diff(a, b="current"):
 
 
 def revert(vid):
+    _need_project()
     v = _get(vid)
+    if v.get("project", PROJECT) != PROJECT:   # never delete one project's files to restore another's
+        sys.exit(f"{vid} belongs to project '{v['project']}', pipeline.json says '{PROJECT}' - fix pipeline.json first")
     snapshot(f"pre-revert-to-{vid}")
     with zipfile.ZipFile(os.path.join(VDIR, v["zip"])) as z:
         names = [n for n in z.namelist() if not n.startswith("_outputs/")]

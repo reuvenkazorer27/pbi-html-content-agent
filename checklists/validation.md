@@ -2,7 +2,7 @@
 
 Run this in the real target environment. Mark each item Pass / Fail / N/A. Until this passes, the delivery note must say "doc-based, not run in Power BI".
 
-## 0. Fit (before writing the PBIP, then in Desktop) - LESSONS.md L1-L12
+## 0. Fit (before writing the PBIP, then in Desktop) - see `../reference/design-system.md`
 
 - [ ] Base theme padding read; every HTML visual and panel slicer has padding 0 + chrome off in `visual.json`.
 - [ ] Exact-size preview fit check prints `FIT OK` (8px slack on every card).

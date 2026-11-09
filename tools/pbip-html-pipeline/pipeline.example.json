@@ -1,0 +1,9 @@
+{
+  "project": "MyReport",
+  "table": "Projects",
+  "page_id": "ReportSection0123456789abcdef",
+  "page_display_name": "Project Portfolio",
+  "backup_dir": "../MyReport_backup",
+  "partition_m": null,
+  "lineage_namespace": "pbi-html-dashboard"
+}

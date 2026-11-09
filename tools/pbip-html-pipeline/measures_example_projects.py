@@ -25,7 +25,8 @@ def _resolve_dir(text):
         text = text.replace(f"@@{k}@@", v)
     return text
 
-T = "'פרויקטים'"
+from config import TABLE   # host table from pipeline.json (the reference build uses 'פרויקטים')
+T = f"'{TABLE}'"
 C = lambda c: f"{T}[{c}]"
 
 FONT = "font-family:Segoe UI,Arial,sans-serif"
