@@ -10,7 +10,7 @@ TMDL = os.path.join(ROOT, "demo.SemanticModel", "definition", "tables", "פרו�
 REPORT = os.path.join(ROOT, "demo.Report", "definition")
 PAGE_ID = "ca57173c84e9d161e258"
 PAGE_DIR = os.path.join(REPORT, "pages", PAGE_ID)
-ENTITY = "פרויקטים"
+ENTITY = "פרויקטים"  # demo table name ("projects") - set to your model's table
 HTML_GUID = "htmlContent443BE3AD55E043BF878BED274D3A6865"  # HTML Content Secure (certified)
 VC_SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json"
 from palette import P as PAL
@@ -61,7 +61,7 @@ json.dump(rep, open(rp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 # ---------------------------------------------------------------- page.json
 pp = os.path.join(PAGE_DIR, "page.json")
 page = json.load(open(pp, encoding="utf-8"))
-page["displayName"] = "תיק פרויקטים"
+page["displayName"] = "תיק פרויקטים"  # page name shown in Desktop ("Project Portfolio")
 color = {"solid": {"color": lit(f"'{BG}'")}}
 page["objects"] = {
     "background": [{"properties": {"color": color, "transparency": lit("0D")}}],

@@ -33,7 +33,7 @@ Every entry here was **measured in a real Power BI Desktop session**, not taken 
 - **Fix:** the preview renders each measure in an iframe of the exact visual size and runs `fitCheck()`: any descendant whose box ends past `edge - 8px`, or a root taller than the frame, fails. Nothing goes to the PBIP until it prints `FIT OK`. Tool: `tools/pbip-html-pipeline/gen_preview.py`.
 - Rules that fell out of it: fixed-height rows (not content-driven); `flex:none` on every fixed-height child of a flex column (otherwise it shrinks to 0 - a status bar and slicer slots disappeared); `white-space:nowrap` on card titles/subtitles and legends; budget rows from the frame: `rows = floor((H - padding - header - footer - 8) / rowPitch)`.
 
-## L5 · 09.11.2026 · Lists that do not fit: top N + "ועוד N" with a hover tooltip
+## L5 · 09.11.2026 · Lists that do not fit: top N + "ועוד N" ("and N more") with a hover tooltip
 
 - Show top N rows; the overflow line lists the rest in a manual tooltip: `class='tooltipEnabled'` + `data-tooltip-title-NN` / `data-tooltip-value-NN` (one pair per hidden item, NN zero-padded). Works in Secure (no script). A *click to expand* is not possible in Secure; it needs Regular + script, or a native drillthrough page.
 - A blank category that dominates (e.g. 36% "no department") is not a bar: drop it from the list and state it in a note line; it compresses every real bar.
@@ -61,7 +61,7 @@ Every entry here was **measured in a real Power BI Desktop session**, not taken 
 ## L9 · 09.11.2026 · Test every HTML measure against the open model before writing
 
 - Desktop ships `Microsoft.PowerBI.AdomdClient.dll` next to `PBIDesktop.exe`; the model port is in `...\AnalysisServicesWorkspaces\*\Data\msmdsrv.port.txt` (UTF-16, newest file). `tools/pbip-html-pipeline/runq.ps1` auto-detects it and runs a `DEFINE MEASURE ... EVALUATE ROW(...)` query with every HTML measure; the real HTML it returns feeds the exact-size preview and fit check (L4).
-- DAX `VAR` names cannot contain Hebrew (`VAR _v_סטטוס` is a syntax error). Hebrew is fine in measure, table and column names.
+- DAX `VAR` names cannot contain Hebrew (`VAR _v_סטטוס` - "status" - is a syntax error). Hebrew is fine in measure, table and column names.
 
 ## Correction · 09.11.2026
 

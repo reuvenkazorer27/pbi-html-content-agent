@@ -32,7 +32,7 @@ Use an 8px grid. On 1280×720:
 
 On 1920×1080 multiply every value by 1.5 (margin 36, gutters 24, header 96, menu width 288-300).
 
-**Measured 1920×1080 RTL layout that fits (demo "תיק פרויקטים", 9 Nov 2026):** margin 32, gutter 16, right panel 296 (x=1592, y=112, h=936), content 32..1576. Header 24-96 (h72) · KPI row 112-272 (5 × 296 wide, h160 - 136 was too short) · middle 288-672 (h384: 496 + 520 + 496) · bottom 688-1048 (h360: 1016 + 512). Panel slicers at x=1608, w=264, h=40, y = 112 + 64 + 24 + 80·i. All with container padding 0 (LESSONS.md L1).
+**Measured 1920×1080 RTL layout that fits (demo "תיק פרויקטים" - Project Portfolio, 9 Nov 2026):** margin 32, gutter 16, right panel 296 (x=1592, y=112, h=936), content 32..1576. Header 24-96 (h72) · KPI row 112-272 (5 × 296 wide, h160 - 136 was too short) · middle 288-672 (h384: 496 + 520 + 496) · bottom 688-1048 (h360: 1016 + 512). Panel slicers at x=1608, w=264, h=40, y = 112 + 64 + 24 + 80·i. All with container padding 0 (LESSONS.md L1).
 
 Keep every x, y, width, height a multiple of 8. Ship layouts as a table the user can check, never as "drag until it looks right".
 

@@ -60,6 +60,7 @@ def snapshot(label, fit=None, results=None, shot=None):
     n = (max([v["n"] for v in ix]) + 1) if ix else 1
     vid = f"v{n:03d}"
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    # labels may be Hebrew or English (א-ת keeps Hebrew letters in the zip name)
     zname = f"{vid}_{stamp}_{re.sub(r'[^A-Za-z0-9א-ת_-]+', '-', label)[:40]}.zip"
     files = _files()
     hashes = {}

@@ -8,7 +8,7 @@ Run this in the real target environment. Mark each item Pass / Fail / N/A. Until
 - [ ] Exact-size preview fit check prints `FIT OK` (8px slack on every card).
 - [ ] Font sizes meet the 1080p scale (body ≥15px, captions ≥13px) - or the 720p equivalent.
 - [ ] After Apply external changes + Home → Refresh: screenshot; no card clipped, every title on one line, Hebrew right-aligned in every card.
-- [ ] "ועוד N" lines carry a hover tooltip with the hidden items.
+- [ ] "ועוד N" ("and N more") lines carry a hover tooltip with the hidden items.
 
 ## 1. Power BI Desktop - render
 

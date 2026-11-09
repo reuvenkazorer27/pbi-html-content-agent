@@ -8,6 +8,8 @@ one status, many long titles all change row counts and text lengths.
 """
 import os, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
+# demo model identifiers are Hebrew: פרויקטים = projects, סטטוס = status, בעלים = owner,
+# מחלקה = department, מזהה = id; adapt the table/column names and values to your model.
 T = "'פרויקטים'"
 SCENARIOS = [
     ("all", None),

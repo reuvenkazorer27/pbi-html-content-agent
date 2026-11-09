@@ -1,6 +1,6 @@
 # PBIP HTML pipeline - build, gate, version, write, apply
 
-Measured end to end on 9 Nov 2026 (Power BI Desktop 2.159, Oct 2026) on the demo "תיק פרויקטים" dashboard. See `../../LESSONS.md` for why each step exists. Copy this folder next to the PBIP as `_build/`.
+Measured end to end on 9 Nov 2026 (Power BI Desktop 2.159, Oct 2026) on the demo "תיק פרויקטים" (Project Portfolio) dashboard. See `../../LESSONS.md` for why each step exists. Copy this folder next to the PBIP as `_build/`.
 
 ## The loop (every iteration, in this order)
 
