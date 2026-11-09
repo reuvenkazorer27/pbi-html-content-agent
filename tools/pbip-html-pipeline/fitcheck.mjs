@@ -2,7 +2,7 @@
 //   node fitcheck.mjs preview.html [--shot out.png]
 // Prints FIT OK / FIT FAIL lines and CONTRAST OK / CONTRAST FAIL lines; exit code 1 on any failure.
 import { spawn } from 'node:child_process';
-import { writeFileSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -10,7 +10,13 @@ import { pathToFileURL } from 'node:url';
 const args = process.argv.slice(2);
 const page = resolve(args[0] || 'preview.html');
 const shot = args.includes('--shot') ? args[args.indexOf('--shot') + 1] : null;
-const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+// Edge: EDGE_PATH, else the machine-wide and per-user install locations
+const EDGE = [process.env.EDGE_PATH,
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+  process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Microsoft/Edge/Application/msedge.exe')]
+  .find(p => p && existsSync(p));
+if (!EDGE) { console.log('FIT CHECK DID NOT RUN (Microsoft Edge not found - set EDGE_PATH)'); process.exit(2); }
 const port = 9300 + Math.floor(Math.random() * 500);
 const prof = mkdtempSync(join(tmpdir(), 'fitck-'));
 const edge = spawn(EDGE, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`,

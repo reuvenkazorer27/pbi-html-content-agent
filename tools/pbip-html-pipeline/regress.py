@@ -20,8 +20,9 @@ def load(path):
 new = load(sys.argv[1])
 cands = [v for v in V._index() if v.get("has_outputs")]
 base_v = V._get(sys.argv[2]) if len(sys.argv) > 2 else (cands[-1] if cands else None)
-if not base_v:
-    sys.exit("no version with outputs yet - take a snapshot with --results first")
+if not base_v:  # first run on a new project: nothing to compare yet - not a failure
+    print("NO BASELINE yet - take one: python -I versions.py snapshot \"baseline\" --results " + sys.argv[1])
+    sys.exit(0)
 old = V._outputs(base_v)
 changed = [k for k in sorted(set(old) | set(new)) if old.get(k) != new.get(k)]
 if not changed:
