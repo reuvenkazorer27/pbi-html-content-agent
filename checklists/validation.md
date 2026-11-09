@@ -1,6 +1,6 @@
 # Validation checklist - before calling a dashboard "done"
 
-Run this in the real target environment. Mark each item Pass / Fail / N/A. Until this passes, the delivery note must say "doc-based, not run in Power BI".
+Run this in the real target environment. Mark each item Pass / Fail / N/A. Until this passes, the delivery note labels each part with its level from `AGENTS.md` rule 2.6: measured in Desktop, gated (headless) but not yet in Desktop, or doc-based (not run in Power BI).
 
 ## 0. Fit (before writing the PBIP, then in Desktop) - see `../reference/design-system.md`
 
@@ -56,4 +56,4 @@ Run this in the real target environment. Mark each item Pass / Fail / N/A. Until
 
 ## 7. Honesty label on delivery
 
-- [ ] The delivery note lists: what was run and where, what is doc-based and untested, and which items above are still open.
+- [ ] The delivery note lists: what was run and where, what is gated but not yet in Desktop, what is doc-based, and which items above are still open.
