@@ -18,15 +18,26 @@ python -I gen_pbip.py                                    # 8. write TMDL + visua
 
 Never write the PBIP (8) unless 5 and 6 pass. Never skip 7: it is what makes revert possible.
 
+## Build settings (environment variables)
+
+| Variable | Values | Effect |
+| --- | --- | --- |
+| `DASH_DIR` | `rtl` (default) / `ltr` | Reading direction: card `dir`/`text-align`, number alignment, arrows; `LAYOUT` and `SLICERS` are mirrored for LTR (x' = page width - x - w) |
+| `DASH_LANG` | `he` (default for rtl) / `en` (default for ltr) | UI language: `labels.py` translates display strings only (model refs and data literals are masked) and fails the build on any untranslated string; month names follow the locale |
+| `DASH_PALETTE` | `ocean`, `midnight`, `berry`, `vivid` | Color tokens, page background, slicer colors, gradient layer and filled KPI cards (`vivid`) |
+
+Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_PALETTE=ocean` and `DASH_DIR=rtl DASH_PALETTE=vivid` each through `fitcheck.mjs` and `stress.py`. Translated strings are usually longer - the fit gate catches it; shorten the wording, not the layout.
+
 ## Files
 
 | File | Role |
 | --- | --- |
 | `measures.py` (start from `measures_example_projects.py`) | Single source of truth: measures, `LAYOUT`, `SLICERS`. Inline styles only; colors only as `@@token@@`; `FONT_SCALE` remaps sizes; `CARD` root carries `height:100vh;overflow:hidden;line-height:1.35;direction:rtl;text-align:right`. |
+| `labels.py` | UI string translation (Hebrew authored → English) with masking of DAX data literals and model references; status display names. |
 | `palette.py` | Color tokens for `ocean` (light), `midnight` (dark), `berry` (colorful). Every palette defines every token, including `*_text` variants chosen for WCAG 4.5:1 on their soft backgrounds. Switch: `DASH_PALETTE=midnight`. Page background, preview and slicer colors follow the palette. |
 | `gen_query.py` / `runq.ps1` | Live DAX test against the open model through Desktop's own AdomdClient. Optional 2nd arg to `gen_query.py` = a DAX filter table (used by `stress.py`). |
 | `gen_preview.py` | Places each measure's real HTML in an iframe of its exact visual size on the page background; defines `fitCheck()` (8px safe edge). |
-| `fitcheck.mjs` | Headless Edge via DevTools protocol + Node's built-in WebSocket. Runs `fitCheck()` and a WCAG contrast check on every text element (4.5:1, large text 3:1); optional screenshot. Exit 1 on failure. |
+| `fitcheck.mjs` | Headless Edge via DevTools protocol + Node's built-in WebSocket. Waits until every card has rendered, runs `fitCheck()` and a WCAG contrast check on every text element (4.5:1, large text 3:1); optional screenshot. Closes Edge over CDP and kills anything left on its temp profile (Edge's children outlive a plain kill). Exit 1 on failure. |
 | `stress.py` | Re-renders all cards under filter scenarios and gates each with `fitcheck.mjs`. |
 | `regress.py` | Byte-compares every measure's HTML with the last version: refactors must print IDENTICAL; intended changes list exactly which cards changed. |
 | `versions.py` | `snapshot` / `list` / `diff vA vB` / `revert vN` (auto pre-revert snapshot). A version = zip of .pbip + report/model definitions + `_build` sources + the real HTML outputs + screenshot, in `<project>/_versions/`. After revert: Apply external changes -> Refresh. |

@@ -8,8 +8,6 @@ one status, many long titles all change row counts and text lengths.
 """
 import os, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
-# demo model identifiers are Hebrew: פרויקטים = projects, סטטוס = status, בעלים = owner,
-# מחלקה = department, מזהה = id; adapt the table/column names and values to your model.
 T = "'פרויקטים'"
 SCENARIOS = [
     ("all", None),
@@ -18,6 +16,7 @@ SCENARIOS = [
     ("one-owner", f"{T}[בעלים] = \"יאיר בר חי\""),
     ("no-department", f"{T}[מחלקה] = \"\""),
     ("empty", f"{T}[מזהה] = -1"),
+    ("all-chips", f"FILTER ( ALL ( {T} ), {T}[סטטוס] = \"באפיון\" )"),   # marks every column filtered: header shows 4 chips
 ]
 
 
@@ -28,7 +27,7 @@ def run(cmd):
 fails = 0
 for name, flt in SCENARIOS:
     q, r, h = f"q_s_{name}.dax", f"r_s_{name}.json", f"p_s_{name}.html"
-    run([sys.executable, "-I", "gen_query.py", q] + ([f"FILTER ( ALL ( {T} ), {flt} )"] if flt else []))
+    run([sys.executable, "-I", "gen_query.py", q] + ([flt] if flt else []))
     rq = run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "runq.ps1", "-QueryFile", q, "-OutFile", r])
     if "rows: 1" not in rq.stdout:
         print(f"{name:14} DAX ERROR {rq.stderr.strip()[:200]}"); fails += 1; continue
