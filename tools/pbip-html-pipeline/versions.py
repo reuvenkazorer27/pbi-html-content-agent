@@ -18,12 +18,13 @@ The project's .gitignore must exclude env/key files, .pbi caches and localSettin
 import datetime, hashlib, io, json, os, re, shutil, sys, zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)                         # the PBIP project folder
+sys.path.insert(0, HERE)
+from config import ROOT, PROJECT                     # ROOT = the PBIP project folder
 VDIR = os.path.join(ROOT, "_versions")
 INDEX = os.path.join(VDIR, "index.json")
 # what a version contains (relative to ROOT); caches, localSettings and data files are excluded
-INCLUDE_DIRS = ["demo.Report/definition", "demo.Report/StaticResources", "demo.SemanticModel/definition"]
-INCLUDE_FILES = ["demo.pbip", "demo.Report/definition.pbir", "demo.SemanticModel/definition.pbism"]
+INCLUDE_DIRS = [f"{PROJECT}.Report/definition", f"{PROJECT}.Report/StaticResources", f"{PROJECT}.SemanticModel/definition"]
+INCLUDE_FILES = [f"{PROJECT}.pbip", f"{PROJECT}.Report/definition.pbir", f"{PROJECT}.SemanticModel/definition.pbism"]
 BUILD_EXT = (".py", ".m", ".ps1", ".sh", ".md")
 # restore only these on revert (never the data folder, env files, or _versions itself)
 RESTORE_DIRS = INCLUDE_DIRS

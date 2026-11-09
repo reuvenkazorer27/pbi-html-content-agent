@@ -4,13 +4,10 @@ import sys, os, json, uuid, re
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from measures import M, LAYOUT, SLICERS
+from config import TMDL, TMDL_BACKUP, REPORT_DIR, PAGE_ID, TABLE as ENTITY, PAGE_DISPLAY_NAME, PARTITION_M, LINEAGE_NS
 
-ROOT = os.path.dirname(HERE)
-TMDL = os.path.join(ROOT, "demo.SemanticModel", "definition", "tables", "פרויקטים.tmdl")
-REPORT = os.path.join(ROOT, "demo.Report", "definition")
-PAGE_ID = "ca57173c84e9d161e258"
+REPORT = os.path.join(REPORT_DIR, "definition")
 PAGE_DIR = os.path.join(REPORT, "pages", PAGE_ID)
-ENTITY = "פרויקטים"  # demo table name ("projects") - set to your model's table
 HTML_GUID = "htmlContent443BE3AD55E043BF878BED274D3A6865"  # HTML Content Secure (certified)
 VC_SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json"
 from palette import P as PAL
@@ -23,20 +20,18 @@ def lit(v):
 
 # ---------------------------------------------------------------- TMDL
 # always rebuild from the untouched backup copy so reruns stay idempotent
-BACKUP = os.path.join(os.path.dirname(ROOT), "demo_backup_20261109", "demo.SemanticModel", "definition", "tables", "פרויקטים.tmdl")
-src = open(BACKUP, encoding="utf-8").read()
-# swap the partition's M for source_crm.m when present (CSV -> CRM API)
-M_FILE = os.path.join(HERE, "source_active.m")  # source_crm.m = live API variant
-if os.path.exists(M_FILE):
-    mcode = open(M_FILE, encoding="utf-8").read().strip("\n")
+src = open(TMDL_BACKUP, encoding="utf-8").read()
+# optional: replace the table's partition M with a file from _build (pipeline.json "partition_m")
+if PARTITION_M:
+    mcode = open(os.path.join(HERE, PARTITION_M), encoding="utf-8").read().strip("\n")
     body = "".join("\t\t\t\t" + l + "\n" for l in mcode.splitlines())
     src, n = re.subn(r"(\tpartition [^\n]*= m\n\t\tmode: import\n\t\tsource =\n)(.*?)(\n\tannotation PBI_ResultType)",
                      lambda mm: mm.group(1) + body + mm.group(3), src, flags=re.S)
     assert n == 1, "partition block not found"
-    print("partition source: source_active.m")
+    print(f"partition source: {PARTITION_M}")
 blocks = []
 for name, d in M.items():
-    tag = str(uuid.uuid5(uuid.NAMESPACE_URL, "demo-dash/" + name))
+    tag = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{LINEAGE_NS}/" + name))
     lines = [l for l in d["expr"].splitlines() if l.strip()]
     b = f"\tmeasure '{name}' =\n" + "".join("\t\t\t" + l + "\n" for l in lines)
     if d["fmt"]:
@@ -61,7 +56,8 @@ json.dump(rep, open(rp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 # ---------------------------------------------------------------- page.json
 pp = os.path.join(PAGE_DIR, "page.json")
 page = json.load(open(pp, encoding="utf-8"))
-page["displayName"] = "תיק פרויקטים"  # page name shown in Desktop ("Project Portfolio")
+if PAGE_DISPLAY_NAME:
+    page["displayName"] = PAGE_DISPLAY_NAME
 color = {"solid": {"color": lit(f"'{BG}'")}}
 page["objects"] = {
     "background": [{"properties": {"color": color, "transparency": lit("0D")}}],

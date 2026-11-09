@@ -1,6 +1,12 @@
 # PBIP HTML pipeline - build, gate, version, write, apply
 
-Measured end to end on 9 Nov 2026 (Power BI Desktop 2.159, Oct 2026) on the demo "תיק פרויקטים" (Project Portfolio) dashboard. See `../../LESSONS.md` for why each step exists. Copy this folder next to the PBIP as `_build/`.
+Measured end to end in Power BI Desktop (Oct 2026 release) on the kit's reference build, a project-portfolio dashboard (`measures_example_projects.py`). See `../../reference/design-system.md` and `../../reference/build-workflow.md` for why each step exists.
+
+## Setup
+
+1. Copy this folder next to your PBIP as `_build/` and make a clean backup copy of the PBIP (the writer rebuilds the TMDL from it on every run).
+2. Copy `pipeline.example.json` to `pipeline.json` and fill it: `project` (the PBIP base name), `table` (the table that hosts the generated measures), `page_id` (folder under `definition/pages`), `page_display_name`, `backup_dir` (relative to the project folder), optional `partition_m` (a file in `_build` whose M replaces the table's partition) and `lineage_namespace` (keep it stable once measures exist).
+3. Write your measures and `LAYOUT` in `measures.py`, starting from `measures_example_projects.py`; adapt the scenarios in `stress.py` to your columns.
 
 ## The loop (every iteration, in this order)
 
@@ -41,4 +47,5 @@ Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_PALETTE=ocean` and `DAS
 | `stress.py` | Re-renders all cards under filter scenarios and gates each with `fitcheck.mjs`. |
 | `regress.py` | Byte-compares every measure's HTML with the last version: refactors must print IDENTICAL; intended changes list exactly which cards changed. |
 | `versions.py` | `snapshot` / `list` / `diff vA vB` / `revert vN` (auto pre-revert snapshot). A version = zip of .pbip + report/model definitions + `_build` sources + the real HTML outputs + screenshot, in `<project>/_versions/`. After revert: Apply external changes -> Refresh. |
-| `gen_pbip.py` | Measures into TMDL (rebuilt from a backup copy each run), optional partition M swap, page background from palette, `visual.json` per visual with padding 0 / chrome off, slicer `items.fontColor`/`items.background` from palette, AppSource visual registered in `report.json`. |
+| `config.py` / `pipeline.json` | Project settings (PBIP name, host table, page, backup, optional partition M); no project names or paths are hardcoded in the scripts. |
+| `gen_pbip.py` | Measures into TMDL (rebuilt from the backup copy each run), optional partition M swap, page background from palette, `visual.json` per visual with padding 0 / chrome off, slicer `items.fontColor`/`items.background` from palette, AppSource visual registered in `report.json`. |

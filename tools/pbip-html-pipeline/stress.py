@@ -8,10 +8,13 @@ one status, many long titles all change row counts and text lengths.
 """
 import os, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
-# demo model identifiers are Hebrew: פרויקטים = projects, סטטוס = status, בעלים = owner,
-# מחלקה = department, מזהה = id; adapt the table/column names and values to your model.
+sys.path.insert(0, HERE)
+from config import TABLE
+# The scenarios below use the reference build's columns (Hebrew: סטטוס = status, בעלים = owner,
+# מחלקה = department, מזהה = id). Replace the columns and values with your model's; keep the shapes:
+# one value per slicer-like column, a blank, an empty selection, and an all-columns-filtered worst case.
 # Scenario values are data-driven or generic - never hardcode a real person's name here.
-T = "'פרויקטים'"
+T = f"'{TABLE}'"
 SCENARIOS = [
     ("all", None),
     ("status-done", f"{T}[סטטוס] = \"הושלם/פרויקט חד פעמי\""),

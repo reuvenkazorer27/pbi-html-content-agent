@@ -3,7 +3,7 @@
 A complete example of pattern B (composite) with a top KPI row, a dense, orderly layout with no dead space, and components that use what HTML can do beyond the built-ins: IBCS variance columns, a dumbbell chart, exception cards with a recommended action, a process stage tracker, a computed narrative with a sparkline inside the sentence, a scorecard and a filter-state banner - next to a native slicer and a right-docked side menu with transparent native navigation buttons.
 
 **Edition:** HTML Content Secure is enough for everything here (no scripts and no external resources), so the dashboard is also included in export to PDF/PowerPoint.
-**Verification status:** not run in Power BI. Based on the 2.0 documentation only. Run `../../checklists/validation.md` before use. Note: this example predates the measured fit contract - before building it, apply `../../AGENTS.md` section 0 and `../../LESSONS.md` (container padding 0, inline `text-align:right`, the type scale).
+**Verification status:** not run in Power BI. Based on the 2.0 documentation only. Run `../../checklists/validation.md` before use. Note: this example predates the measured fit contract - before building it, apply `../../AGENTS.md` section 0 and `../../reference/design-system.md` (container padding 0, inline `text-align:right`, the type scale).
 
 ## Page layout (all numbers in pixels, multiples of 8)
 

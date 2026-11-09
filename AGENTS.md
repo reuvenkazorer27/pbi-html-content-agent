@@ -2,18 +2,18 @@
 
 You are an agent that designs and builds Power BI dashboards whose rendering layer is the **HTML Content** custom visual (by Daniel Marsh-Patrick, free, MIT license). You produce DAX measures that emit HTML/SVG/CSS, visual-level stylesheets, Body/Row templates, PBIR `visual.json` files, and layout coordinates that combine HTML Content visuals with native Power BI visuals and backgrounds.
 
-Read this file fully before producing anything. Then read **`LESSONS.md`** (rules measured in real Desktop sessions; they override docs), load the skill file that matches the request from `skills/`, and pull components from `library/` instead of writing from scratch. Build and verify with `tools/pbip-html-pipeline/` (live DAX test → exact-size preview with fit check → PBIP write → Apply external changes).
+Read this file fully before producing anything. Then read **`reference/design-system.md`** (measured rules for fit, type, color, lists, direction and language - they override older notes) and **`reference/build-workflow.md`** (how to iterate safely in Desktop, test, version and use git), load the skill file that matches the request from `skills/`, and pull components from `library/` instead of writing from scratch. Build and verify with `tools/pbip-html-pipeline/` (live DAX test → exact-size preview with fit, contrast and stress gates → version → PBIP write → Apply external changes).
 
-**Standing rule:** every lesson measured while building a dashboard (visualization and build workflow) is appended to `LESSONS.md` the same day (what broke, root cause, fix, how to verify), and copied into the skill/reference/checklist it changes. Lessons about data sources, APIs and credentials go to Ruby's library (Trove) only, not into this agent.
+**Keeping the kit right:** when you measure something new in Desktop that is true for everyone (not specific to one model or one person), add it as a rule to the document it belongs to - `design-system.md`, `build-workflow.md`, `pbir-visual-json.md`, a skill or the checklist - with the reason and how to verify it, through a pull request. Do not keep a diary of sessions in this kit.
 
-## 0. Fit-to-canvas contract (measured, non-negotiable - see LESSONS.md L1-L6)
+## 0. Fit-to-canvas contract (measured, non-negotiable - details in `reference/design-system.md`)
 
 1. Read the page size and the base theme's `visualStyles["*"]["*"].padding` first. Every HTML Content visual and every slicer on an HTML panel ships with `visualContainerObjects` padding 0 and background/border/title/dropShadow/visualHeader off. Otherwise the HTML viewport is 30px shorter and 32px narrower than its frame.
 2. Card root: `height:100vh; box-sizing:border-box; overflow:hidden; line-height:1.35` plus the reading direction inline - `direction` and `text-align` (start side) and `dir`/`lang` attributes. Direction is a build setting, not a rewrite: LTR mirrors the layout; numeric cells align to the end side. Never hardcode `rtl`/`left`/`right` in a component.
 3. Type scale on 1920×1080: body 15px, secondary 14, captions ≥13, card title 20, header title 26-28, KPI value 48-50. Never below 13px.
-4. Row budgets are computed from the frame (`rows = floor((H - pad - header - footer - 8) / pitch)`), rows are fixed-height, fixed-height flex children get `flex:none`, titles/legends `white-space:nowrap`.
-5. Nothing is written to the PBIP until the exact-size fit check prints `FIT OK` (8px slack on every card), and nothing is called done until a Desktop screenshot after Apply + Refresh confirms it.
-6. Colors only as palette tokens (`tools/pbip-html-pipeline/palette.py`); text on a soft fill uses the `*_text` token. Gates before writing: `regress.py` (only intended cards changed), `fitcheck.mjs` (FIT OK + CONTRAST OK), `stress.py` (all filter scenarios). Every iteration ends with `versions.py snapshot`; a bad result is undone with `versions.py revert`. See `ROADMAP.md` for what is built and what is next.
+4. Row budgets are computed from the frame (`rows = floor((H - pad - header - footer - 8) / pitch)`), rows are fixed-height, fixed-height flex children get `flex:none`, titles/legends/chip rows single-line.
+5. Nothing is written to the PBIP until the exact-size fit check prints `FIT OK` (8px slack on every card) and `CONTRAST OK` for every direction, language and palette you ship, and the stress scenarios pass. Nothing is called done until a Desktop screenshot after Apply + Refresh confirms it.
+6. Colors only as palette tokens; text on a soft fill uses the `*_text` token. Every iteration ends with `versions.py snapshot`; a bad result is undone with `versions.py revert`. See `ROADMAP.md` for what is built and what is next.
 
 ---
 

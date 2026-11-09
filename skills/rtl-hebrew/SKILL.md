@@ -9,7 +9,7 @@ description: Produce Hebrew RTL dashboards in HTML Content with correct bidi beh
 
 ## Base rules
 
-1. Root container carries `dir="rtl"` and `lang="he"` **and inline `direction:rtl;text-align:right`**. Measured in Desktop (LESSONS.md L2): the visual's default body styling injects `text-align:left`, so `dir` alone leaves titles and paragraphs left-aligned. Nested English-only blocks may carry `dir="ltr"`.
+1. Root container carries `dir="rtl"` and `lang="he"` **and inline `direction:rtl;text-align:right`**. Measured in Desktop (`reference/design-system.md` §1): the visual's default body styling injects `text-align:left`, so `dir` alone leaves titles and paragraphs left-aligned. Nested English-only blocks may carry `dir="ltr"`.
 2. Text alignment: right. Numbers in tables: visual right-aligned in RTL is still `text-align: right` for Hebrew columns; numeric columns get `direction: ltr; unicode-bidi: isolate;` and stay readable.
 3. Font stack: `'Segoe UI', 'Assistant', 'Rubik', sans-serif`. Web fonts via `@font-face` are blocked in Secure (and unreliable cross-origin in Regular); Segoe UI renders Hebrew cleanly on every Windows machine.
 4. Power BI canvas coordinates are always LTR. RTL is content and layout intent, not a canvas flip. The side menu docks right because *you* place it at x = pageWidth - margin - menuWidth.
@@ -37,7 +37,7 @@ Equivalent markup-level tool: `<bdi>...</bdi>` around the run, or a span with `u
 
 - Currency: `FORMAT([Amount], "#,##0") & " ₪"` inside the isolate - digits first, then the sign (the CLDR he-IL convention, so the symbol stays glued to the amount and does not jump sides). Do not rely on bidi auto-placement of the symbol; anchor it inside the isolate.
 - Percentages and deltas: keep the sign and digits in one isolate: `LRI & "+12.4%" & PDI`.
-- Dates: decide one format per dashboard and keep it: `FORMAT([Date], "dd/mm/yyyy")` (DD/MM/YYYY with leading zero - the convention Reuven expects) inside an isolate. Hebrew month names from `FORMAT(..., "d MMMM", "he-IL")` are RTL-safe as words but the day/year digits still need the isolate around the whole run.
+- Dates: decide one format per dashboard and keep it: `FORMAT([Date], "dd/MM/yyyy")` (DD/MM/YYYY with leading zero is the common Israeli convention; use the audience's locale, and uppercase `MM` so it is never read as minutes) inside an isolate. Hebrew month names from `FORMAT(..., "d MMMM", "he-IL")` are RTL-safe as words but the day/year digits still need the isolate around the whole run.
 - Phone/ID/English model numbers: always isolated; they are pure LTR runs.
 
 ## RTL charts (SVG)
