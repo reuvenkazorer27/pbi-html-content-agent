@@ -98,12 +98,19 @@ def _mix(a, b, t):
 
 
 def _readable(color, bg, target=4.5, toward="#000000"):
-    """move color toward black (light bg) or white (dark bg) until it reads on bg at `target`"""
-    t = 0.0
-    while contrast(color, bg) < target and t < 1:
-        t += 0.04
-        color = _mix(color, toward, 0.04 / max(1 - t + 0.04, 0.04))
-    return color
+    """the closest mix of color toward black (light bg) or white (dark bg) that reads on bg at `target`"""
+    if contrast(color, bg) >= target:
+        return color
+    lo, hi = 0.0, 1.0
+    if contrast(_mix(color, toward, 1.0), bg) < target:
+        raise ValueError(f"no shade of {color} toward {toward} reaches {target}:1 on {bg}")
+    for _ in range(30):
+        mid = (lo + hi) / 2
+        if contrast(_mix(color, toward, mid), bg) >= target:
+            hi = mid
+        else:
+            lo = mid
+    return _mix(color, toward, hi)
 
 
 def derive(primary, accent=None, dark=False):
@@ -149,8 +156,7 @@ def theme_json(palette=None, name=None):
         "dataColors": [p["primary"], p["maint"], p["design"], p["series4"], p["done"], p["series3"], p["bad"], p["muted"]],
         "background": p["surface"], "foreground": p["fg"], "tableAccent": p["primary"],
         "good": p["done"], "bad": p["bad"], "neutral": p["muted"],
-        "visualStyles": {"*": {"*": {"padding": [{"top": 0, "bottom": 0, "left": 0, "right": 0}]}}},
-    }
+    }   # padding 0 is set per HTML Content visual by gen_pbip.py - never theme-wide (native visuals need theirs)
 
 
 if __name__ == "__main__":      # python -I palette.py theme out.json  -> write the active palette as a report theme

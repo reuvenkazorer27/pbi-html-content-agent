@@ -8,7 +8,8 @@ other card. Builders take model names as arguments - nothing about a specific mo
 Conventions (see reference/design-system.md):
 - root = CARD (height:100vh, overflow hidden, direction tokens), fonts authored on the base scale
   (11/12/13/16 -> 14/15/16/20 after FONT_SCALE), numbers isolated with LRI/PDI, colors only as tokens
-- every card has an empty state, top-N limits with an "and N more" note, fixed row heights
+- every card has an empty state and fixed row heights; lists are capped by top/max_* arguments (pick the
+  cap from the card height; the cards do not add an "and N more" line - add one in your layout if needed)
 
 Card sizes the builders are designed for (fit-checked): 520-640 wide x 320-400 high.
 """
@@ -22,12 +23,19 @@ ISO = "VAR LRI = UNICHAR ( 8294 )\nVAR PDI = UNICHAR ( 8297 )\n"
 SERIES = ["@@primary@@", "@@maint@@", "@@design@@", "@@series4@@", "@@done@@", "@@series3@@"]
 
 
+def _t(text):
+    """caller text -> safe inside a DAX string literal and HTML: & < > escaped, " doubled"""
+    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', '""')
+
+
 def _head(title, subtitle):
+    title, subtitle = _t(title), _t(subtitle)
     return (f"\"<div style='flex:none'><div style='font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{title}</div>"
             f"<div style='font-size:12px;color:{FG2};white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{subtitle}</div></div>\"")
 
 
 def _wrap(title, subtitle, body, empty_text, is_empty="_n = 0"):
+    empty_text = _t(empty_text)
     return f"""
 RETURN
     "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 20px;display:flex;flex-direction:column;gap:10px'>"
@@ -40,7 +48,7 @@ RETURN
 
 def _cat(ref, blank_label):
     """category value for display: blank -> blank_label, apostrophes made safe for attributes"""
-    return f'IF ( {ref} = "", "{blank_label}", SUBSTITUTE ( {ref}, "\'", "’" ) )'
+    return f'IF ( {ref} = "", "{_t(blank_label)}", SUBSTITUTE ( {ref}, "\'", "’" ) )'
 
 
 def _fmt(expr):
@@ -55,6 +63,7 @@ def waterfall(table, category, delta, title, subtitle, order=None, start=None, s
     """Start bar, one floating bar per category (positive / negative), end bar. Reads in the page's direction.
     order: optional sort column (one value per category); default = category name."""
     s0 = start or "0"
+    start_label, end_label = _t(start_label), _t(end_label)
     okey = f"CALCULATE ( MIN ( {table}[{order}] ) )" if order else f"RANKX ( ALL ( {table}[{category}] ), {table}[{category}], , ASC )"
     return ISO + f"""
 VAR _start = {s0} + 0
@@ -98,8 +107,8 @@ VAR _closeBar =
 def heat_matrix(table, row_col, col_col, value, title, subtitle, max_rows=6, max_cols=6, empty_text="No data", blank_label="-"):
     """Category x category grid; cell color intensity = value / max. Top rows/cols by total."""
     return ISO + f"""
-VAR _rows = TOPN ( {max_rows}, ADDCOLUMNS ( VALUES ( {table}[{row_col}] ), "@t", {value} + 0 ), [@t], DESC )
-VAR _cols = TOPN ( {max_cols}, ADDCOLUMNS ( VALUES ( {table}[{col_col}] ), "@t", {value} + 0 ), [@t], DESC )
+VAR _rows = TOPN ( {max_rows}, ADDCOLUMNS ( VALUES ( {table}[{row_col}] ), "@t", {value} + 0 ), [@t], DESC, {table}[{row_col}], ASC )
+VAR _cols = TOPN ( {max_cols}, ADDCOLUMNS ( VALUES ( {table}[{col_col}] ), "@t", {value} + 0 ), [@t], DESC, {table}[{col_col}], ASC )
 VAR _n = COUNTROWS ( FILTER ( _rows, [@t] > 0 ) ) + 0
 VAR _max = MAXX ( CROSSJOIN ( SELECTCOLUMNS ( _rows, "r", {table}[{row_col}] ), SELECTCOLUMNS ( _cols, "c", {table}[{col_col}] ) ),
     VAR _r = [r] VAR _c = [c] RETURN CALCULATE ( {value}, {table}[{row_col}] = _r, {table}[{col_col}] = _c ) + 0 )
@@ -126,17 +135,19 @@ VAR _grid =
 
 
 # 3 --------------------------------------------------------------- lift bars (key influencers, static)
-def lift_bars(table, category, target_filter, title, subtitle, top=6, empty_text="No data", blank_label="-"):
-    """For each category: share of rows meeting target_filter vs. the overall share (lift = x times)."""
+def lift_bars(table, category, target_filter, title, subtitle, top=6, min_support=2, empty_text="No data", blank_label="-"):
+    """For each category: share of rows meeting target_filter vs. the overall share (lift = x times).
+    Categories with fewer than min_support rows and blank categories are left out (a 1-row category has a
+    meaningless lift)."""
     return ISO + f"""
 VAR _all = COUNTROWS ( {table} ) + 0
 VAR _hit = CALCULATE ( COUNTROWS ( {table} ), {target_filter} ) + 0
 VAR _base = DIVIDE ( _hit, _all )
 VAR _cats = FILTER ( ADDCOLUMNS ( VALUES ( {table}[{category}] ),
     "@n", CALCULATE ( COUNTROWS ( {table} ) ) + 0,
-    "@h", CALCULATE ( COUNTROWS ( {table} ), {target_filter} ) + 0 ), [@n] >= 2 && {table}[{category}] <> "" )
+    "@h", CALCULATE ( COUNTROWS ( {table} ), {target_filter} ) + 0 ), [@n] >= {min_support} && {table}[{category}] <> "" )
 VAR _lifted = ADDCOLUMNS ( _cats, "@l", DIVIDE ( DIVIDE ( [@h], [@n] ), _base ) )
-VAR _top = TOPN ( {top}, _lifted, [@l], DESC, [@n], DESC )
+VAR _top = TOPN ( {top}, _lifted, [@l], DESC, [@n], DESC, {table}[{category}], ASC )
 VAR _n = COUNTROWS ( _top ) + 0
 VAR _maxL = MAXX ( _top, [@l] )
 VAR _body =
@@ -187,17 +198,19 @@ VAR _panels =
 # 5 --------------------------------------------------------------- scatter / bubble
 def scatter(table, category, x, y, size, title, subtitle, x_label, y_label, top=12, empty_text="No data", blank_label="-"):
     """Bubble per category: position x/y, area by size. x grows left-to-right in both directions (axis)."""
-    W, H = 100, 100
+    x_label, y_label = _t(x_label), _t(y_label)
     return ISO + f"""
 VAR _pts = TOPN ( {top}, FILTER ( ADDCOLUMNS ( VALUES ( {table}[{category}] ), "@x", {x} + 0, "@y", {y} + 0, "@s", {size} + 0 ),
-    {table}[{category}] <> "" && [@s] > 0 ), [@s], DESC )
+    {table}[{category}] <> "" && [@s] > 0 ), [@s], DESC, {table}[{category}], ASC )
 VAR _n = COUNTROWS ( _pts ) + 0
-VAR _mx = MAX ( MAXX ( _pts, [@x] ), 1 ) VAR _my = MAX ( MAXX ( _pts, [@y] ), 0.0001 ) VAR _ms = MAX ( MAXX ( _pts, [@s] ), 1 )
+VAR _x0 = MIN ( MINX ( _pts, [@x] ), 0 ) VAR _x1 = MAX ( MAXX ( _pts, [@x] ), 0 ) VAR _xr = IF ( _x1 - _x0 = 0, 1, _x1 - _x0 )
+VAR _y0 = MIN ( MINX ( _pts, [@y] ), 0 ) VAR _y1 = MAX ( MAXX ( _pts, [@y] ), 0 ) VAR _yr = IF ( _y1 - _y0 = 0, 1, _y1 - _y0 )
+VAR _ms = MAXX ( _pts, [@s] )
 VAR _dots =
     CONCATENATEX ( _pts,
         VAR _r = 4 + 9 * SQRT ( DIVIDE ( [@s], _ms ) )
-        VAR _cx = 8 + 84 * DIVIDE ( [@x], _mx )
-        VAR _cy = 86 - 74 * DIVIDE ( [@y], _my )
+        VAR _cx = 8 + 84 * DIVIDE ( [@x] - _x0, _xr )
+        VAR _cy = 86 - 74 * DIVIDE ( [@y] - _y0, _yr )
         VAR _rk = RANKX ( _pts, [@s] + DIVIDE ( RANKX ( _pts, {table}[{category}], , DESC ), 1000 ), , DESC )
         VAR _lbl = _rk <= 5
         RETURN "<div title='" & SUBSTITUTE ( {table}[{category}], "'", "’" ) & "' style='position:absolute;transform:translate(-50%,-50%);border-radius:50%;background:@@primary@@;opacity:.75;"
@@ -216,8 +229,9 @@ VAR _dots =
 def treemap_rows(table, category, value, title, subtitle, top=8, empty_text="No data", blank_label="-"):
     """Approximate treemap: largest categories split over two rows, tile width proportional to value."""
     return ISO + f"""
-VAR _c = TOPN ( {top}, FILTER ( ADDCOLUMNS ( VALUES ( {table}[{category}] ), "@v", {value} + 0 ), [@v] > 0 ), [@v], DESC )
+VAR _c = TOPN ( {top}, FILTER ( ADDCOLUMNS ( VALUES ( {table}[{category}] ), "@v", {value} + 0 ), [@v] > 0 ), [@v], DESC, {table}[{category}], ASC )
 VAR _n = COUNTROWS ( _c ) + 0
+VAR _tot = SUMX ( _c, [@v] )
 VAR _ranked = ADDCOLUMNS ( _c, "@k", RANKX ( _c, [@v], , DESC, Dense ) + DIVIDE ( RANKX ( _c, {table}[{category}], , ASC ), 1000 ) )
 VAR _half = DIVIDE ( SUMX ( _c, [@v] ), 2 )
 VAR _row1 = FILTER ( _ranked, SUMX ( FILTER ( _ranked, [@k] < EARLIER ( [@k] ) ), [@v] ) < _half )
@@ -225,13 +239,13 @@ VAR _row2 = EXCEPT ( _ranked, _row1 )
 VAR _tiles = ( t ) => BLANK ()
 VAR _r1 = CONCATENATEX ( _row1,
     VAR _i = MOD ( INT ( [@k] ) - 1, 6 )
-    RETURN "<div style='flex:" & FORMAT ( [@v], "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
+    RETURN "<div style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
         & SWITCH ( _i, 0, "background:@@primary_soft@@;color:@@primary_text@@;border-top:3px solid @@primary@@", 1, "background:@@maint_soft@@;color:@@maint_text@@;border-top:3px solid @@maint@@", 2, "background:@@design_soft@@;color:@@design_text@@;border-top:3px solid @@design@@", 3, "background:@@done_soft@@;color:@@done_text@@;border-top:3px solid @@done@@", 4, "background:@@bad_soft@@;color:@@fg@@;border-top:3px solid @@bad@@", "background:@@neutral_soft@@;color:@@fg@@;border-top:3px solid @@muted@@" ) & "'>"
         & "<div style='font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{table}[{category}]", blank_label)} & "</div>"
         & "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div></div>", "", [@k], ASC )
 VAR _r2 = CONCATENATEX ( _row2,
     VAR _i = MOD ( INT ( [@k] ) - 1, 6 )
-    RETURN "<div style='flex:" & FORMAT ( [@v], "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
+    RETURN "<div style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
         & SWITCH ( _i, 0, "background:@@primary_soft@@;color:@@primary_text@@;border-top:3px solid @@primary@@", 1, "background:@@maint_soft@@;color:@@maint_text@@;border-top:3px solid @@maint@@", 2, "background:@@design_soft@@;color:@@design_text@@;border-top:3px solid @@design@@", 3, "background:@@done_soft@@;color:@@done_text@@;border-top:3px solid @@done@@", 4, "background:@@bad_soft@@;color:@@fg@@;border-top:3px solid @@bad@@", "background:@@neutral_soft@@;color:@@fg@@;border-top:3px solid @@muted@@" ) & "'>"
         & "<div style='font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{table}[{category}]", blank_label)} & "</div>"
         & "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div></div>", "", [@k], ASC )
@@ -244,6 +258,7 @@ VAR _r2 = CONCATENATEX ( _row2,
 def decomp_static(table, levels, value, title, subtitle, level_names, total_label="Total", empty_text="No data", blank_label="-"):
     """Total -> split by each level in turn, always following the largest branch (no drill interaction)."""
     assert len(levels) == len(level_names) and 1 <= len(levels) <= 3
+    level_names, total_label = [_t(n) for n in level_names], _t(total_label)
     parts, filt = [], []
     for i, col in enumerate(levels):
         f = ", ".join(filt)
