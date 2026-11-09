@@ -34,7 +34,7 @@ How to build, test, version and ship a dashboard with this kit without losing wo
 ## 5. Git
 
 - Make the dashboard project a git repo. `versions.py` then commits and tags `vNNN` on every snapshot and commits every revert; the zip snapshots stay as a local backup (ignored by git).
-- Work in branches: once a basic version exists, every change goes on its own branch → pull request → code review → merge through the PR. Never push directly to `main`.
+- Recommended for shared or long-lived dashboards: once a basic version exists, make each change on its own branch and merge it through a pull request with a review. (Changes to this kit itself always follow that flow - see the README's Contributing section.)
 - `.gitignore` must exclude secrets and local state: env/key files, pulled data, `**/.pbi/cache.abf`, `**/.pbi/localSettings.json`, build scratch. Before the first commit, list tracked files and check that none of those appear.
 - Ignore by prefix, not by extension: a broad `*.dax` rule meant for scratch queries silently drops a whole component library. Compare the tracked file count with the files on disk before pushing.
 - Scan for secrets (API keys, tokens, `Bearer` strings) before every push.

@@ -3,6 +3,7 @@
 display strings only. Data values and model identifiers are masked first, so DAX filters never change.
 A build fails if any Hebrew is left outside the masked parts (nothing ships half-translated)."""
 import re
+from config import TABLE
 
 # authored status data values (DAX filter literals) -> English display names
 STATUS_EN = {"פעיל": "Active", "באפיון": "In design", "בתחזוקה שוטפת": "Maintenance", "הושלם/פרויקט חד פעמי": "Done"}
@@ -83,7 +84,7 @@ EN = {
 
 _HEB = re.compile(r"[֐-׿]")
 # never translate: column/measure refs, table refs, and the status data values when used as DAX literals
-_MASK = re.compile(r"\[[^\]]*\]|'פרויקטים'|\"(?:" + "|".join(re.escape(k) for k in STATUS_EN) + r")\"")
+_MASK = re.compile(r"\[[^\]]*\]|" + re.escape(f"'{TABLE}'") + r"|\"(?:" + "|".join(re.escape(k) for k in STATUS_EN) + r")\"")
 
 
 def translate(expr, lang):

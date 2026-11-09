@@ -4,10 +4,10 @@ import sys, os, json, uuid, re
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from measures import M, LAYOUT, SLICERS
-from config import TMDL, TMDL_BACKUP, REPORT_DIR, PAGE_ID, TABLE as ENTITY, PAGE_DISPLAY_NAME, PARTITION_M, LINEAGE_NS
+from config import TMDL, TMDL_BACKUP, REPORT_DIR, PAGE_DIR, TABLE as ENTITY, PAGE_DISPLAY_NAME, PARTITION_M, LINEAGE_NS, require_paths
 
+require_paths()
 REPORT = os.path.join(REPORT_DIR, "definition")
-PAGE_DIR = os.path.join(REPORT, "pages", PAGE_ID)
 HTML_GUID = "htmlContent443BE3AD55E043BF878BED274D3A6865"  # HTML Content Secure (certified)
 VC_SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json"
 from palette import P as PAL

@@ -24,5 +24,18 @@ LINEAGE_NS = CFG.get("lineage_namespace", "pbi-html-dashboard")   # keep stable:
 
 REPORT_DIR = os.path.join(ROOT, f"{PROJECT}.Report")
 MODEL_DIR = os.path.join(ROOT, f"{PROJECT}.SemanticModel")
-TMDL = os.path.join(MODEL_DIR, "definition", "tables", f"{TABLE}.tmdl")
-TMDL_BACKUP = os.path.join(BACKUP_DIR, f"{PROJECT}.SemanticModel", "definition", "tables", f"{TABLE}.tmdl")
+TMDL_FILE = CFG.get("tmdl_file") or f"{TABLE}.tmdl"           # override when Desktop escaped the table name
+TMDL = os.path.join(MODEL_DIR, "definition", "tables", TMDL_FILE)
+TMDL_BACKUP = os.path.join(BACKUP_DIR, f"{PROJECT}.SemanticModel", "definition", "tables", TMDL_FILE)
+PAGE_DIR = os.path.join(REPORT_DIR, "definition", "pages", PAGE_ID)
+
+
+def require_paths():
+    """Fail early with the pipeline.json key to fix, instead of a raw FileNotFoundError."""
+    checks = [(REPORT_DIR, "project (no <project>.Report folder next to _build)"),
+              (TMDL, "table / tmdl_file (no such .tmdl in the model)"),
+              (TMDL_BACKUP, "backup_dir (relative to the project folder) - the backup copy has no such .tmdl"),
+              (PAGE_DIR, "page_id (no such folder under definition/pages)")]
+    bad = [f"  {key}: {path}" for path, key in checks if not os.path.exists(path)]
+    if bad:
+        raise SystemExit("pipeline.json points to missing paths:\n" + "\n".join(bad))
