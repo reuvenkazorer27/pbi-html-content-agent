@@ -1,0 +1,58 @@
+-- =============================================================
+-- COMPONENT: Exception cards - under-target rows with action text
+-- Why HTML:  no native visual composes an operational exception row:
+--            status dot + metric delta + a recommended action sentence,
+--            with only the offending rows rendered (blank rows drop out
+--            per the templates doc). Closest native: a table with
+--            conditional formatting - data, not an action queue.
+--            Verified against the built-in catalog 9 Nov 2026.
+-- Layer:     differentiation
+-- Binding:   Values  = [HTML Exception Row]
+--            Context = Sales[Category]   (one row per category)
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Notes:     categories at/above target return BLANK and drop out, so
+--            the visual is an exception queue, not a full table. Actions
+--            come from a DAX SWITCH - adapt the verbs to your domain.
+-- =============================================================
+
+HTML Exception Row =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR NBSP = UNICHAR ( 160 )
+VAR Att = DIVIDE ( [Revenue], [Revenue Target ] )
+VAR Shortfall = [Revenue Target] - [Revenue]
+VAR GapPct = LRI & FORMAT ( 1 - Att, "0%" ) & PDI
+VAR Sevr = IF ( Att < 0.85, "crit", "warn" )
+VAR Action =
+    SWITCH (
+        TRUE (),
+        Att < 0.70, "חריגה חמורה: לכנס סקירת מחירון ותמריצים השבוע",
+        Att < 0.85, "לדרוש תוכנית הבראה ממנהל הקטגוריה",
+        "בפער קל: למפות לקוחות לא פעילים ולחדש קשר"
+    )
+RETURN
+    IF (
+        Att >= 1,
+        BLANK (),
+        "<div class='exc-row " & Sevr & "'>"
+            & "<span class='exc-dot'></span>"
+            & "<span class='exc-name'>" & SELECTEDVALUE ( Sales[Category] ) & "</span>"
+            & "<span class='exc-gap'>" & "פער של " & GapPct & " (" & LRI & FORMAT ( Shortfall, "#,0" ) & NBSP & "₪" & PDI & ")" & "</span>"
+            & "<span class='exc-action'>" & Action & "</span>"
+        & "</div>"
+    )
+
+-- STYLESHEET:
+-- .exc-row { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:8px 12px;
+--            margin:4px 8px; border-radius:8px; font-size:12px; border-inline-start:3px solid; }
+--          /* margin-inline keeps the colored pill off the visual edge; flex-wrap:
+--             on narrow frames the action drops to its own line */
+-- .exc-row.warn { background:#FFF7E6; border-color:var(--pbi-theme-warning,#CA5010); }
+-- .exc-row.crit { background:#FBE7E7; border-color:var(--pbi-theme-bad,#D13438); }
+-- .exc-dot { width:8px; height:8px; border-radius:50%; flex:none; background:currentColor; }
+-- .exc-row.warn .exc-dot, .exc-row.warn .exc-gap { color:var(--pbi-theme-warning,#CA5010); }
+-- .exc-row.crit .exc-dot, .exc-row.crit .exc-gap { color:var(--pbi-theme-bad,#D13438); }
+-- .exc-name { font-weight:600; }
+-- .exc-gap { font-weight:600; white-space:nowrap; }
+-- .exc-action { margin-inline-start:auto; min-width:180px; font-weight:500; color:var(--pbi-theme-fg,#3B3A39); }

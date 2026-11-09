@@ -1,0 +1,49 @@
+-- =============================================================
+-- COMPONENT: Semicircle gauge (RTL Hebrew)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values = [HTML Gauge - Attainment]
+-- Context:   none
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Geometry:  semicircle r=80, arc length = PI()*80 = 251.33.
+--            Fills left-to-right (gauges conventionally read LTR);
+--            flip x coordinates if a right-anchored gauge is wanted.
+-- =============================================================
+
+HTML Gauge - Attainment =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Pct   = DIVIDE ( [Revenue], [Revenue Target] )
+VAR Shown = MIN ( MAX ( Pct, 0 ), 1 )
+VAR ArcLen = PI () * 80
+VAR Dash = ArcLen * Shown
+VAR State = IF ( Pct >= 1, "good", IF ( Pct >= 0.75, "warn", "bad" ) )
+RETURN
+    "<div class='gauge-card' dir='rtl' lang='he'>"
+        & "<div class='gauge-title'>השגת יעד שנתי</div>"
+        & "<svg width='200' height='120' viewBox='0 0 200 120'>"
+            & "<path d='M 20 100 A 80 80 0 0 1 180 100' class='gauge-track'/>"
+            & "<path d='M 20 100 A 80 80 0 0 1 180 100' class='gauge-fill " & State & "' "
+                & "stroke-dasharray='" & FORMAT ( Dash, "0.0" ) & " " & FORMAT ( ArcLen, "0.0" ) & "'/>"
+            & "<text x='100' y='92' text-anchor='middle' class='gauge-value'>"
+                & LRI & FORMAT ( Pct, "0%" ) & PDI
+            & "</text>"
+        & "</svg>"
+        & "<div class='gauge-sub'>"
+            & LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI & " מתוך "
+            & LRI & FORMAT ( [Revenue Target], "#,##0" ) & " ₪" & PDI
+        & "</div>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .gauge-card { display:flex; flex-direction:column; align-items:center; gap:4px;
+--               padding:16px; border-radius:12px; background:var(--pbi-theme-bg-light,#FFFFFF);
+--              box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .gauge-title { font-size:12px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .gauge-track, .gauge-fill { fill:none; stroke-width:16; stroke-linecap:round; }
+-- .gauge-track { stroke:var(--pbi-theme-bg-neutral,#E5EDF3); }
+-- .gauge-fill.good { stroke:var(--pbi-theme-good,#107C10); }
+-- .gauge-fill.warn { stroke:#E8A33D; }
+-- .gauge-fill.bad  { stroke:var(--pbi-theme-bad,#D13438); }
+-- .gauge-value { font-size:24px; font-weight:600; fill:var(--pbi-theme-fg,#1F2937); }
+-- .gauge-sub { font-size:11px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }

@@ -1,0 +1,66 @@
+-- =============================================================
+-- COMPONENT: Variance columns - actual vs plan with delta (IBCS style)
+-- Why HTML:  integrated variance (actual column, plan outline column,
+--            green/red delta bridge + signed %) is the Zebra BI territory:
+--            paid AppSource ($816/yr list, zebrabi.com/pricing). Nothing in
+--            the built-in catalog draws the plan outline + delta bridge.
+-- Binding:   Values  = [HTML Variance Row]
+--            Context = Sales[Category]   (one row per category)
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Scale:     shared across rows: heights are computed against the max of
+--            actual/plan over ALL categories, so rows stay comparable.
+-- Template:  Row template = {{row}}
+-- =============================================================
+
+HTML Variance Row =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR CatName = SELECTEDVALUE ( Sales[Category] )
+VAR Val     = [Revenue]
+VAR Tgt     = [Revenue Target]
+VAR MaxVal  =
+    MAXX (
+        CALCULATETABLE ( VALUES ( Sales[Category] ), REMOVEFILTERS ( Sales[Category] ) ),
+        MAX ( [Revenue], [Revenue Target] )
+    )
+VAR DeltaPct = DIVIDE ( Val - Tgt, Tgt )
+VAR W = 440   // viewBox width; the svg scales down with max-width on narrow frames
+VAR Base = 56         // baseline y inside the 64px-tall viewBox
+VAR MaxH = 40          // tallest column
+VAR AcH  = MAX ( INT ( MaxH * DIVIDE ( Val, MaxVal ) ), 1 )
+VAR PlH  = MAX ( INT ( MaxH * DIVIDE ( Tgt, MaxVal ) ), 1 )
+VAR AcX  = 192         // actual column (left of the plan outline)
+VAR PlX  = 304         // plan outline column (rightmost)
+VAR DlX  = 172         // delta bridge bar
+VAR DlTop = Base - MAX ( AcH, PlH )
+VAR DlH  = ABS ( AcH - PlH )
+VAR DlCls = IF ( Val >= Tgt, "up", "down" )
+RETURN
+    "<div class='var-row' dir='rtl' lang='he'>"
+        & "<span class='var-label'>" & CatName & "</span>"
+        & "<svg width='100%' viewBox='0 0 " & W & " 64'>"
+            & "<rect x='" & DlX & "' y='" & DlTop & "' width='10' height='" & MAX ( DlH, 2 ) & "' class='var-delta " & DlCls & "'/>"
+            & "<rect x='" & AcX & "' y='" & Base - AcH & "' width='100' height='" & AcH & "' class='var-ac'/>"
+            & "<rect x='" & PlX & "' y='" & Base - PlH & "' width='100' height='" & PlH & "' class='var-pl'/>"
+            & "<line x1='110' y1='" & Base & "' x2='420' y2='" & Base & "' class='var-base'/>"
+            & "<text x='160' y='" & DlTop + 12 & "' text-anchor='end' class='var-pct " & DlCls & "'>"
+                & LRI & FORMAT ( DeltaPct, "+0%;-0%" ) & PDI
+            & "</text>"
+        & "</svg>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .var-row { display:flex; align-items:center; gap:12px; padding:2px 8px; border-radius:8px; }
+-- .var-row svg { max-width:440px; height:auto; flex:0 1 auto; }
+-- .var-label { min-width:80px; font-size:12px; color:var(--pbi-theme-fg,#1F2937); text-align:right; }
+-- .var-ac { fill:var(--pbi-theme-fg,#323130); }                 /* actual: solid dark (IBCS) */
+-- .var-pl { fill:none; stroke:var(--pbi-theme-fg,#323130); stroke-width:1.5; }  /* plan: outline */
+-- .var-delta.up   { fill:var(--pbi-theme-good,#107C10); }
+-- .var-delta.down { fill:var(--pbi-theme-bad,#D13438); }
+-- .var-base { stroke:var(--pbi-theme-fg-neutral-secondary,#8A8886); stroke-width:1; }
+-- .var-pct { font-size:12px; font-weight:600; direction:ltr; unicode-bidi:isolate; }
+-- .var-pct.up   { fill:var(--pbi-theme-good,#107C10); }
+-- .var-pct.down { fill:var(--pbi-theme-bad,#D13438); }
+-- .htmlViewerEntry:hover { background:var(--pbi-theme-bg-neutral,#F3F2F1); }
+-- .htmlViewerEntry.unselected { opacity:0.35; }

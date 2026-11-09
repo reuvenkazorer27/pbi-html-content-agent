@@ -1,0 +1,44 @@
+-- =============================================================
+-- COMPONENT: Donut - percent of target (RTL Hebrew)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values = [HTML Donut - Attainment]
+-- Context:   none (add a column to Context for one donut per row)
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Geometry:  r=54, circumference = 2*PI()*54 = 339.292. Arc via stroke-dasharray.
+-- =============================================================
+
+HTML Donut - Attainment =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Pct   = DIVIDE ( [Revenue], [Revenue Target] )
+VAR Shown = MIN ( Pct, 1 )
+VAR R = 54
+VAR C = 2 * PI () * R
+VAR Dash = C * Shown
+VAR State = IF ( Pct >= 1, "good", IF ( Pct >= 0.75, "warn", "bad" ) )
+RETURN
+    "<div class='donut-card' dir='rtl' lang='he'>"
+        & "<svg width='160' height='160' viewBox='0 0 160 160'>"
+            & "<circle cx='80' cy='80' r='" & R & "' class='donut-track'/>"
+            & "<circle cx='80' cy='80' r='" & R & "' class='donut-fill " & State & "' "
+                & "stroke-dasharray='" & FORMAT ( Dash, "0.0" ) & " " & FORMAT ( C, "0.0" ) & "' "
+                & "transform='rotate(-90 80 80)'/>"
+            & "<text x='80' y='76' text-anchor='middle' class='donut-value'>"
+                & LRI & FORMAT ( Pct, "0%" ) & PDI
+            & "</text>"
+            & "<text x='80' y='96' text-anchor='middle' class='donut-caption'>מהיעד</text>"
+        & "</svg>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .donut-card { display:flex; justify-content:center; padding:16px; border-radius:12px;
+--               background:var(--pbi-theme-bg-light,#FFFFFF);
+--        box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .donut-track, .donut-fill { fill:none; stroke-width:14; }
+-- .donut-track { stroke:var(--pbi-theme-bg-neutral,#E5EDF3); }
+-- .donut-fill.good { stroke:var(--pbi-theme-good,#107C10); }
+-- .donut-fill.warn { stroke:#E8A33D; }
+-- .donut-fill.bad  { stroke:var(--pbi-theme-bad,#D13438); }
+-- .donut-value { font-size:22px; font-weight:600; fill:var(--pbi-theme-fg,#1F2937); }
+-- .donut-caption { font-size:11px; fill:var(--pbi-theme-fg-neutral-secondary,#605E5C); }

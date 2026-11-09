@@ -1,0 +1,47 @@
+-- =============================================================
+-- COMPONENT: Header bar (RTL Hebrew)
+-- Layer:     shell - page furniture (header/menu/chips); native text/buttons/navigators exist but cannot carry this styling and live values.
+-- Binding:   Values = [HTML Header]
+-- Context:   none
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Sizing:    height 64px at 720p (96px at 1080p), full content width.
+-- Honesty:   title text is authored; date/refresh/user must come from real
+--            measures. NOW() returns UTC in the Service - use a refresh-log
+--            table (MAX(RefreshLog[At])) for a truthful "last refresh".
+-- =============================================================
+
+HTML Header =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR PageTitle   = "דשבורד מכירות"
+VAR RefreshAt   = MAX ( RefreshLog[At] )          -- needs a refresh-log table; see note above
+VAR RefreshText =
+    IF (
+        ISBLANK ( RefreshAt ),
+        "",
+        "עודכן " & LRI & FORMAT ( RefreshAt, "dd/mm/yyyy" ) & UNICHAR ( 160 ) & FORMAT ( RefreshAt, "HH:mm" ) & PDI
+    )
+RETURN
+    "<div class='hdr' dir='rtl' lang='he'>"
+        & "<div class='hdr-title-block'>"
+            & "<div class='hdr-title'>" & PageTitle & "</div>"
+            & "<div class='hdr-sub'>" & RefreshText & "</div>"
+        & "</div>"
+        & "<div class='hdr-context'>"
+            & "<span class='hdr-chip'>" & LRI & FORMAT ( [Revenue], "#,##0" ) & PDI & " הכנסות</span>"
+            & "<span class='hdr-chip'>" & LRI & FORMAT ( [Orders], "#,##0" ) & PDI & " הזמנות</span>"
+        & "</div>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .hdr { display:flex; justify-content:space-between; align-items:center;
+--        height:64px; padding:0 20px; border-radius:12px;
+--        background:var(--pbi-theme-bg-light,#FFFFFF);
+--        border:1px solid #E3E6EC;
+--        box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .hdr-title { font-size:18px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); }
+-- .hdr-sub { font-size:11px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .hdr-context { display:flex; gap:8px; }
+-- .hdr-chip { padding:4px 12px; border-radius:999px; font-size:12px;
+--             background:var(--pbi-theme-bg-neutral,#F3F2F1); color:var(--pbi-theme-fg,#1F2937); }

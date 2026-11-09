@@ -1,0 +1,101 @@
+-- =============================================================
+-- COMPONENT: Org strip - fixed two-level hierarchy (root + reports)
+-- Layer:     differentiation
+-- Why HTML:  official Microsoft Epic idea "Organization chart"
+--            (community.fabric.microsoft.com, submitted 07/10/2024) with
+--            user comments asking for it ("I had requests from leadership
+--            to create our Org chart"). No built-in org chart visual
+--            (checked 09/11/2026). AppSource fills are commercial.
+-- Binding:   Values = [HTML Org Strip]   (single aggregate measure - the
+--            measure iterates the Employees table itself)
+--            Employees table: [Name] text, [Title] text,
+--                             [Manager] text (blank = the root)
+-- Edition:   Regular + Secure (HTML cards + DAX-computed svg connectors,
+--            no JS). ALL text is HTML at a fixed px size: cards never
+--            shrink into unreadable svg microtext on narrow frames - the
+--            text wraps to more lines instead.
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Geometry:  RTL - the first report (by name) sits at the right. Card
+--            width is computed in DAX from the report count (capped at
+--            150px logical), so up to 6 reports always fit the width.
+--            The connector layer is a short svg with
+--            vector-effect=non-scaling-stroke: lines stay 1.5px at any
+--            width and align with the HTML cards, whose widths use the
+--            same fractions.
+-- Limits (explicit): exactly two levels (one root + its direct reports),
+--            up to 6 report cards shown (the rest collapse into a
+--            "+N more" note under the strip). No expand/collapse, no
+--            many-to-many reporting lines. Deeper fixed-depth trees are
+--            also possible statically (more computed rows of cards) but
+--            are NOT implemented here; dynamic/auto-balancing layout over
+--            arbitrary depth is the part that needs JS (Regular edition).
+-- =============================================================
+
+HTML Org Strip =
+VAR Root      = FILTER ( Employees, ISBLANK ( Employees[Manager] ) )
+VAR RootName  = MAXX ( Root, Employees[Name] )
+VAR RootTitle = MAXX ( Root, Employees[Title] )
+VAR Reports   = FILTER ( Employees, Employees[Manager] = RootName )
+VAR NAll      = COUNTROWS ( Reports )
+VAR Shown     = TOPN ( 6, Reports, Employees[Name], ASC )
+VAR N         = COUNTROWS ( Shown )
+VAR Extra     = NAll - N
+VAR W     = 640          // logical width for the connector coordinate math
+VAR Gap   = 12
+VAR Cw    = MIN ( 150, INT ( ( W - ( N - 1 ) * Gap ) / N ) )
+VAR RowW  = N * Cw + ( N - 1 ) * Gap
+VAR StartX = INT ( ( W - RowW ) / 2 )
+VAR RootCx = INT ( W / 2 )
+VAR CwPct  = ROUND ( DIVIDE ( Cw, W ) * 100, 2 )
+VAR Positioned =
+    ADDCOLUMNS (
+        Shown,
+        "Cx", StartX + ( N - 1 - ( RANKX ( Shown, Employees[Name], , ASC ) - 1 ) ) * ( Cw + Gap ) + INT ( Cw / 2 )
+    )
+VAR FirstCx = MINX ( Positioned, [Cx] )
+VAR LastCx  = MAXX ( Positioned, [Cx] )
+VAR ConnDrops =
+    CONCATENATEX ( Positioned, "<path d='M " & [Cx] & " 15 V 30' class='org-connpath'/>" )
+VAR ConnBus =
+    "<path d='M " & RootCx & " 0 V 15 M " & FirstCx & " 15 H " & LastCx & "' class='org-connpath'/>"
+VAR Cards =
+    CONCATENATEX (
+        Positioned,
+        "<div class='org-card' style='width:" & CwPct & "%'>"
+            & "<span class='org-name'>" & Employees[Name] & "</span>"
+            & "<span class='org-title'>" & Employees[Title] & "</span>"
+        & "</div>"
+    )
+VAR ExtraNote =
+    IF (
+        Extra > 0,
+        "<div class='org-extra'>+ " & Extra & " נוספים</div>"
+    )
+RETURN
+    "<div class='org-wrap' dir='rtl' lang='he'>"
+        & "<div class='org-rcard'>"
+            & "<span class='org-rname'>" & RootName & "</span>"
+            & "<span class='org-rtitle'>" & RootTitle & "</span>"
+        & "</div>"
+        & "<svg class='org-conn' viewBox='0 0 " & W & " 30' preserveAspectRatio='none'>"
+            & ConnBus & ConnDrops
+        & "</svg>"
+        & "<div class='org-kids'>" & Cards & "</div>"
+        & ExtraNote
+    & "</div>"
+
+-- STYLESHEET:
+-- .org-wrap { width:100%; display:flex; flex-direction:column; align-items:center; }
+-- .org-rcard { background:var(--pbi-theme-color-1,#0F6CBD); border-radius:8px;
+--              padding:8px 18px; display:flex; flex-direction:column; align-items:center; }
+-- .org-rname  { font-size:13px; font-weight:600; color:#FFFFFF; }
+-- .org-rtitle { font-size:10.5px; color:#DCE9F8; }
+-- .org-conn { width:100%; height:30px; display:block; }
+-- .org-connpath { stroke:#B7BFC9; stroke-width:1.5; fill:none; vector-effect:non-scaling-stroke; }
+-- .org-kids { display:flex; gap:1.875%; justify-content:center; width:100%; align-items:stretch; }
+-- .org-card { background:#FFFFFF; border:1px solid #E3E6EC; border-radius:8px;
+--             padding:6px 4px; text-align:center; box-sizing:border-box;
+--             display:flex; flex-direction:column; justify-content:center; }
+-- .org-name  { display:block; font-size:12px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); }
+-- .org-title { display:block; font-size:10.5px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .org-extra { font-size:11px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); padding-top:4px; }

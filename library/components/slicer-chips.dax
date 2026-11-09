@@ -1,0 +1,33 @@
+-- =============================================================
+-- COMPONENT: Filter chips ("HTML slicer") - cross-filtering chip row
+-- Layer:     shell - page furniture (header/menu/chips); native text/buttons/navigators exist but cannot carry this styling and live values.
+-- Binding:   Values  = [HTML Chip]
+--            Context = Sales[Category]      (or any column to filter by)
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- REQUIRED:  Format pane > Cross-filtering > Enable = On.
+--            Without it the chips are display-only.
+-- What this is: cross-filter selection (like clicking bars in a chart).
+-- What it is NOT: a real slicer. No select-all, no search, no single-select
+-- mode, no slicer sync. Multi-select on desktop via Ctrl+click; custom
+-- visuals do not support multi-select in the mobile apps.
+-- Selected state: unselected entries get class 'unselected' (default dim
+-- 70%, configurable). There is no 'selected' class; style the rest state.
+-- Template:  Row template = {{row}}
+-- =============================================================
+
+HTML Chip =
+VAR CatName = SELECTEDVALUE ( Sales[Category] )
+RETURN
+    "<span class='chip' dir='rtl' lang='he'>" & CatName & "</span>"
+
+-- STYLESHEET:
+-- #htmlContent { display:flex; flex-wrap:wrap; gap:8px; padding:4px; }
+-- .htmlViewerEntry { display:inline-block; }
+-- .chip { display:inline-block; padding:6px 14px; border-radius:999px; font-size:12px;
+--         border:1px solid var(--pbi-theme-color-1,#0F6CBD);
+--         color:var(--pbi-theme-color-1,#0F6CBD); background:transparent; cursor:pointer; }
+-- .htmlViewerEntry:hover .chip { background:var(--pbi-theme-bg-neutral,#EAF2FA); }
+-- .htmlViewerEntry.unselected .chip { opacity:0.35; }   /* optional custom dim;
+--        disable the property 'Set transparency of unselected items' to use CSS instead */
+-- .chip { transition:opacity .15s ease; }

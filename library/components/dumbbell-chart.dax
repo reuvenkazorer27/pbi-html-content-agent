@@ -1,0 +1,68 @@
+-- =============================================================
+-- COMPONENT: Dumbbell chart - two periods compared per category
+-- Why HTML:  no dumbbell chart in the built-in catalog; AppSource
+--            alternatives: Dumbbell Chart by MAQ Software, Dumbbell
+--            Bar/Column Chart. Shows direction and magnitude of change
+--            between two periods better than two bar series.
+-- Binding:   Values  = [HTML Dumbbell Row]
+--            Context = Sales[Category]   (one row per category)
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Geometry:  RTL - origin at the right edge. Gray dot = last year,
+--            accent dot = this year, connecting line. The signed delta
+--            label is an HTML span, NOT svg text: the svg is fluid
+--            (viewBox + width:100%) so it can shrink to any card width,
+--            and an HTML label can never be clipped by the svg bounds.
+-- Template:  Row template = {{row}}
+-- =============================================================
+
+HTML Dumbbell Row =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR CatName = SELECTEDVALUE ( Sales[Category] )
+VAR Val     = [Revenue]
+VAR ValLY   = [Revenue LY]
+VAR MaxVal  =
+    MAXX (
+        CALCULATETABLE ( VALUES ( Sales[Category] ), REMOVEFILTERS ( Sales[Category] ) ),
+        MAX ( [Revenue], [Revenue LY] )
+    )
+VAR DeltaPct = DIVIDE ( Val - ValLY, ValLY )
+VAR W = 380          // logical viewBox width; rendered width is fluid
+VAR Pad = 8          // keeps dots off the svg edges
+VAR SW = W - 2 * Pad
+VAR MidY = 12
+VAR XNow = W - Pad - INT ( SW * DIVIDE ( Val, MaxVal ) )
+VAR XLY  = W - Pad - INT ( SW * DIVIDE ( ValLY, MaxVal ) )
+VAR UpCls = IF ( Val >= ValLY, "up", "down" )
+RETURN
+    "<div class='dbb-row' dir='rtl' lang='he'>"
+        & "<span class='dbb-label'>" & CatName & "</span>"
+        & "<span class='dbb-plot'>"
+            & "<svg viewBox='0 0 " & W & " 24' preserveAspectRatio='xMidYMid meet'>"
+                & "<line x1='" & XLY & "' y1='" & MidY & "' x2='" & XNow & "' y2='" & MidY & "' class='dbb-link " & UpCls & "'/>"
+                & "<circle cx='" & XLY & "' cy='" & MidY & "' r='5' class='dbb-ly'/>"
+                & "<circle cx='" & XNow & "' cy='" & MidY & "' r='6' class='dbb-now'/>"
+            & "</svg>"
+        & "</span>"
+        & "<span class='dbb-delta " & UpCls & "'>"
+            & LRI & FORMAT ( DeltaPct, "+0%;-0%" ) & PDI
+        & "</span>"
+    & "</div>"},{
+
+-- STYLESHEET:
+-- .dbb-row { display:flex; align-items:center; gap:12px; padding:2px 8px; border-radius:8px; }
+-- .dbb-label { min-width:80px; font-size:12px; color:var(--pbi-theme-fg,#1F2937); text-align:right; }
+-- .dbb-plot { flex:1; min-width:0; }
+-- .dbb-plot svg { width:100%; height:24px; display:block; }
+-- .dbb-link { stroke-width:2; }
+-- .dbb-link.up   { stroke:var(--pbi-theme-good,#107C10); }
+-- .dbb-link.down { stroke:var(--pbi-theme-bad,#D13438); }
+-- .dbb-ly  { fill:#B7BFC9; }
+-- .dbb-now { fill:var(--pbi-theme-color-1,#0F6CBD); }
+-- .dbb-delta { min-width:52px; font-size:11px; font-weight:600; text-align:left;
+--              direction:ltr; unicode-bidi:isolate; white-space:nowrap; }
+-- .dbb-delta.up   { color:var(--pbi-theme-good,#107C10); }
+-- .dbb-delta.down { color:var(--pbi-theme-bad,#D13438); }
+-- .htmlViewerEntry:hover { background:var(--pbi-theme-bg-neutral,#F3F2F1); }
+-- .htmlViewerEntry.unselected { opacity:0.35; }

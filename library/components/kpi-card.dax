@@ -1,0 +1,39 @@
+-- =============================================================
+-- COMPONENT: KPI Card (RTL Hebrew)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values = [HTML KPI - Revenue]  (single measure)
+-- Context:   none. Add a column to Context only if the card must cross-filter.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Notes:     DAX strings use double quotes; HTML attributes use single quotes.
+--            Isolates: LRI=UNICHAR(8294), PDI=UNICHAR(8297) keep numbers/₪ in place.
+-- =============================================================
+
+HTML KPI - Revenue =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR CurrentRevenue = [Revenue]
+VAR PrevRevenue    = [Revenue LY]
+VAR DeltaPct       = DIVIDE ( CurrentRevenue - PrevRevenue, PrevRevenue )
+VAR Direction      = IF ( DeltaPct >= 0, "up", "down" )
+VAR Arrow          = IF ( DeltaPct >= 0, "▲", "▼" )
+RETURN
+    "<div class='kpi' dir='rtl' lang='he'>"
+        & "<div class='kpi-title'>הכנסות</div>"
+        & "<div class='kpi-value'>" & LRI & FORMAT ( CurrentRevenue, "#,##0" ) & " ₪" & PDI & "</div>"
+        & "<div class='kpi-delta " & Direction & "'>"
+            & LRI & Arrow & " " & FORMAT ( ABS ( DeltaPct ), "0.0%" ) & PDI
+            & " מול שנה קודמת"
+        & "</div>"
+    & "</div>"
+
+-- STYLESHEET (paste into the visual's Stylesheet property, or bind via fx):
+--
+-- .kpi { display:flex; flex-direction:column; gap:4px; padding:16px; border-radius:12px;
+--        background:var(--pbi-theme-bg-light,#FFFFFF);
+--        box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .kpi-title { font-size:12px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .kpi-value { font-size:30px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); }
+-- .kpi-delta { font-size:12px; }
+-- .kpi-delta.up   { color:var(--pbi-theme-good,#107C10); }
+-- .kpi-delta.down { color:var(--pbi-theme-bad,#D13438); }

@@ -1,0 +1,50 @@
+-- =============================================================
+-- COMPONENT: Progress to target (RTL Hebrew)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values = [HTML Progress - Attainment]
+-- Context:   optional. Add e.g. Sales[Region] to Context for one bar per region
+--            (the measure then evaluates per row; enable Cross-filtering to let
+--            a bar click filter the page).
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- RTL:       fill is anchored to the right edge (x = W - fillW).
+-- =============================================================
+
+HTML Progress - Attainment =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Actual = [Revenue]
+VAR Target = [Revenue Target]
+VAR Pct    = DIVIDE ( Actual, Target )
+VAR Shown  = MIN ( Pct, 1 )
+VAR W = 360
+VAR H = 10
+VAR FillW = INT ( W * Shown )
+VAR State = IF ( Pct >= 1, "good", IF ( Pct >= 0.75, "warn", "bad" ) )
+RETURN
+    "<div class='progress' dir='rtl' lang='he'>"
+        & "<div class='progress-head'>"
+            & "<span class='progress-label'>השגת יעד</span>"
+            & "<span class='progress-pct'>" & LRI & FORMAT ( Pct, "0%" ) & PDI & "</span>"
+        & "</div>"
+        & "<svg width='" & W & "' height='" & H & "' viewBox='0 0 " & W & " " & H & "'>"
+            & "<rect x='0' y='0' width='" & W & "' height='" & H & "' rx='5' class='progress-track'/>"
+            & "<rect x='" & W - FillW & "' y='0' width='" & FillW & "' height='" & H & "' rx='5' class='progress-fill " & State & "'/>"
+        & "</svg>"
+        & "<div class='progress-sub'>"
+            & LRI & FORMAT ( Actual, "#,##0" ) & " ₪" & PDI & " מתוך " & LRI & FORMAT ( Target, "#,##0" ) & " ₪" & PDI
+        & "</div>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .progress { display:flex; flex-direction:column; gap:6px; padding:16px; border-radius:12px;
+--             background:var(--pbi-theme-bg-light,#FFFFFF);
+--        box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .progress-head { display:flex; justify-content:space-between; font-size:12px; }
+-- .progress-label { color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .progress-pct { font-weight:600; color:var(--pbi-theme-fg,#1F2937); }
+-- .progress-track { fill:var(--pbi-theme-bg-neutral,#E5EDF3); }
+-- .progress-fill.good { fill:var(--pbi-theme-good,#107C10); }
+-- .progress-fill.warn { fill:#E8A33D; }
+-- .progress-fill.bad  { fill:var(--pbi-theme-bad,#D13438); }
+-- .progress-sub { font-size:11px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }

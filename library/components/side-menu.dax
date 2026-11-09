@@ -1,0 +1,68 @@
+-- =============================================================
+-- COMPONENT: Side menu (RTL, right-docked) - display + overlay navigation
+-- Layer:     shell - page furniture (header/menu/chips); native text/buttons/navigators exist but cannot carry this styling and live values.
+-- Binding:   Values = [HTML Side Menu]   (set ActivePage per page)
+-- Context:   none. The menu does NOT cross-filter.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Navigation: HTML menu items are NOT clickable navigation. Place a native
+--            blank button (100% transparent, no border) over each item
+--            rectangle with Action = Page navigation.
+--            See skills/navigation-header-menu/SKILL.md for the overlay spec.
+-- Sizing:    width 200px at 720p, docked right: x = 1280 - 24 - 200 = 1056.
+-- =============================================================
+
+HTML Side Menu =
+VAR ActivePage = "sales"     -- set per page copy: "sales" | "products" | "customers" | "targets"
+VAR ClassSales     = IF ( ActivePage = "sales",     "menu-item active", "menu-item" )
+VAR ClassProducts  = IF ( ActivePage = "products",  "menu-item active", "menu-item" )
+VAR ClassCustomers = IF ( ActivePage = "customers", "menu-item active", "menu-item" )
+VAR ClassTargets   = IF ( ActivePage = "targets",   "menu-item active", "menu-item" )
+VAR ClassBudget    = IF ( ActivePage = "budget",    "menu-item active", "menu-item" )
+VAR ClassReports   = IF ( ActivePage = "reports",   "menu-item active", "menu-item" )
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR OrdersTxt = LRI & FORMAT ( [Orders], "#,0" ) & PDI
+VAR AttTxt = LRI & FORMAT ( DIVIDE ( [Revenue], [Revenue Target] ), "0%" ) & PDI
+RETURN
+    "<nav class='side-menu' dir='rtl' lang='he'>"
+        & "<div class='menu-brand'>Data &amp; AI</div>"
+        & "<div class='" & ClassSales     & "' data-page='sales'>"
+            & "<span class='menu-ico'>◧</span><span>מכירות</span></div>"
+        & "<div class='" & ClassProducts  & "' data-page='products'>"
+            & "<span class='menu-ico'>◫</span><span>מוצרים</span></div>"
+        & "<div class='" & ClassCustomers & "' data-page='customers'>"
+            & "<span class='menu-ico'>◉</span><span>לקוחות</span></div>"
+        & "<div class='" & ClassTargets   & "' data-page='targets'>"
+            & "<span class='menu-ico'>◎</span><span>יעדים</span></div>"
+        & "<div class='" & ClassBudget    & "' data-page='budget'>"
+            & "<span class='menu-ico'>▤</span><span>תקציב</span></div>"
+        & "<div class='" & ClassReports   & "' data-page='reports'>"
+            & "<span class='menu-ico'>▦</span><span>דוחות</span></div>"
+        & "<div class='menu-sec'>מבט מהיר</div>"
+        & "<div class='menu-quick'><span>הזמנות</span><b>" & OrdersTxt & "</b></div>"
+        & "<div class='menu-quick'><span>השגת יעד</span><b>" & AttTxt & "</b></div>"
+        & "<div class='menu-foot'>גרסה " & UNICHAR ( 8294 ) & "1.0" & UNICHAR ( 8297 ) & "</div>"
+    & "</nav>"
+
+-- STYLESHEET:
+-- .side-menu { display:flex; flex-direction:column; gap:4px; height:100%;
+--              padding:16px 12px; border-radius:12px;
+--              background:var(--pbi-theme-bg-light,#FFFFFF);
+--        border:1px solid #E3E6EC;
+--        box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .menu-brand { font-size:14px; font-weight:700; padding:4px 8px 16px;
+--               color:var(--pbi-theme-color-1,#0F6CBD); direction:ltr; text-align:right; }
+-- .menu-item { display:flex; align-items:center; gap:10px; padding:10px 12px;
+--              border-radius:8px; font-size:13px; color:var(--pbi-theme-fg,#1F2937); }
+-- .menu-item:hover { background:var(--pbi-theme-bg-neutral,#F3F2F1); }
+-- .menu-item.active { background:var(--pbi-theme-color-1,#0F6CBD); color:#FFFFFF; }
+-- .menu-ico { width:18px; text-align:center; }
+-- .menu-sec { font-size:10px; font-weight:600; letter-spacing:.4px; padding:16px 8px 4px;
+--             color:var(--pbi-theme-fg-neutral-tertiary,#C8C6C4); }
+-- .menu-quick { display:flex; justify-content:space-between; align-items:center;
+--               padding:6px 12px; font-size:12px;
+--               color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .menu-quick b { color:var(--pbi-theme-fg,#1F2937); }
+-- .menu-foot { margin-top:auto; font-size:10px;
+--              color:var(--pbi-theme-fg-neutral-tertiary,#C8C6C4); }

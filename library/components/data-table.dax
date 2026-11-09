@@ -1,0 +1,83 @@
+-- =============================================================
+-- COMPONENT: Data table (RTL Hebrew) - templates-based
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values  = [HTML Table Row]
+--            Context = Sales[Category]
+-- Templates: Body template and Row template below (paste into the
+--            visual's Templates card, or bind via fx).
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Filters:   rows cross-filter after Cross-filtering > Enable; right-click
+--            gives drillthrough when a drillthrough page exists.
+-- Blank rows: return BLANK() from the row measure to drop a row entirely.
+-- Narrow:   the visual frame does not shrink a table below its min-content width;
+--           use the "HTML Table Row (narrow)" measure below in narrow visuals.
+-- =============================================================
+
+-- ----- Body template (property, not a measure) -----
+-- <table dir='rtl' class='data-table'>
+--   <thead><tr>
+--     <th>קטגוריה</th><th class='num'>הכנסות</th><th class='num'>יעד</th><th class='num'>השלמה</th>
+--   </tr></thead>
+--   <tbody>{{content}}</tbody>
+-- </table>
+
+-- ----- Row template (property) -----
+-- <tr>{{row}}</tr>
+
+-- ----- Row measure (one <td> set per Context row) -----
+HTML Table Row =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Pct = DIVIDE ( [Revenue], [Revenue Target] )
+VAR State = IF ( Pct >= 1, "good", IF ( Pct >= 0.75, "warn", "bad" ) )
+RETURN
+    "<td>" & SELECTEDVALUE ( Sales[Category] ) & "</td>"
+    & "<td class='num'>" & LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI & "</td>"
+    & "<td class='num'>" & LRI & FORMAT ( [Revenue Target], "#,##0" ) & " ₪" & PDI & "</td>"
+    & "<td class='num'><span class='pill " & State & "'>" & LRI & FORMAT ( Pct, "0%" ) & PDI & "</span></td>"
+
+-- ----- Narrow variant (mobile / card visuals under ~340 px) -----
+-- Same binding; compact row measure + slim cells: millions shorten to "3.2M ₪"
+-- so 4 columns fit a narrow frame without cropping or mid-number wraps.
+-- Body template for the narrow visual:
+-- <table dir='rtl' class='data-table narrow'>
+--   <thead><tr>
+--     <th>קטגוריה</th><th class='num'>הכנסות</th><th class='num'>יעד</th><th class='num'>השלמה</th>
+--   </tr></thead>
+--   <tbody>{{content}}</tbody>
+-- </table>
+
+HTML Table Row (narrow) =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Pct = DIVIDE ( [Revenue], [Revenue Target] )
+VAR State = IF ( Pct >= 1, "good", IF ( Pct >= 0.75, "warn", "bad" ) )
+VAR FmtM =
+    IF ( ABS ( [Revenue] ) >= 1000000,
+        LRI & FORMAT ( [Revenue] / 1000000, "0.0" ) & "M" & UNICHAR ( 160 ) & "₪" & PDI,
+        LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI )
+VAR FmtMT =
+    IF ( ABS ( [Revenue Target] ) >= 1000000,
+        LRI & FORMAT ( [Revenue Target] / 1000000, "0.0" ) & "M" & UNICHAR ( 160 ) & "₪" & PDI,
+        LRI & FORMAT ( [Revenue Target], "#,##0" ) & " ₪" & PDI )
+RETURN
+    "<td>" & SELECTEDVALUE ( Sales[Category] ) & "</td>"
+    & "<td class='num'>" & FmtM & "</td>"
+    & "<td class='num'>" & FmtMT & "</td>"
+    & "<td class='num'><span class='pill " & State & "'>" & LRI & FORMAT ( Pct, "0%" ) & PDI & "</span></td>"
+
+-- STYLESHEET:
+-- #htmlContent table.data-table { width:100%; border-collapse:collapse; font-size:12px; }
+-- .data-table thead th { background:var(--pbi-theme-bg-neutral,#888); color:#fff;
+--                        font-weight:600; text-align:right; padding:6px 8px; }
+-- .data-table thead th.num, .data-table td.num { text-align:right; direction:ltr; unicode-bidi:isolate; }
+-- .data-table tbody td { padding:6px 8px; border-bottom:1px solid var(--pbi-theme-bg-neutral,#EAEAEA);
+--                        color:var(--pbi-theme-fg,#1F2937); }
+-- tr.htmlViewerEntry:hover { background:var(--pbi-theme-bg-neutral,#F3F2F1); }
+-- .pill { padding:2px 10px; border-radius:999px; font-size:11px; }
+-- .pill.good { background:#E4F2E4; color:var(--pbi-theme-good,#107C10); }
+-- .pill.warn { background:#FBF0DC; color:#8A5A00; }
+-- .pill.bad  { background:#FBE7E7; color:var(--pbi-theme-bad,#D13438); }
+-- .data-table.narrow thead th, .data-table.narrow tbody td { padding:4px 5px; font-size:11px; }
+-- .data-table.narrow .pill { padding:1px 8px; }

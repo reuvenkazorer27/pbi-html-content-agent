@@ -1,0 +1,66 @@
+-- =============================================================
+-- COMPONENT: KPI Card with sparkline (RTL Hebrew)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values = [HTML KPI Spark - Revenue]
+-- Context:   none (single aggregated visual). Incoming filters apply.
+-- Edition:   Regular + Secure (pure SVG, no scripts)
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Requires:  a marked date table 'Date' with 'Date'[Date]; adjust to your model.
+-- =============================================================
+
+HTML KPI Spark - Revenue =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR CurrentRevenue = [Revenue]
+VAR DeltaPct       = DIVIDE ( CurrentRevenue - [Revenue LY], [Revenue LY] )
+VAR Direction      = IF ( DeltaPct >= 0, "up", "down" )
+VAR Arrow          = IF ( DeltaPct >= 0, "▲", "▼" )
+-- sparkline geometry
+VAR W = 220
+VAR H = 44
+VAR Pad = 2
+VAR Periods =
+    FILTER (
+        VALUES ( 'Date'[Month start] ),
+        NOT ISBLANK ( [Revenue] )
+    )
+VAR N        = COUNTROWS ( Periods )
+VAR MinV     = MINX ( Periods, [Revenue] )
+VAR MaxV     = MAXX ( Periods, [Revenue] )
+VAR RangeV   = MAX ( MaxV - MinV, 1 )
+VAR Points   =
+    CONCATENATEX (
+        Periods,
+        VAR i = RANKX ( Periods, 'Date'[Month start], , ASC ) - 1
+        VAR x = Pad + i * DIVIDE ( W - 2 * Pad, MAX ( N - 1, 1 ) )
+        VAR y = H - Pad - DIVIDE ( [Revenue] - MinV, RangeV ) * ( H - 2 * Pad )
+        RETURN
+            FORMAT ( x, "0.0" ) & "," & FORMAT ( y, "0.0" ),
+        " ",
+        'Date'[Month start], ASC
+    )
+RETURN
+    "<div class='kpi spark' dir='rtl' lang='he'>"
+        & "<div class='kpi-head'>"
+            & "<div class='kpi-title'>הכנסות</div>"
+            & "<div class='kpi-delta " & Direction & "'>"
+                & LRI & Arrow & " " & FORMAT ( ABS ( DeltaPct ), "0.0%" ) & PDI
+            & "</div>"
+        & "</div>"
+        & "<div class='kpi-value'>" & LRI & FORMAT ( CurrentRevenue, "#,##0" ) & " ₪" & PDI & "</div>"
+        & "<svg class='sparkline' width='" & W & "' height='" & H & "' viewBox='0 0 " & W & " " & H & "'>"
+            & "<polyline points='" & Points & "' fill='none' class='spark-line'/>"
+        & "</svg>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .kpi.spark { display:flex; flex-direction:column; gap:6px; padding:16px; border-radius:12px;
+--              background:var(--pbi-theme-bg-light,#FFFFFF);
+--        box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .kpi-head { display:flex; justify-content:space-between; align-items:baseline; }
+-- .kpi-title { font-size:12px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .kpi-value { font-size:28px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); }
+-- .kpi-delta { font-size:12px; }
+-- .kpi-delta.up { color:var(--pbi-theme-good,#107C10); }
+-- .kpi-delta.down { color:var(--pbi-theme-bad,#D13438); }
+-- .spark-line { stroke:var(--pbi-theme-color-1,#0F6CBD); stroke-width:2; }

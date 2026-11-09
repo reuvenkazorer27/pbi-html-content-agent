@@ -1,0 +1,81 @@
+-- =============================================================
+-- COMPONENT: Insight narrative - sentence with inline data + chart
+-- Why HTML:  NATIVE EXISTS, richer composition. The Narrative visual
+--            (smart narrative, custom mode) binds dynamic values into
+--            text with basic formatting. It cannot inline an SVG trend
+--            chart inside the sentence, pill-style value tokens, or
+--            precise bidi isolation for mixed Hebrew/numbers/currency.
+--            This component is a fully typeset, DAX-computed paragraph.
+--            Verified 9 Nov 2026 (power-bi-visualization-smart-narrative).
+-- Binding:   Values = [HTML Narrative - Revenue]   (single aggregate)
+-- Context:   none. Incoming filters apply.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Notes:     every number, name and direction token is computed in DAX;
+--            the sentence rewrites itself on every filter change.
+-- =============================================================
+
+HTML Narrative - Revenue =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR NBSP = UNICHAR ( 160 )
+VAR Rev = [Revenue]
+VAR LYv = [Revenue LY]
+VAR Growth = DIVIDE ( Rev - LYv, LYv )
+VAR GrowthPct = LRI & FORMAT ( ABS ( Growth ), "0.0%" ) & PDI
+VAR GrowthDir = IF ( Growth >= 0, "▲", "▼" )
+VAR GrowthCls = IF ( Growth >= 0, "up", "down" )
+VAR ByCat =
+    ADDCOLUMNS (
+        VALUES ( Sales[Category] ),
+        "@g", DIVIDE ( [Revenue] - [Revenue LY], [Revenue LY] )
+    )
+VAR Best = TOPN ( 1, ByCat, [@g], DESC )
+VAR Worst = TOPN ( 1, ByCat, [@g], ASC )
+VAR BestName = MAXX ( Best, Sales[Category] )
+VAR BestPct = LRI & FORMAT ( MAXX ( Best, [@g] ), "+0%;-0%" ) & PDI
+VAR WorstName = MAXX ( Worst, Sales[Category] )
+VAR WorstPct = LRI & FORMAT ( MAXX ( Worst, [@g] ), "+0%;-0%" ) & PDI
+VAR Monthly =
+    ADDCOLUMNS ( VALUES ( 'Date'[Month start] ), "@v", [Revenue] )
+VAR MaxM = MAXX ( Monthly, [@v] )
+VAR MinM = MINX ( Monthly, [@v] )
+VAR W = 96
+VAR H = 22
+VAR N = COUNTROWS ( Monthly )
+VAR StepX = DIVIDE ( W, N - 1 )
+VAR Pts =
+    CONCATENATEX (
+        ADDCOLUMNS (
+            Monthly,
+            "@x", FORMAT ( ( RANKX ( Monthly, 'Date'[Month start],, ASC ) - 1 ) * StepX, "0.0" ),
+            "@y", FORMAT ( H - DIVIDE ( [@v] - MinM, MaxM - MinM ) * ( H - 4 ) - 2, "0.0" )
+        ),
+        [@x] & "," & [@y],
+        " ",
+        'Date'[Month start], ASC
+    )
+VAR Spark =
+    "<svg class='nar-spark' width='" & W & "' height='" & H & "' viewBox='0 0 " & W & " " & H & "' direction='ltr'>"
+        & "<polyline points='" & Pts & "' fill='none' stroke='#0F6CBD' stroke-width='1.6'/>"
+    & "</svg>"
+RETURN
+    "<div class='nar' dir='rtl' lang='he'>"
+        & "<span class='nar-lead'>ההכנסות עמדו על </span>"
+        & "<span class='nar-val'>" & LRI & FORMAT ( Rev, "#,0" ) & NBSP & "₪" & PDI & "</span>"
+        & "<span class='nar-token " & GrowthCls & "'>" & GrowthDir & " " & GrowthPct & " מול שנה קודמת</span>"
+        & "<span class='nar-lead'>. המנוע: </span><b>" & BestName & "</b>"
+        & "<span class='nar-token up'>" & BestPct & "</span>"
+        & "<span class='nar-lead'>, נקודת החולשה: </span><b>" & WorstName & "</b>"
+        & "<span class='nar-token down'>" & WorstPct & "</span>"
+        & "<span class='nar-lead'>. מגמה חודשית: </span>" & Spark
+    & "</div>"
+
+-- STYLESHEET:
+-- .nar { font-size:14px; line-height:1.9; color:var(--pbi-theme-fg-neutral-primary,#242424);
+--        display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+-- .nar-val { font-weight:700; }
+-- .nar-token { font-size:11px; font-weight:600; padding:1px 8px; border-radius:999px; white-space:nowrap; }
+-- .nar-token.up   { color:var(--pbi-theme-good,#107C10); background:#E7F3E7; }
+-- .nar-token.down { color:var(--pbi-theme-bad,#D13438);  background:#FBE7E7; }
+-- .nar-spark { display:inline-block; vertical-align:middle; }

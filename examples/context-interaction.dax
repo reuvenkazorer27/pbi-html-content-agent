@@ -1,0 +1,81 @@
+-- =============================================================
+-- EXAMPLE: Context-bound interactivity (click cross-filter, tooltips, hover)
+-- Grounded in the official docs (fetched 09/11/2026):
+--   https://html-content.com/docs/interactivity
+-- Edition:   Regular + Secure (selection/tooltip reconciliation is done by
+--            the visual reading your markup - no script required).
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI.
+--
+-- SETUP (once per visual):
+--   1. Values  = a measure that returns one row's HTML (Example A).
+--   2. Context = the column(s) identifying the row, e.g. Sales[Category].
+--      Power BI reconciles each rendered row to that dataset row - this is
+--      what makes click cross-filter, contextual tooltips and drillthrough
+--      possible. Without Context rows, a visual is display-only.
+--   3. Format pane > Cross-filtering > Enable (off by default; the card
+--      appears only when the dataset has row context).
+--   4. Optional: Tooltips role = extra fields shown in the hover tooltip.
+--
+-- WHAT THIS GIVES (verified against the docs above):
+--   - Click a row -> other visuals filter to that category (and back).
+--   - Unselected rows get the 'unselected' class (dimmed ~70% by default;
+--     override via CSS on .htmlViewerEntry.unselected - see STYLESHEET).
+--   - Hovering a row adds a 'hover' class you can style (or use :hover).
+--   - Right-click a row -> context menu with drillthrough (if a page exists).
+--   - Inner controls that must NOT trigger filtering: data-hc-suppress="filter"
+--     (tokens: filter | context-menu | tooltip | all).
+-- BOUNDARIES (unchanged): no writeback, no triggering export, no live
+--   JS hover-sync between two separate visuals, no setting other slicers.
+-- =============================================================
+
+-- ----- Example A: per-row bar list (Context-bound; rows cross-filter) -----
+-- Binding: Values = [HTML Ctx Bar Row], Context = Sales[Category]
+
+HTML Ctx Bar Row =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Pct = DIVIDE ( [Revenue], [Revenue Target] )
+VAR BarPct = MIN ( 1, Pct ) * 100
+VAR State = IF ( Pct >= 1, "good", IF ( Pct >= 0.75, "warn", "bad" ) )
+RETURN
+    "<div class='ctx-row' dir='rtl'>"
+        & "<span class='ctx-name'>" & SELECTEDVALUE ( Sales[Category] ) & "</span>"
+        & "<span class='ctx-track'><span class='ctx-fill " & State & "' style='width:" & BarPct & "%'></span></span>"
+        & "<span class='ctx-val'>" & LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI & "</span>"
+        -- inner control that must not cross-filter when clicked:
+        & "<a class='ctx-link' href='https://example.com' target='_blank' data-hc-suppress='filter tooltip'>פרטים</a>"
+    & "</div>"
+
+-- ----- Example B: manual tooltip on a single-measure visual (no row context) -----
+-- For the single-aggregate components (kpi-card, gauge-svg, waffle-chart...):
+-- Power BI cannot reconcile rows, but you can still bind a standard tooltip
+-- to any element: class 'tooltipEnabled' + paired data-tooltip-title-NN /
+-- data-tooltip-value-NN attributes (NN = any matching suffix per field).
+-- Binding: Values = [HTML KPI Tooltip Demo]. No Context needed.
+
+HTML KPI Tooltip Demo =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+RETURN
+    "<div class='kpi tooltipEnabled' dir='rtl' lang='he'"
+        & " data-tooltip-title-00='הכנסות' data-tooltip-value-00='" & LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI & "'"
+        & " data-tooltip-title-01='יעד' data-tooltip-value-01='" & LRI & FORMAT ( [Revenue Target], "#,##0" ) & " ₪" & PDI & "'"
+        & " data-tooltip-title-02='השלמה' data-tooltip-value-02='" & FORMAT ( DIVIDE ( [Revenue], [Revenue Target] ), "0.0%" ) & "'>"
+        & "<div class='kpi-title'>הכנסות</div>"
+        & "<div class='kpi-value'>" & LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI & "</div>"
+    & "</div>"
+
+-- ----- STYLESHEET -----
+-- .ctx-row { display:flex; align-items:center; gap:8px; padding:4px 2px; font-size:12px; }
+-- .ctx-name { flex:0 0 90px; font-weight:600; }
+-- .ctx-track { flex:1 1 auto; height:10px; background:var(--pbi-theme-bg-light,#F0F2F5); border-radius:5px; overflow:hidden; }
+-- .ctx-fill { display:block; height:100%; border-radius:5px; }
+-- .ctx-fill.good { background:var(--pbi-theme-good,#107C10); }
+-- .ctx-fill.warn { background:#CA5010; }
+-- .ctx-fill.bad  { background:var(--pbi-theme-bad,#C50F1F); }
+-- .ctx-val { flex:0 0 auto; font-variant-numeric:tabular-nums; direction:ltr; unicode-bidi:isolate; }
+-- .ctx-link { font-size:11px; }
+-- /* hover feedback while rows are selectable */
+-- .ctx-row:hover, .htmlViewerEntry.hover .ctx-row { background:var(--pbi-theme-bg-light,#F0F2F5); border-radius:6px; }
+-- /* selection state: keep unselected rows readable but clearly secondary */
+-- .htmlViewerEntry.unselected { opacity:0.45; }   /* docs default ~70% transparency; tune here */

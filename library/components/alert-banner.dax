@@ -1,0 +1,41 @@
+-- =============================================================
+-- COMPONENT: Alert banner - conditional exception strip
+-- Why HTML:  complementary to native alerting. Power BI has data alerts
+--            (service dashboard tiles; Fabric Activator alerts on report
+--            visuals in preview) - those send notifications. What does not
+--            exist natively is a styled, conditional exception banner
+--            rendered inside the report canvas itself: good/bad state, a
+--            count and the list of offenders. Verified 9 Nov 2026.
+-- Binding:   Values = [HTML Alert - Under Target]   (single aggregate)
+-- Context:   none. Incoming filters apply.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- =============================================================
+
+HTML Alert - Under Target =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR UnderCats = FILTER ( VALUES ( Sales[Category] ), [Revenue] < [Revenue Target] )
+VAR N = COUNTROWS ( UnderCats )
+VAR Names = CONCATENATEX ( UnderCats, Sales[Category], ", " )
+RETURN
+    IF (
+        N = 0,
+        "<div class='alert good' dir='rtl' lang='he'>"
+            & "<span class='alert-ico'>✓</span>"
+            & "<span>כל הקטגוריות עומדות ביעד</span>"
+        & "</div>",
+        "<div class='alert bad' dir='rtl' lang='he'>"
+            & "<span class='alert-ico'>!</span>"
+            & "<span><b>" & LRI & N & PDI & " קטגוריות מתחת ליעד: </b>" & Names & "</span>"
+        & "</div>"
+    )
+
+-- STYLESHEET:
+-- .alert { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:10px;
+--          font-size:12px; }
+-- .alert.good { background:#E7F3E7; color:var(--pbi-theme-good,#107C10); }
+-- .alert.bad  { background:#FBE7E7; color:var(--pbi-theme-bad,#D13438); }
+-- .alert-ico { display:flex; align-items:center; justify-content:center; width:20px; height:20px;
+--              border-radius:50%; font-weight:700; font-size:12px; flex:none;
+--              background:rgba(255,255,255,.65); }

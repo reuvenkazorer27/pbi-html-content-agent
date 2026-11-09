@@ -1,0 +1,40 @@
+-- =============================================================
+-- COMPONENT: Filter banner - styled active-filter summary
+-- Why HTML:  NATIVE WORKAROUND EXISTS, richer form. A card visual with a
+--            dynamic-text measure can print the filter state, and the
+--            Filter pane lists selections - but neither renders branded,
+--            styled chips inside the canvas design. Read-only: it displays
+--            state, it does not change filters.
+-- Binding:   Values = [HTML Filter Banner]   (single aggregate)
+-- Context:   none.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Notes:     extend the VAR block per slicer field you expose.
+-- =============================================================
+
+HTML Filter Banner =
+VAR YrSel =
+    IF (
+        ISFILTERED ( 'Date'[Year] ),
+        CONCATENATEX ( VALUES ( 'Date'[Year] ), 'Date'[Year], ", " ),
+        "כל השנים"
+    )
+VAR CatSel =
+    IF (
+        ISFILTERED ( Sales[Category] ),
+        CONCATENATEX ( VALUES ( Sales[Category] ), Sales[Category], ", " ),
+        "כל הקטגוריות"
+    )
+RETURN
+    "<div class='fbanner' dir='rtl' lang='he'>"
+        & "<span class='fbanner-cap'>סינון פעיל:</span>"
+        & "<span class='fchip'>שנה: " & YrSel & "</span>"
+        & "<span class='fchip'>קטגוריה: " & CatSel & "</span>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .fbanner { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+--            padding:8px 14px; font-size:12px; }
+-- .fbanner-cap { color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .fchip { padding:2px 10px; border-radius:999px; background:var(--pbi-theme-bg-neutral,#EFF2F5);
+--          color:var(--pbi-theme-fg,#1F2937); }

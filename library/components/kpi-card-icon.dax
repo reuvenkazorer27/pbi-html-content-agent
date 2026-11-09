@@ -1,0 +1,52 @@
+-- =============================================================
+-- COMPONENT: KPI card with icon chip and delta pill (RTL Hebrew)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values = [HTML KPI - Icon]
+-- Context:   none
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Compose:   the icon chip is a tiny inline SVG - swap the rects for any
+--            3-bar glyph, or replace with a unicode glyph like the side menu.
+-- =============================================================
+
+HTML KPI - Icon =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR CurrentRevenue = [Revenue]
+VAR LastYear = [Revenue LY]
+VAR Delta = DIVIDE ( CurrentRevenue - LastYear, LastYear )
+VAR DirClass = IF ( Delta >= 0, "up", "down" )
+VAR Arrow = IF ( Delta >= 0, "▲", "▼" )
+RETURN
+    "<div class='kpi' dir='rtl' lang='he'>"
+        & "<div class='kpi-top'>"
+            & "<span class='kpi-ico'>"
+                & "<svg width='18' height='18' viewBox='0 0 18 18'>"
+                    & "<rect x='1' y='9' width='4' height='8' rx='1' class='ico-bar'/>"
+                    & "<rect x='7' y='5' width='4' height='12' rx='1' class='ico-bar'/>"
+                    & "<rect x='13' y='1' width='4' height='16' rx='1' class='ico-bar'/>"
+                & "</svg>"
+            & "</span>"
+            & "<span class='kpi-title'>הכנסות</span>"
+        & "</div>"
+        & "<div class='kpi-value'>" & LRI & FORMAT ( CurrentRevenue, "#,##0" ) & " ₪" & PDI & "</div>"
+        & "<div><span class='kpi-pill " & DirClass & "'>"
+            & LRI & Arrow & " " & FORMAT ( ABS ( Delta ), "0.0%" ) & PDI
+            & " מול שנה קודמת</span></div>"
+    & "</div>"
+
+-- STYLESHEET (paste into the visual's Stylesheet property, or bind via fx):
+--
+-- .kpi { display:flex; flex-direction:column; gap:8px; padding:16px; border-radius:12px;
+--        background:var(--pbi-theme-bg-light,#FFFFFF);
+--        box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .kpi-top { display:flex; align-items:center; gap:8px; }
+-- .kpi-ico { display:inline-flex; align-items:center; justify-content:center;
+--            width:36px; height:36px; border-radius:10px;
+--            background:var(--pbi-theme-bg-neutral,#E5EDF3); }
+-- .ico-bar { fill:var(--pbi-theme-color-1,#0F6CBD); }
+-- .kpi-title { font-size:12px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .kpi-value { font-size:30px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); }
+-- .kpi-pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; }
+-- .kpi-pill.up   { background:#E4F2E4; color:var(--pbi-theme-good,#107C10); }
+-- .kpi-pill.down { background:#FBE7E7; color:var(--pbi-theme-bad,#D13438); }

@@ -1,0 +1,25 @@
+// kpi-with-icon.dax - KPI card עם אייקון Kubai מוטמע (inline SVG)
+// מקור האייקון: library/icons/banknote.svg (Kubai Icons, MIT - ראו library/icons/LICENSE-MIT-kubai)
+// לא נבדק ב-Power BI בפועל. פילטרי SVG הצהרתיים עשויים להיות מוגבלים במהדורות מסוימות.
+// הערת DAX: המירכאות הכפולות כבר מוכפלות ("").
+
+KPI Icon Revenue =
+VAR Revenue = [סה""כ הכנסות]
+VAR RevenueFmt = FORMAT ( Revenue, "#,##0" )
+VAR Delta = [שינוי הכנסות %]
+VAR DeltaFmt = FORMAT ( Delta, "+0.0%;-0.0%;0.0%" )
+VAR DeltaColor = IF ( Delta >= 0, "#17723B", "#C50F1F" )
+VAR IconTileBg = "#EEF3FF"   // גוון רקע לעיגול האייקון (tint של primary)
+VAR Arrow = IF ( Delta >= 0, UNICHAR ( 8593 ), UNICHAR ( 8595 ) )
+VAR IconSvg = "<svg xmlns=""http://www.w3.org/2000/svg"" viewBox=""-2.5 -5.5 36 36"" width=""24"" height=""24"" fill=""none""><defs><linearGradient id=""loS-ki-banknote"" x1=""0"" y1=""0"" x2=""0"" y2=""1""><stop offset=""0"" stop-color=""#93BBFF""/><stop offset=""1"" stop-color=""#7FAEFF""/></linearGradient><linearGradient id=""upS-ki-banknote"" x1=""0"" y1=""0"" x2=""0"" y2=""1""><stop offset=""0"" stop-color=""#CCDFFF""/><stop offset=""1"" stop-color=""#ADCBFF""/></linearGradient><filter id=""sh-ki-banknote"" x=""-40%"" y=""-40%"" width=""180%"" height=""190%"" color-interpolation-filters=""sRGB""><feFlood flood-opacity=""0"" result=""BackgroundImageFix""/><feColorMatrix in=""SourceAlpha"" type=""matrix"" values=""0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"" result=""hardAlpha""/><feOffset dy=""2""/><feGaussianBlur stdDeviation=""2""/><feComposite in2=""hardAlpha"" operator=""out""/><feColorMatrix type=""matrix"" values=""0 0 0 0 0.5412 0 0 0 0 0.7137 0 0 0 0 1 0 0 0 0.21 0""/><feBlend in2=""BackgroundImageFix"" mode=""normal"" result=""shadow""/><feBlend in=""SourceGraphic"" in2=""shadow"" mode=""normal""/></filter><filter id=""hi-ki-banknote"" x=""-10%"" y=""-10%"" width=""120%"" height=""130%"" color-interpolation-filters=""sRGB""><feColorMatrix in=""SourceAlpha"" type=""matrix"" values=""0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"" result=""a""/><feOffset in=""a"" dy=""0.7""/><feGaussianBlur stdDeviation=""0.35""/><feComposite in2=""a"" operator=""arithmetic"" k2=""-1"" k3=""1""/><feColorMatrix type=""matrix"" values=""0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0""/><feBlend in2=""SourceGraphic"" mode=""overlay""/></filter><mask id=""ol-ki-banknote-0"" maskUnits=""userSpaceOnUse"" x=""-40"" y=""-40"" width=""111"" height=""109""><rect x=""-40"" y=""-40"" width=""111"" height=""109"" fill=""#fff""/><path d=""M0 2.2Q0 0 2.2 0L18.4 0Q20.6 0 20.6 2.2L20.6 10.4Q20.6 12.6 18.4 12.6L2.2 12.6Q0 12.6 0 10.4Z"" fill=""#000""/></mask><mask id=""ol-ki-banknote-1"" maskUnits=""userSpaceOnUse"" x=""-40"" y=""-40"" width=""111"" height=""109""><rect x=""-40"" y=""-40"" width=""111"" height=""109"" fill=""#fff""/><path d=""M0 2.2Q0 0 2.2 0L18.4 0Q20.6 0 20.6 2.2L20.6 10.4Q20.6 12.6 18.4 12.6L2.2 12.6Q0 12.6 0 10.4Z"" fill=""#000""/></mask></defs><g transform=""translate(6.4 3.6) rotate(0 10.3 6.3)""><g filter=""url(#sh-ki-banknote)""><g filter=""url(#hi-ki-banknote)""><path d=""M0 2.2Q0 0 2.2 0L18.4 0Q20.6 0 20.6 2.2L20.6 10.4Q20.6 12.6 18.4 12.6L2.2 12.6Q0 12.6 0 10.4Z"" fill=""url(#upS-ki-banknote)""/></g></g><path d=""M0 2.2Q0 0 2.2 0L18.4 0Q20.6 0 20.6 2.2L20.6 10.4Q20.6 12.6 18.4 12.6L2.2 12.6Q0 12.6 0 10.4Z"" mask=""url(#ol-ki-banknote-0)"" fill=""none"" stroke-width=""2"" stroke=""#5393FF""/></g><g transform=""translate(4 8.4) rotate(0 10.3 6.3)""><g filter=""url(#sh-ki-banknote)""><g filter=""url(#hi-ki-banknote)""><path d=""M0 2.2Q0 0 2.2 0L18.4 0Q20.6 0 20.6 2.2L20.6 10.4Q20.6 12.6 18.4 12.6L2.2 12.6Q0 12.6 0 10.4Z"" fill=""url(#loS-ki-banknote)""/></g></g><path d=""M0 2.2Q0 0 2.2 0L18.4 0Q20.6 0 20.6 2.2L20.6 10.4Q20.6 12.6 18.4 12.6L2.2 12.6Q0 12.6 0 10.4Z"" mask=""url(#ol-ki-banknote-1)"" fill=""none"" stroke-width=""2"" stroke=""#5393FF""/><path d=""M7.1 6.3A3.2 3.2 0 1 0 13.5 6.3A3.2 3.2 0 1 0 7.1 6.3Z"" fill=""#fff""/><path d=""M2.75 6.3A1.25 1.25 0 1 0 5.25 6.3A1.25 1.25 0 1 0 2.75 6.3ZM15.35 6.3A1.25 1.25 0 1 0 17.85 6.3A1.25 1.25 0 1 0 15.35 6.3Z"" fill=""#FFFFFF""/></g></svg>"
+RETURN
+"<div style=""direction:rtl; width:100%; box-sizing:border-box; display:flex; align-items:center; gap:12px; background:#FFFFFF; border:1px solid #E3E7EE; border-radius:10px; padding:10px 14px; font-family:Segoe UI, Arial, sans-serif;"">
+  <div style=""flex:0 0 auto; width:28px; height:28px; display:flex; align-items:center; justify-content:center; background:" & IconTileBg & "; border-radius:8px;"">"
+  & IconSvg &
+  "</div>
+  <div style=""flex:1 1 auto; min-width:0;"">
+    <div style=""font-size:11px; color:#5B6472;"">הכנסות</div>
+    <div style=""font-size:20px; font-weight:700; color:#1A2233; font-variant-numeric:tabular-nums;"">" & RevenueFmt & UNICHAR(160) & "₪</div>
+    <div style=""font-size:11px; font-weight:600; color:" & DeltaColor & ";"">" & "<span style=""direction:ltr; unicode-bidi:isolate;"">" & Arrow & " " & DeltaFmt & "</span>" & " מול תקופה קודמת</div>
+  </div>
+</div>"

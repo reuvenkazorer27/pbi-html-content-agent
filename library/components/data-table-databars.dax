@@ -1,0 +1,44 @@
+-- =============================================================
+-- COMPONENT: Data table row with in-cell data bar (RTL Hebrew)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values  = [HTML Table Row - Data Bar]
+--            Context = Sales[Category]
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Pairing:   use with the Body/Row templates from data-table.dax; this row
+--            measure replaces the revenue cell with a bar + value cell.
+-- Note:      the bar is an inline SVG, not an inline style attribute, so the
+--            Secure edition's sanitization keeps it. RTL: bar anchored right.
+-- =============================================================
+
+HTML Table Row - Data Bar =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Pct = DIVIDE ( [Revenue], [Revenue Target] )
+VAR State = IF ( Pct >= 1, "good", IF ( Pct >= 0.75, "warn", "bad" ) )
+VAR MaxV =
+    MAXX (
+        CALCULATETABLE ( VALUES ( Sales[Category] ), REMOVEFILTERS ( Sales[Category] ) ),
+        [Revenue]
+    )
+VAR BarW = INT ( 72 * DIVIDE ( [Revenue], MaxV ) )   // bar lane is 72 px wide
+RETURN
+    "<td>" & SELECTEDVALUE ( Sales[Category] ) & "</td>"
+    & "<td class='num'>"
+        & "<span class='dbar'>"
+            & "<svg width='72' height='12' viewBox='0 0 72 12'>"
+                & "<rect x='0' y='1' width='72' height='10' rx='3' class='dbar-track'/>"
+                & "<rect x='" & 72 - BarW & "' y='1' width='" & BarW & "' height='10' rx='3' class='dbar-fill " & State & "'/>"
+            & "</svg>"
+            & LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI
+        & "</span>"
+    & "</td>"
+    & "<td class='num'>" & LRI & FORMAT ( [Revenue Target], "#,##0" ) & " ₪" & PDI & "</td>"
+    & "<td class='num'><span class='pill " & State & "'>" & LRI & FORMAT ( Pct, "0%" ) & PDI & "</span></td>"
+
+-- STYLESHEET:
+-- .dbar { display:inline-flex; align-items:center; gap:8px; }
+-- .dbar-track { fill:var(--pbi-theme-bg-neutral,#E5EDF3); }
+-- .dbar-fill.good { fill:var(--pbi-theme-good,#107C10); }
+-- .dbar-fill.warn { fill:#E8A33D; }
+-- .dbar-fill.bad  { fill:var(--pbi-theme-bad,#D13438); }

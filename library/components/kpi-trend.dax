@@ -1,0 +1,82 @@
+-- =============================================================
+-- COMPONENT: KPI trend card - value + sparkline + dual comparison pills
+-- Why HTML:  NATIVE EXISTS, richer composition. The modern Card visual
+--            (power-bi-visualization-card) covers value + reference labels
+--            + images + layouts, but cannot embed a sparkline inside the
+--            card (native sparklines exist only in table/matrix). This
+--            composition - sparkline + YoY pill + target pill + status
+--            accent edge in one tight card - is the top-of-dashboard KPI
+--            row component. Verified 9 Nov 2026.
+-- Binding:   Values = [HTML KPI Trend - Revenue]   (single aggregate)
+-- Context:   none. Incoming filters apply.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Requires:  a marked date table 'Date' with 'Date'[Month start].
+-- =============================================================
+
+HTML KPI Trend - Revenue =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Val    = [Revenue]
+VAR ValLY  = [Revenue LY]
+VAR YoYPct  = DIVIDE ( Val - ValLY, ValLY )
+VAR AttPct  = DIVIDE ( Val, [Revenue Target] )
+VAR YoYCls  = IF ( YoYPct >= 0, "up", "down" )
+VAR Arrow   = IF ( YoYPct >= 0, "▲", "▼" )
+VAR AttCls  = IF ( AttPct >= 1, "up", IF ( AttPct >= 0.9, "warn", "down" ) )
+VAR Status  = IF ( AttPct >= 1, "good", IF ( AttPct >= 0.9, "warn", "bad" ) )
+-- sparkline geometry
+VAR W = 150
+VAR H = 36
+VAR Pad = 2
+VAR Periods = FILTER ( VALUES ( 'Date'[Month start] ), NOT ISBLANK ( [Revenue] ) )
+VAR N      = COUNTROWS ( Periods )
+VAR MinV   = MINX ( Periods, [Revenue] )
+VAR MaxV   = MAXX ( Periods, [Revenue] )
+VAR RangeV = MAX ( MaxV - MinV, 1 )
+VAR Points =
+    CONCATENATEX (
+        Periods,
+        VAR i = RANKX ( Periods, 'Date'[Month start], , ASC ) - 1
+        VAR x = Pad + i * DIVIDE ( W - 2 * Pad, MAX ( N - 1, 1 ) )
+        VAR y = H - Pad - DIVIDE ( [Revenue] - MinV, RangeV ) * ( H - 2 * Pad )
+        RETURN FORMAT ( x, "0.0" ) & "," & FORMAT ( y, "0.0" ),
+        " ",
+        'Date'[Month start], ASC
+    )
+RETURN
+    "<div class='ktrend " & Status & "' dir='rtl' lang='he'>"
+        & "<div class='ktrend-head'>"
+            & "<span class='ktrend-title'>הכנסות</span>"
+            & "<svg class='ktrend-spark' width='" & W & "' height='" & H & "' viewBox='0 0 " & W & " " & H & "'>"
+                & "<polyline points='" & Points & "' fill='none' class='spark-line'/>"
+            & "</svg>"
+        & "</div>"
+        & "<div class='ktrend-value'>" & LRI & FORMAT ( Val, "#,##0" ) & " ₪" & PDI & "</div>"
+        & "<div class='ktrend-pills'>"
+            & "<span class='pill sm " & YoYCls & "'>"
+                & LRI & Arrow & " " & FORMAT ( ABS ( YoYPct ), "0.0%" ) & PDI & " מול שנה קודמת</span>"
+            & "<span class='pill sm " & AttCls & "'>"
+                & LRI & FORMAT ( AttPct, "0%" ) & PDI & " מהיעד</span>"
+        & "</div>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .ktrend { display:flex; flex-direction:column; gap:6px; padding:10px 12px; border-radius:12px;
+--            border:1px solid #E3E6EC;
+--           background:var(--pbi-theme-bg-light,#FFFFFF); box-shadow:0 1px 3px rgba(16,24,40,.08);
+--           border-inline-start:3px solid transparent; }
+-- .ktrend.good { border-inline-start-color:var(--pbi-theme-good,#107C10); }
+-- .ktrend.warn { border-inline-start-color:#E8A33D; }
+-- .ktrend.bad  { border-inline-start-color:var(--pbi-theme-bad,#D13438); }
+-- .ktrend-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+-- .ktrend-head svg { height:30px; width:auto; flex:none; }
+-- .ktrend-title { font-size:12px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .ktrend-value { font-size:24px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); white-space:nowrap; }
+-- .ktrend-pills { display:flex; gap:6px; flex-wrap:nowrap; }
+-- .ktrend-pills .pill.sm { white-space:nowrap; }
+-- .pill.sm { font-size:11px; padding:2px 8px; border-radius:999px; }
+-- .pill.sm.up   { background:#E7F3E7; color:var(--pbi-theme-good,#107C10); }
+-- .pill.sm.warn { background:#FBF0DC; color:#8F5A00; }
+-- .pill.sm.down { background:#FBE7E7; color:var(--pbi-theme-bad,#D13438); }
+-- .spark-line { stroke:var(--pbi-theme-color-1,#0F6CBD); stroke-width:2; }

@@ -1,0 +1,34 @@
+-- =============================================================
+-- COMPONENT: Status badge / pill (RTL Hebrew)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values = [HTML Badge - Status]
+-- Context:   optional; add a column to Context for one badge per row.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- =============================================================
+
+HTML Badge - Status =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Pct = DIVIDE ( [Revenue], [Revenue Target] )
+VAR Label =
+    SWITCH (
+        TRUE (),
+        Pct >= 1,   "עומד ביעד",
+        Pct >= 0.75, "בסיכון בינוני",
+        "חריגה מהיעד"
+    )
+VAR State = IF ( Pct >= 1, "good", IF ( Pct >= 0.75, "warn", "bad" ) )
+RETURN
+    "<span class='badge " & State & "' dir='rtl' lang='he'>"
+        & "<span class='badge-dot'></span>" & Label
+        & " · " & LRI & FORMAT ( Pct, "0%" ) & PDI
+    & "</span>"
+
+-- STYLESHEET:
+-- .badge { display:inline-flex; align-items:center; gap:6px; padding:4px 12px;
+--          border-radius:999px; font-size:12px; font-weight:600; }
+-- .badge-dot { width:8px; height:8px; border-radius:50%; background:currentColor; }
+-- .badge.good { background:#E4F2E4; color:var(--pbi-theme-good,#107C10); }
+-- .badge.warn { background:#FBF0DC; color:#8A5A00; }
+-- .badge.bad  { background:#FBE7E7; color:var(--pbi-theme-bad,#D13438); }

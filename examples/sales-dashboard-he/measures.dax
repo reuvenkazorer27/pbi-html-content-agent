@@ -1,0 +1,37 @@
+-- =============================================================
+-- EXAMPLE: sales-dashboard-he - all measures (measure table _HTML)
+-- Model assumptions (adapt to yours):
+--   Sales[Category], Date[Year], Date[Month start]
+--   [Revenue], [Revenue LY], [Revenue Target], [Orders]
+--   RefreshLog[At]  (optional, for a truthful "last refresh")
+-- Components are copied from ../../library/components/ - keep one source
+-- of truth there and adapt names here. Status: doc-based, NOT run in Power BI.
+-- =============================================================
+
+-- [1]  Header          -> copy of library/components/header-bar.dax
+-- [2]  Side menu       -> copy of library/components/side-menu.dax   (ActivePage = "sales")
+-- [5]  KPI: revenue    -> copy of library/components/kpi-trend.dax   (measure [Revenue], target [Revenue Target])
+-- [6]  KPI: orders     -> copy of library/components/kpi-trend.dax   (measure [Orders], target [Orders Target])
+-- [7]  KPI: basket     -> copy of library/components/kpi-trend.dax   (measure [Avg Basket], target [Avg Basket Target])
+-- [8]  KPI: profit     -> copy of library/components/kpi-trend.dax   (measure [Gross Profit], target [Gross Profit Target])
+-- [9]  Filter banner   -> copy of library/components/filter-banner.dax
+-- [11] Variance rows   -> copy of library/components/variance-columns.dax  (Context = Sales[Category])
+-- [12] Exception rows  -> copy of library/components/exception-cards.dax   (Context = Sales[Category])
+-- [13] Stage tracker   -> copy of library/components/stage-tracker.dax     (stage measures: replace placeholders)
+-- [14] Narrative       -> copy of library/components/insight-narrative.dax
+-- [15] Scorecard rows  -> copy of library/components/scorecard-table.dax   (Context = Sales[Category])
+-- [16] Dumbbell rows   -> copy of library/components/dumbbell-chart.dax    (Context = Sales[Category])
+
+-- Plus the two shared formatting helpers every component uses:
+-- LRI = UNICHAR ( 8294 )   // Left-to-Right Isolate
+-- PDI = UNICHAR ( 8297 )   // Pop Directional Isolate
+
+-- Guard for empty filter states (add to visuals 8, 10, 11 via the
+-- visual's "No Data" message property, or as a fallback measure):
+HTML Empty State =
+    "<div class='empty' dir='rtl' lang='he'>"
+        & "<div class='empty-title'>אין נתונים לתצוגה</div>"
+        & "<div class='empty-sub'>נסו לשנות את הסינון או בחירת השנה</div>"
+    & "</div>"
+-- .empty { padding:32px; text-align:center; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .empty-title { font-size:14px; font-weight:600; }

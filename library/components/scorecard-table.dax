@@ -1,0 +1,75 @@
+-- =============================================================
+-- COMPONENT: Scorecard rows - metric + in-cell sparkline + status
+-- Why HTML:  NATIVE EXISTS, richer composition. Tables/matrix have native
+--            sparklines (Microsoft Learn, power-bi-sparklines-tables; in
+--            preview as of 9 Nov 2026) plus data bars and icons via
+--            conditional formatting. What they do not compose in one row:
+--            a sparkline + attainment pill + status dot with exact design.
+--            Use native table sparklines when the default look is enough.
+-- Binding:   Values  = [HTML Scorecard Row]
+--            Context = Sales[Category]   (one row per category)
+-- Body template:
+--   <div class='sc-table' dir='rtl' lang='he'>{{content}}</div>
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Requires:  a marked date table 'Date' with 'Date'[Month start].
+-- Note:      the sparkline inherits the row's category filter, so each
+--            row really trends its own category.
+-- =============================================================
+
+HTML Scorecard Row =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR CatName = SELECTEDVALUE ( Sales[Category] )
+VAR Val = [Revenue]
+VAR AttPct = DIVIDE ( Val, [Revenue Target] )
+VAR AttCls = IF ( AttPct >= 1, "up", IF ( AttPct >= 0.9, "warn", "down" ) )
+VAR DotCls = IF ( AttPct >= 1, "good", IF ( AttPct >= 0.9, "warn", "bad" ) )
+-- sparkline geometry (this category only - row context applies)
+VAR W = 110
+VAR H = 20
+VAR Pad = 2
+VAR Periods = FILTER ( VALUES ( 'Date'[Month start] ), NOT ISBLANK ( [Revenue] ) )
+VAR N      = COUNTROWS ( Periods )
+VAR MinV   = MINX ( Periods, [Revenue] )
+VAR MaxV   = MAXX ( Periods, [Revenue] )
+VAR RangeV = MAX ( MaxV - MinV, 1 )
+VAR Points =
+    CONCATENATEX (
+        Periods,
+        VAR i = RANKX ( Periods, 'Date'[Month start], , ASC ) - 1
+        VAR x = Pad + i * DIVIDE ( W - 2 * Pad, MAX ( N - 1, 1 ) )
+        VAR y = H - Pad - DIVIDE ( [Revenue] - MinV, RangeV ) * ( H - 2 * Pad )
+        RETURN FORMAT ( x, "0.0" ) & "," & FORMAT ( y, "0.0" ),
+        " ",
+        'Date'[Month start], ASC
+    )
+RETURN
+    "<div class='sc-row'>"
+        & "<span class='sc-dot " & DotCls & "'></span>"
+        & "<span class='sc-name'>" & CatName & "</span>"
+        & "<span class='sc-spark'><svg width='100%' height='" & H & "' viewBox='0 0 " & W & " " & H & "' preserveAspectRatio='none'>"
+            & "<polyline points='" & Points & "' fill='none' class='spark-line'/>"
+        & "</svg></span>"
+        & "<span class='sc-val'>" & LRI & FORMAT ( Val, "#,##0" ) & " ₪" & PDI & "</span>"
+        & "<span class='pill sm " & AttCls & "'>" & LRI & FORMAT ( AttPct, "0%" ) & PDI & "</span>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .sc-table { display:flex; flex-direction:column; padding:4px 0; }
+-- .sc-row { display:flex; align-items:center; gap:8px; padding:2px 8px;
+--           border-bottom:1px solid var(--pbi-theme-bg-neutral,#EDEBE9); }
+-- .sc-row:last-child { border-bottom:none; }
+-- .sc-dot { width:8px; height:8px; border-radius:50%; flex:none; }
+-- .sc-dot.good { background:var(--pbi-theme-good,#107C10); }
+-- .sc-dot.warn { background:#E8A33D; }
+-- .sc-dot.bad  { background:var(--pbi-theme-bad,#D13438); }
+-- .sc-name { min-width:52px; font-size:12px; color:var(--pbi-theme-fg,#1F2937); }
+-- .sc-spark { flex:1 1 48px; min-width:0; margin-inline-start:auto; }  /* wrapper: browsers shrink a span reliably, a bare svg flex item not always; stretches to fill the row */
+-- .sc-spark svg { display:block; width:100%; height:20px; }  /* stretches with preserveAspectRatio=none: fills the row, fixed height */
+-- .sc-val { font-size:13px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); min-width:80px; font-size:12px; text-align:left; }
+-- .spark-line { stroke:var(--pbi-theme-color-1,#0F6CBD); stroke-width:2; }
+-- .pill.sm { font-size:11px; padding:2px 8px; border-radius:999px; }
+-- .pill.sm.up   { background:#E7F3E7; color:var(--pbi-theme-good,#107C10); }
+-- .pill.sm.warn { background:#FBF0DC; color:#8F5A00; }
+-- .pill.sm.down { background:#FBE7E7; color:var(--pbi-theme-bad,#D13438); }

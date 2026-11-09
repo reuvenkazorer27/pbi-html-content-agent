@@ -1,0 +1,94 @@
+-- =============================================================
+-- COMPONENT: Multi-segment donut with legend (RTL Hebrew)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values  = [HTML Donut Segments]
+--            Context = Sales[Category]
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Geometry:  r=54, C = 2*PI()*54 = 339.292. Each segment is one circle:
+--            stroke-dasharray "seg C-seg", stroke-dashoffset = -cumBefore.
+--            rotate(-90 80 80) starts the first segment at 12 o'clock.
+--            Segments run clockwise; the legend lists categories in the
+--            same order, top to bottom, so reading stays natural in RTL.
+-- Colors:    series order maps to --pbi-theme-color-1..4 with Ocean BI
+--            fallbacks; add classes s5/s6 if you bind more categories.
+-- =============================================================
+
+HTML Donut Segments =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR R = 54
+VAR C = 2 * PI () * R
+VAR Cats =
+    CALCULATETABLE (
+        VALUES ( Sales[Category] ),
+        REMOVEFILTERS ( Sales[Category] )
+    )
+VAR Total = CALCULATE ( [Revenue], REMOVEFILTERS ( Sales[Category] ) )
+VAR Segments =
+    CONCATENATEX (
+        Cats,
+        VAR Share = DIVIDE ( [Revenue], Total )
+        VAR Rank = RANKX ( Cats, [Revenue], , DESC )
+        VAR CumBefore =
+            SUMX ( FILTER ( Cats, RANKX ( Cats, [Revenue], , DESC ) < Rank ), [Revenue] )
+        VAR SegLen = C * Share
+        VAR Offset = - C * DIVIDE ( CumBefore, Total )
+        RETURN
+            "<circle cx='80' cy='80' r='" & R & "' class='seg s" & Rank & "' "
+                & "stroke-dasharray='" & FORMAT ( SegLen, "0.0" ) & " " & FORMAT ( C - SegLen, "0.0" ) & "' "
+                & "stroke-dashoffset='" & FORMAT ( Offset, "0.0" ) & "' "
+                & "transform='rotate(-90 80 80)'/>"
+    )
+VAR Legend =
+    CONCATENATEX (
+        Cats,
+        VAR Share = DIVIDE ( [Revenue], Total )
+        VAR Rank = RANKX ( Cats, [Revenue], , DESC )
+        RETURN
+            "<div class='lg-row'>"
+                & "<span class='lg-dot s" & Rank & "'></span>"
+                & "<span class='lg-name'>" & Sales[Category] & "</span>"
+                & "<span class='lg-val'>" & LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI & "</span>"
+                & "<span class='lg-pct'>" & LRI & FORMAT ( Share, "0%" ) & PDI & "</span>"
+            & "</div>"
+    )
+RETURN
+    "<div class='donutlg-card' dir='rtl' lang='he'>"
+        & "<div class='donutlg-title'>פילוח הכנסות לפי קטגוריה</div>"
+        & "<div class='donutlg-body'>"
+            & "<svg width='160' height='160' viewBox='0 0 160 160'>"
+                & "<circle cx='80' cy='80' r='" & R & "' class='donut-track'/>"
+                & Segments
+                & "<text x='80' y='76' text-anchor='middle' class='donut-total'>"
+                    & LRI & FORMAT ( Total, "#,##0" ) & " ₪" & PDI & "</text>"
+                & "<text x='80' y='96' text-anchor='middle' class='donut-caption'>סך הכנסות</text>"
+            & "</svg>"
+            & "<div class='lg'>" & Legend & "</div>"
+        & "</div>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .donutlg-card { padding:16px; border-radius:12px; background:var(--pbi-theme-bg-light,#FFFFFF);
+--                 box-shadow:0 1px 3px rgba(16,24,40,.08);
+--                 display:flex; flex-direction:column; gap:8px; }
+-- .donutlg-title { font-size:13px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); }
+-- .donutlg-body { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }  /* narrow frames: legend wraps under the donut */
+-- .donut-track, .seg { fill:none; stroke-width:14; }
+-- .donut-track { stroke:var(--pbi-theme-bg-neutral,#E5EDF3); }
+-- .seg.s1 { stroke:var(--pbi-theme-color-1,#0F6CBD); }
+-- .seg.s2 { stroke:var(--pbi-theme-color-2,#00B7C3); }
+-- .seg.s3 { stroke:var(--pbi-theme-color-3,#5B5FC7); }
+-- .seg.s4 { stroke:var(--pbi-theme-color-4,#8764B8); }
+-- .donut-total { font-size:13px; font-weight:600; fill:var(--pbi-theme-fg,#1F2937); }  /* 13px keeps "9,999,999 ₪" inside the 94px hole */
+-- .donut-caption { font-size:11px; fill:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .lg { display:flex; flex-direction:column; gap:8px; }
+-- .lg-row { display:flex; align-items:center; gap:8px; font-size:12px; }
+-- .lg-dot { width:10px; height:10px; border-radius:3px; }
+-- .lg-dot.s1 { background:var(--pbi-theme-color-1,#0F6CBD); }
+-- .lg-dot.s2 { background:var(--pbi-theme-color-2,#00B7C3); }
+-- .lg-dot.s3 { background:var(--pbi-theme-color-3,#5B5FC7); }
+-- .lg-dot.s4 { background:var(--pbi-theme-color-4,#8764B8); }
+-- .lg-name { color:var(--pbi-theme-fg,#1F2937); min-width:64px; }
+-- .lg-val { color:var(--pbi-theme-fg-neutral-secondary,#605E5C); direction:ltr; unicode-bidi:isolate; }
+-- .lg-pct { font-weight:600; color:var(--pbi-theme-fg,#1F2937); direction:ltr; unicode-bidi:isolate; }

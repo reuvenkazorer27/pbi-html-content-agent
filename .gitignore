@@ -11,7 +11,7 @@ __pycache__/
 node_modules/
 
 # build outputs produced when the pipeline runs inside this folder
-*.dax
+q_*.dax
 r_*.json
 preview*.html
 *.png.tmp

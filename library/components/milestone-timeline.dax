@@ -1,0 +1,127 @@
+-- =============================================================
+-- COMPONENT: Milestone timeline - flat strip with up/down markers
+-- Layer:     differentiation
+-- Why HTML:  direct user requests: "a simple timeline that sits flat and
+--            has markers that stick up / down" (r/PowerBI x46215,
+--            03/09/2022) and "Trying to visualise roadmaps, GANTT charts,
+--            milestones is execrable" (r/PowerBI 18280vs, 23/11/2023).
+--            The native Gantt visual (preview) is a task scheduler with
+--            duration bars - not a light milestone strip
+--            (learn.microsoft.com/power-bi/visuals/power-bi-visualization-gantt,
+--            checked 09/11/2026). No built-in milestone timeline.
+-- Binding:   Values = [HTML Milestone Timeline]   (single aggregate
+--            measure - the measure iterates the Milestones table itself;
+--            report/page filters still apply)
+--            Milestones table: [Name] text, [Date] date,
+--                              [Status] one of: done / current / planned
+-- Edition:   Regular + Secure (pure DAX + HTML/CSS, no JS, no svg text)
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Geometry:  RTL - time flows right to left: earliest milestone at the
+--            right edge. Markers alternate above/below the axis, each with
+--            name + date. Positions are computed in DAX as percents of the
+--            width; ALL text is HTML at a fixed px size, so labels stay
+--            legible at any frame width - nothing scales into unreadable
+--            svg microtext. On narrow frames long names truncate with an
+--            ellipsis rather than shrink; give the visual more height.
+-- Density (safe behavior, not silent collision): the measure computes the
+--            minimum gap between adjacent milestones. When any gap drops
+--            below MinGapPct (default 9% of the range), the axis is NOT
+--            drawn with colliding labels - the component falls back to a
+--            readable date-sorted list with the same status colors, plus
+--            a note saying why. Lower MinGapPct only if your labels are
+--            very short.
+--            Labels alternate up/down by rank, and same-side labels alternate
+--            near/far heights (MOD(rank,4)), so adjacent labels cannot collide.
+--            Edge labels clamp inward; dense data falls back to a list.
+-- Limits (explicit): single flat axis; no durations (not a Gantt); no
+--            zoom/brush; mixed Hebrew+English milestone names should be
+--            stored already wrapped in LRI/PDI (UNICHAR 8294/8297).
+-- =============================================================
+
+HTML Milestone Timeline =
+VAR Ms    = FILTER ( Milestones, NOT ISBLANK ( Milestones[Date] ) )
+VAR DMin  = MINX ( Ms, Milestones[Date] )
+VAR DMax  = MAXX ( Ms, Milestones[Date] )
+VAR Span  = MAX ( 1, DATEDIFF ( DMin, DMax, DAY ) )
+VAR MinGapPct = 9        // percent of the date range; below this, fall back to the list
+VAR Ranked = ADDCOLUMNS ( Ms, "R", RANKX ( Ms, Milestones[Date], , ASC ) )
+VAR WithX  = ADDCOLUMNS ( Ranked, "XPct", DIVIDE ( DATEDIFF ( DMin, Milestones[Date], DAY ), Span ) * 100 )
+VAR Gaps =
+    ADDCOLUMNS (
+        WithX,
+        "Gap",
+        VAR ThisX = [XPct]
+        VAR PrevX = MAXX ( FILTER ( WithX, [XPct] < ThisX ), [XPct] )
+        RETURN ThisX - PrevX
+    )
+VAR MinGap = COALESCE ( MINX ( Gaps, [Gap] ), 100 )
+VAR TooDense = MinGap < MinGapPct
+VAR Marks =
+    CONCATENATEX (
+        WithX,
+        VAR X     = [XPct]
+        VAR IsUp  = MOD ( [R], 2 ) = 1
+        VAR Far   = MOD ( [R], 4 ) IN { 0, 3 }   // second height: same-side labels alternate near/far
+        VAR St    = LOWER ( Milestones[Status] )
+        VAR LeftPct = 7.5 + ( 100 - X ) * 0.85   // map into the axis span (7.5%..92.5%); RTL: earliest at the right
+        VAR EdgeCls = IF ( LeftPct > 88, " cr", IF ( LeftPct < 12, " cl", "" ) )   // keep edge labels inside the frame
+        RETURN
+            "<span class='mstl-m' style='left:" & LeftPct & "%'>"
+                & "<span class='mstl-stem " & IF ( IsUp, "up", "down" ) & IF ( Far, " far", "" ) & "'></span>"
+                & "<span class='mstl-dot " & St & "'></span>"
+                & "<span class='mstl-tag " & IF ( IsUp, "up", "down" ) & IF ( Far, " far", "" ) & EdgeCls & "'>"
+                    & "<span class='mstl-name'>" & Milestones[Name] & "</span>"
+                    & "<span class='mstl-date'>" & FORMAT ( Milestones[Date], "DD/MM/YYYY" ) & "</span>"
+                & "</span>"
+            & "</span>"
+    )
+VAR AxisView =
+    "<div class='mstl-axiswrap'><span class='mstl-axis'></span>" & Marks & "</div>"   // axis first: dots paint over it
+VAR ListView =
+    "<div class='mstl-note'>" & "אירועים צפופים מדי לציר - מוצג כרשימה (אפשר להוריד את MinGapPct במידה או להציג פחות אירועים)" & "</div>"
+    & "<div class='mstl-list'>"
+    & CONCATENATEX (
+        WithX,
+        "<div class='mstl-lrow'>"
+            & "<span class='mstl-dot " & LOWER ( Milestones[Status] ) & "'></span>"
+            & "<span class='mstl-ldate'>" & FORMAT ( Milestones[Date], "DD/MM/YYYY" ) & "</span>"
+            & "<span class='mstl-lname'>" & Milestones[Name] & "</span>"
+        & "</div>"
+    )
+    & "</div>"
+RETURN
+    "<div class='mstl-wrap' dir='rtl' lang='he'>" & IF ( TooDense, ListView, AxisView ) & "</div>"
+
+-- STYLESHEET:
+-- .mstl-wrap { width:100%; font-family:inherit; }
+-- .mstl-axiswrap { position:relative; height:190px; }
+-- .mstl-axis { position:absolute; top:95px; left:7.5%; right:7.5%; border-top:2px solid #B7BFC9; }
+-- .mstl-m { position:absolute; top:95px; width:0; height:0; }
+-- .mstl-dot { position:absolute; left:-6px; top:-6px; width:12px; height:12px; border-radius:50%; box-sizing:border-box; }
+-- .mstl-dot.done    { background:var(--pbi-theme-good,#107C10); }
+-- .mstl-dot.current { background:var(--pbi-theme-color-1,#0F6CBD); border:2px solid #FFFFFF; box-shadow:0 0 0 1px #0F6CBD; }
+-- .mstl-dot.planned { background:#FFFFFF; border:2px solid #B7BFC9; }
+-- .mstl-stem { position:absolute; left:50%; width:0; border-right:1.5px solid #B7BFC9; }
+-- .mstl-stem.up   { bottom:6px; height:24px; }
+-- .mstl-stem.down { top:6px;    height:24px; }
+-- .mstl-stem.up.far   { height:50px; }  /* longer stem up to the far label row */
+-- .mstl-stem.down.far { height:50px; }
+-- .mstl-tag { position:absolute; left:0; transform:translateX(-50%); display:flex; flex-direction:column;
+--             align-items:center; width:120px; }
+-- .mstl-tag.up   { bottom:32px; }
+-- .mstl-tag.down { top:32px; }
+-- .mstl-tag.up.far   { bottom:58px; }  /* second label row: same-side labels never share a height */
+-- .mstl-tag.down.far { top:58px; }
+-- .mstl-tag.cr { left:auto; right:-6px; transform:none; align-items:flex-start; }  /* RTL: flex-start pins text to the right edge, next to its marker */
+-- .mstl-tag.cl { left:-6px; transform:none; align-items:flex-end; }  /* RTL: flex-end pins text to the left edge, next to its marker */
+-- .mstl-name { font-size:12px; font-weight:600; color:var(--pbi-theme-fg,#1F2937);
+--              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px; }
+-- .mstl-date { font-size:10.5px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C);
+--              direction:ltr; unicode-bidi:isolate; white-space:nowrap; }
+-- .mstl-list { max-height:100%; overflow-y:auto; }
+-- .mstl-lrow { display:flex; align-items:center; gap:8px; padding:3px 4px; }
+-- .mstl-lrow .mstl-dot { position:static; margin:0; flex:none; }
+-- .mstl-ldate { font-size:11px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C);
+--               direction:ltr; unicode-bidi:isolate; min-width:66px; }
+-- .mstl-lname { font-size:12px; font-weight:600; }
+-- .mstl-note { font-size:11px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); padding:2px 4px 6px; }

@@ -1,0 +1,86 @@
+-- =============================================================
+-- COMPONENT: Line chart with gradient area fill (single measure)
+-- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Binding:   Values = [HTML Line Area - Revenue trend]
+-- Context:   none. The measure builds the whole chart in one SVG.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Notes:     Same geometry as line-chart-svg.dax, plus a <polygon> under the
+--            line filled by a vertical gradient. Keep the gradient id unique
+--            per report page (two instances with the same id share one fill).
+--            Time axis stays LTR by BI convention even in RTL dashboards.
+-- =============================================================
+
+HTML Line Area - Revenue trend =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR W = 640
+VAR H = 220
+VAR PadL = 48
+VAR PadR = 16
+VAR PadT = 16
+VAR PadB = 28
+VAR Periods =
+    FILTER (
+        VALUES ( 'Date'[Month start] ),
+        NOT ISBLANK ( [Revenue] )
+    )
+VAR N      = COUNTROWS ( Periods )
+VAR MinV   = MINX ( Periods, [Revenue] )
+VAR MaxV   = MAXX ( Periods, [Revenue] )
+VAR RangeV = MAX ( MaxV - MinV, 1 )
+VAR InnerW = W - PadL - PadR
+VAR InnerH = H - PadT - PadB
+VAR Points =
+    CONCATENATEX (
+        Periods,
+        VAR i = RANKX ( Periods, 'Date'[Month start], , ASC ) - 1
+        VAR x = PadL + i * DIVIDE ( InnerW, MAX ( N - 1, 1 ) )
+        VAR y = PadT + ( 1 - DIVIDE ( [Revenue] - MinV, RangeV ) ) * InnerH
+        RETURN
+            FORMAT ( x, "0.0" ) & "," & FORMAT ( y, "0.0" ),
+        " ",
+        'Date'[Month start], ASC
+    )
+VAR AreaPoints =
+    FORMAT ( PadL, "0.0" ) & "," & FORMAT ( PadT + InnerH, "0.0" ) & " "
+        & Points & " "
+        & FORMAT ( PadL + InnerW, "0.0" ) & "," & FORMAT ( PadT + InnerH, "0.0" )
+VAR LastY =
+    PadT + ( 1 - DIVIDE (
+        MAXX (
+            TOPN ( 1, Periods, 'Date'[Month start], DESC ),
+            [Revenue]
+        ) - MinV,
+        RangeV
+    ) ) * InnerH
+RETURN
+    "<div class='line-card' dir='rtl' lang='he'>"
+        & "<div class='line-title'>מגמת הכנסות חודשית</div>"
+        & "<svg width='" & W & "' height='" & H & "' viewBox='0 0 " & W & " " & H & "' direction='ltr'>"
+            & "<defs><linearGradient id='areaGrad' x1='0' y1='0' x2='0' y2='1'>"
+                & "<stop offset='0' class='area-stop-top'/>"
+                & "<stop offset='1' class='area-stop-bottom'/>"
+            & "</linearGradient></defs>"
+            & "<line x1='" & PadL & "' y1='" & PadT & "' x2='" & PadL & "' y2='" & H - PadB & "' class='axis'/>"
+            & "<line x1='" & PadL & "' y1='" & H - PadB & "' x2='" & W - PadR & "' y2='" & H - PadB & "' class='axis'/>"
+            & "<text x='8' y='" & PadT + 6 & "' class='axis-label'>" & LRI & FORMAT ( MaxV, "#,##0" ) & PDI & "</text>"
+            & "<text x='8' y='" & H - PadB & "' class='axis-label'>" & LRI & FORMAT ( MinV, "#,##0" ) & PDI & "</text>"
+            & "<polygon points='" & AreaPoints & "' fill='url(#areaGrad)'/>"
+            & "<polyline points='" & Points & "' fill='none' class='line-path'/>"
+            & "<circle cx='" & W - PadR & "' cy='" & LastY & "' r='4' class='line-end'/>"
+        & "</svg>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .line-card { padding:16px; border-radius:12px; background:var(--pbi-theme-bg-light,#FFFFFF);
+--              box-shadow:0 1px 3px rgba(16,24,40,.08);
+--              display:flex; flex-direction:column; gap:8px; }
+-- .line-title { font-size:13px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); }
+-- .axis { stroke:var(--pbi-theme-fg-neutral-tertiary,#C8C6C4); stroke-width:1; }
+-- .axis-label { font-size:10px; fill:var(--pbi-theme-fg-neutral-secondary,#605E5C);
+--            direction:ltr; unicode-bidi:isolate; }
+-- .line-path { stroke:var(--pbi-theme-color-1,#0F6CBD); stroke-width:2.5; }
+-- .line-end { fill:var(--pbi-theme-color-1,#0F6CBD); }
+-- .area-stop-top { stop-color:var(--pbi-theme-color-1,#0F6CBD); stop-opacity:0.22; }
+-- .area-stop-bottom { stop-color:var(--pbi-theme-color-1,#0F6CBD); stop-opacity:0; }

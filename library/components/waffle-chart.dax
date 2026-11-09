@@ -1,0 +1,50 @@
+-- =============================================================
+-- COMPONENT: Waffle chart - 10x10 attainment grid
+-- Why HTML:  no waffle chart in the built-in catalog; AppSource
+--            alternatives: Waffle Chart, Waffle Chart Maker. Every cell
+--            is one percent, so attainment reads as a count, not an angle.
+-- Binding:   Values = [HTML Waffle - Attainment]   (single aggregate)
+-- Context:   none. Incoming filters apply.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Notes:     the grid is rtl, so filled cells grow from the top-right,
+--            matching Hebrew reading direction. GENERATESERIES builds the
+--            100 cells inside one measure; no helper table needed.
+-- =============================================================
+
+HTML Waffle - Attainment =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Pct = DIVIDE ( [Revenue], [Revenue Target] )
+VAR Filled = ROUND ( 100 * Pct, 0 )
+VAR Cells =
+    CONCATENATEX (
+        GENERATESERIES ( 1, 100 ),
+        "<span class='" & IF ( [Value] <= Filled, "wf-on", "wf-off" ) & "'></span>",
+        "",
+        [Value], ASC
+    )
+RETURN
+    "<div class='waffle-card' dir='rtl' lang='he'>"
+        & "<div class='waffle-head'>"
+            & "<span class='waffle-title'>השגת יעד</span>"
+            & "<span class='waffle-val'>" & LRI & FORMAT ( Pct, "0%" ) & PDI & "</span>"
+        & "</div>"
+        & "<div class='waffle-grid'>" & Cells & "</div>"
+        & "<div class='waffle-sub'>"
+            & LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI
+            & " מתוך " & LRI & FORMAT ( [Revenue Target], "#,##0" ) & " ₪" & PDI
+        & "</div>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .waffle-card { display:flex; flex-direction:column; gap:8px; padding:16px; border-radius:12px;
+--                background:var(--pbi-theme-bg-light,#FFFFFF); box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .waffle-head { display:flex; justify-content:space-between; align-items:baseline; }
+-- .waffle-title { font-size:12px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .waffle-val { font-size:22px; font-weight:600; color:var(--pbi-theme-fg,#1F2937); }
+-- .waffle-grid { display:grid; grid-template-columns:repeat(10, 1fr); gap:3px; width:152px; }
+-- .waffle-grid span { aspect-ratio:1; border-radius:2px; }
+-- .wf-on  { background:var(--pbi-theme-color-1,#0F6CBD); }
+-- .wf-off { background:var(--pbi-theme-bg-neutral,#E5EDF3); }
+-- .waffle-sub { font-size:11px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }

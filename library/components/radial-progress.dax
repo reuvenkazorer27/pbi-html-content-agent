@@ -1,0 +1,51 @@
+-- =============================================================
+-- COMPONENT: Radial progress ring - slim attainment ring with center KPI
+-- Why HTML:  NATIVE WORKAROUND EXISTS, richer form. The built-in Gauge is
+--            a dial with a needle, and a donut chart can be coerced into a
+--            progress ring - but not a slim ring that carries a centered
+--            KPI label and drops into a dense card row with exact styling.
+--            Verified against the built-in catalog 9 Nov 2026.
+-- Binding:   Values = [HTML Ring - Attainment]   (single aggregate)
+-- Context:   none. Incoming filters apply.
+-- Edition:   Regular + Secure
+-- Status:    doc-based (HTML Content 2.0), NOT run in Power BI
+-- Geometry:  r=44, circumference 276.46. stroke-dasharray does the fill.
+-- =============================================================
+
+HTML Ring - Attainment =
+VAR LRI = UNICHAR ( 8294 )
+VAR PDI = UNICHAR ( 8297 )
+VAR Pct = DIVIDE ( [Revenue], [Revenue Target] )
+VAR CIRC = 276.46
+VAR Dash = ROUND ( CIRC * MIN ( Pct, 1 ), 1 )
+VAR RingCls = IF ( Pct >= 1, "good", IF ( Pct >= 0.9, "warn", "bad" ) )
+RETURN
+    "<div class='ring-card' dir='rtl' lang='he'>"
+        & "<svg width='120' height='120' viewBox='0 0 120 120'>"
+            & "<circle cx='60' cy='60' r='44' class='rp-track'/>"
+            & "<circle cx='60' cy='60' r='44' class='rp-fill " & RingCls & "'"
+                & " stroke-dasharray='" & Dash & " " & CIRC & "'"
+                & " transform='rotate(-90 60 60)'/>"
+            & "<text x='60' y='58' text-anchor='middle' class='rp-val'>"
+                & LRI & FORMAT ( Pct, "0%" ) & PDI
+            & "</text>"
+            & "<text x='60' y='76' text-anchor='middle' class='rp-cap'>מהיעד</text>"
+        & "</svg>"
+        & "<div class='ring-sub'>"
+            & LRI & FORMAT ( [Revenue], "#,##0" ) & " ₪" & PDI
+            & " מתוך " & LRI & FORMAT ( [Revenue Target], "#,##0" ) & " ₪" & PDI
+        & "</div>"
+    & "</div>"
+
+-- STYLESHEET:
+-- .ring-card { display:flex; flex-direction:column; align-items:center; gap:6px; padding:16px;
+--              border-radius:12px; background:var(--pbi-theme-bg-light,#FFFFFF);
+--              box-shadow:0 1px 3px rgba(16,24,40,.08); }
+-- .rp-track { fill:none; stroke:var(--pbi-theme-bg-neutral,#E5EDF3); stroke-width:10; }
+-- .rp-fill  { fill:none; stroke-width:10; stroke-linecap:round; }
+-- .rp-fill.good { stroke:var(--pbi-theme-good,#107C10); }
+-- .rp-fill.warn { stroke:#E8A33D; }
+-- .rp-fill.bad  { stroke:var(--pbi-theme-bad,#D13438); }
+-- .rp-val { font-size:20px; font-weight:600; fill:var(--pbi-theme-fg,#1F2937); }
+-- .rp-cap { font-size:11px; fill:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
+-- .ring-sub { font-size:11px; color:var(--pbi-theme-fg-neutral-secondary,#605E5C); }
