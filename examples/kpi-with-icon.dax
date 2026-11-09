@@ -1,6 +1,6 @@
 // kpi-with-icon.dax - KPI card with an embedded Kubai icon (inline SVG)
 // Icon source: library/icons/banknote.svg (Kubai Icons, MIT - see library/icons/LICENSE-MIT-kubai)
-// Not tested in Power BI. Declarative SVG filters may be limited in some editions.
+// Status: doc-based, NOT run in Power BI. Declarative SVG filters may be limited in some editions.
 // DAX note: double quotes are already doubled ("").
 // Measure names are Hebrew in this example: [סה"כ הכנסות] = total revenue, [שינוי הכנסות %] = revenue change %.
 

@@ -1,6 +1,6 @@
 # Capabilities reference - HTML Content 2.0
 
-Everything on this page was verified against the official documentation at html-content.com on 9 Nov 2026 (URLs in `../SOURCES.md`). Where behavior depends on the host (Desktop/Service/mobile), it is marked. This folder as a whole was not executed in Power BI; treat this as documented behavior, and run `../checklists/validation.md` before production use.
+Everything on this page was verified against the official documentation at html-content.com on 9 Nov 2026 (URLs in `../SOURCES.md`). Where behavior depends on the host (Desktop/Service/mobile), it is marked. The behaviors the pipeline relies on (Secure edition rendering, container padding, RTL, palette-driven slicers) were measured in Power BI Desktop - see `design-system.md`. The `--pbi-theme-*` variables and high-contrast fallbacks were not. Everything else on this page is documented behavior: run `../checklists/validation.md` before relying on it in production.
 
 ## Editions
 

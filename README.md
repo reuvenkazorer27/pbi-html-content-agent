@@ -34,7 +34,7 @@ Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar 
 ## Features
 
 - **Composite or fullscreen dashboards** of HTML Content visuals at exact coordinates, mixed with native slicers and buttons.
-- **Tested card builders** (`tools/pbip-html-pipeline/components.py`) - waterfall, heat matrix, key-influencer lift bars, small multiples, scatter/bubble, treemap and a static decomposition tree. Parameterized by table/column/measure, built on the token, type-scale and direction system, and gated (fit, contrast, empty state) in light, dark and colorful palettes, LTR and RTL.
+- **Gated card builders** (`tools/pbip-html-pipeline/components.py`, headless gates on a live model, not yet confirmed in Desktop) - waterfall, heat matrix, key-influencer lift bars, small multiples, scatter/bubble, treemap and a static decomposition tree. Parameterized by table/column/measure, built on the token, type-scale and direction system, and gated (fit, contrast, empty state) in light, dark and colorful palettes, LTR and RTL.
 - **A component library** (`library/components/`) - bullet, IBCS variance, dumbbell, lollipop, waffle, calendar heatmap, milestone timeline, org strip, KPI cards and more - each a paste-ready DAX measure.
 - **Real interactivity** - cards respond to every slicer and filter; row-bound cards cross-filter other visuals through the Context role; page navigation through native buttons layered over the HTML.
 - **Theme-aware** - colors from palette tokens or the report theme (`--pbi-theme-*` CSS variables), PBIR GUIDs for both editions (Regular and Secure).
@@ -155,6 +155,7 @@ Every library component is marked with the edition it suits. The agent's default
 ## Verification status (honesty label)
 
 - **Measured in Power BI Desktop (Oct 2026 release, 9 Nov 2026):** the fit-to-canvas contract, the pipeline (`tools/pbip-html-pipeline/`) and the rules in `reference/design-system.md` and `reference/build-workflow.md`, on a real 1920×1080 Hebrew RTL dashboard with the Secure edition - including padding 0, RTL alignment, the type scale, palette-driven slicers, the gradient background layer and filled KPI cards.
+- **Gated, not yet confirmed in Desktop:** the card builders in `components.py` and the LTR/English build - DAX evaluated on a live model, passed the headless fit, contrast and stress gates.
 - **Documentation-based, not yet run in Desktop:** the components in `library/components/` and the example in `examples/` (written from the HTML Content 2.0 docs, the PBIR Implementation Guide and Microsoft Learn, 9 Nov 2026), and the items marked 📋 in `ROADMAP.md`. Before production use, run `checklists/validation.md`. Every component that needs checking is marked `not run in Power BI`.
 
 ## Contributing

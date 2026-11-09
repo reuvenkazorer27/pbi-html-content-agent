@@ -1,5 +1,7 @@
 # Palettes - color systems for HTML Content dashboards
 
+Status: doc-based, NOT run in Power BI. The measured palettes the pipeline uses live in `tools/pbip-html-pipeline/palette.py`.
+
 Rule zero: **prefer the report theme.** `--pbi-theme-*` variables keep HTML visuals in sync with the theme and high-contrast mode (see `reference/capabilities.md`). Use a hard-coded palette from this file only when the report has no governed theme or the design calls for a fixed identity. Every palette here ships with a variable-mapped usage example.
 
 Naming: each palette lists `bg` (page), `surface` (cards), `fg` (text), `primary`, `accent`, `good`, `bad`, `neutral`, plus `track` (chart backgrounds) and a 6-color categorical series for charts.

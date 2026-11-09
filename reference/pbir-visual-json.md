@@ -1,6 +1,6 @@
 # PBIR authoring - HTML Content visual.json
 
-Verified against the official PBIR Implementation Guide (html-content.com/docs/pbir-guide), 9 Nov 2026. Valid for HTML Content 2.0 and above; 1.x persists a different property set. Not executed in Power BI; validate by opening the report in Desktop.
+Verified against the official PBIR Implementation Guide (html-content.com/docs/pbir-guide), 9 Nov 2026. Valid for HTML Content 2.0 and above; 1.x persists a different property set. Only sections whose heading says *measured in Desktop* were checked in Desktop (the settings `gen_pbip.py` writes). Every other section is source-verified only - validate it by opening the report in Desktop before relying on it.
 
 ## The short version
 
@@ -46,7 +46,7 @@ Because the GUID matches an AppSource listing, Power BI retrieves and updates th
 
 Convention used across this folder: HTML-producing measures live in a dedicated empty-display-folder measure table named `_HTML`.
 
-## Adding Context (cross-filter / tooltips / drillthrough)
+## Adding Context (cross-filter / tooltips / drillthrough) - source-verified, not yet run in Desktop
 
 Add projections to the `sampling` role (the Context data role's persisted name). At least one column here, plus enabling cross-filtering, makes rows selectable:
 
@@ -72,7 +72,7 @@ Add projections to the `sampling` role (the Context data role's persisted name).
 }
 ```
 
-## Setting Body/Row templates
+## Setting Body/Row templates - source-verified, not yet run in Desktop
 
 Templates persist under `objects.templates` with `bodyTemplate` and `rowTemplate`:
 
@@ -141,19 +141,19 @@ Sources: html-content.com/docs/pbir-guide and github.com/dm-p/powerbi-visuals-ht
 
 Data roles: `content` max 1 field; `sampling` (Context) reduced to the top 30,000 rows.
 
-## Native slicer colors (Microsoft PBIR reference, verified names)
+## Native slicer colors (measured in Desktop for `items.fontColor` / `items.background`; other names from the Microsoft PBIR reference)
 
 `objects.items[0].properties.fontColor` / `.background` (`{"solid":{"color":{"expr":{"Literal":{"Value":"'#hex'"}}}}}`), `objects.header[0].properties.fontColor` / `.background`. `items.background` defaults to white - on a dark page always set it (the pipeline does, from the palette). Unverified: the dropdown popup's own background/border property names - diff once in Desktop.
 
-## Page background image / wallpaper (Microsoft PBIR reference, verified structure)
+## Page background image / wallpaper (Microsoft PBIR reference - source-verified, not yet run in Desktop)
 
 `page.json` `objects.background` (canvas) and `objects.outspace` (wallpaper) accept only `color`, `image`, `transparency` (no `show`). Image must be nested `image.image.{name,url,scaling}` with `url = {"expr":{"ResourcePackageItem":{"PackageName":"RegisteredResources","PackageType":1,"ItemName":"bg1712....png"}}}` and `scaling` `'Fit'|'Fill'|'Stretch'`. The file goes to `StaticResources/RegisteredResources/` and is listed in `report.json` `resourcePackages` (`type: "RegisteredResources"`, item `type: "Image"`, `name == ItemName`). Page colors cannot be measure-bound. For a dark page make canvas and wallpaper both opaque.
 
-## Custom theme (Microsoft PBIR reference, verified)
+## Custom theme (Microsoft PBIR reference - source-verified, not yet run in Desktop)
 
 `report.json` `themeCollection.customTheme = {"name":"X-<guid>.json","reportVersionAtImport":{...},"type":"RegisteredResources"}` + a `resourcePackages` item `type: "CustomTheme"`; the theme's internal `name` matches; rotate the GUID suffix on every edit (Desktop caches by filename). Generating a theme from `palette.py` makes `--pbi-theme-*` inside HTML Content match the palette. Unverified: theme key for page-background defaults (`page` vs `*`) - use per-page `page.json` instead.
 
-## Accessibility and mobile (verified schema, placement partly inferred)
+## Accessibility and mobile (schema source-verified, placement partly inferred - not yet run in Desktop)
 
 - Alt text: `general.altText` (bind to a measure for a dynamic summary); container placement inferred - diff in Desktop. Inside HTML: `role="img"` + `aria-label` on SVG survive the sanitizer.
 - Tab order: `position.tabOrder` in RTL reading order (header, KPIs right-to-left, main band, detail).
