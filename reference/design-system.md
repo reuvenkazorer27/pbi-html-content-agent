@@ -39,6 +39,8 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 - **Must:** colors only as palette tokens - no hex literals inside measures. A palette defines every token; the page background, slicer colors and preview follow it. Palettes in the pipeline: `ocean` (light), `midnight` (dark), `berry` and `vivid` (colorful).
 - **Must:** WCAG contrast on every text element: 4.5:1 for body text, 3:1 for large text (≥24px, or ≥18.7px bold). The pipeline checks the rendered page, not the palette table.
 - A fill color is not a text color. Each status needs a fill token (bars, borders, dots) and a darker `*_text` token for text on its soft background (a typical teal on its pale fill measured 2.73:1). Dark palettes need lighter `*_text` variants.
+- A fill that carries white text needs its own token (`strong`): a palette's primary can be too light for white text (a dark palette's light blue measured 2.68:1). Use `*_soft` + `*_text` pairs for tiles and pills, and `strong` + `on_accent` for filled highlights.
+- Brand palettes: derive every token from one or two brand colors and push each text color toward black (light) or white (dark) until it passes 4.5:1 on its background - never accept a brand color as a text color unchecked.
 - Native slicers default to a white dropdown: set `items.fontColor` / `items.background` from the palette, or a dark page gets white boxes.
 
 ### Colorful dashboards

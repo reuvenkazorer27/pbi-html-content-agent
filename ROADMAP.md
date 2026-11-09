@@ -28,7 +28,7 @@ Rule for every step: **the dashboard and the fit between its parts come first.**
 | 10 | Text-safe status colors (`*_text`) separate from fill colors | ✅ | `palette.py`, measures `_txt()` |
 | 11 | Page background + slicer colors from the palette (no white dropdown on a dark page) | ✅ measured in Desktop | `gen_pbip.py` |
 | 12 | Colorful page: gradient background layer (full-page HTML visual) + filled KPI cards, palette `vivid` | ✅ measured in Desktop; wallpaper *image* via RegisteredResources still 📋 | `palette.py`, `reference/design-system.md` §4 |
-| 13 | Generated custom theme from the palette, so `--pbi-theme-*` and native visuals match | 📋 structure verified | reference/pbir-visual-json.md |
+| 13 | Generated custom theme from the palette, so `--pbi-theme-*` and native visuals match | ✅ theme JSON export (`palette.py theme`); 📋 automatic registration in `report.json` | `palette.py`, reference/pbir-visual-json.md |
 | 13b | Direction (LTR/RTL, mirrored layout) and UI language (display-string translation with protected data literals) | ✅ | `measures_example_projects.py`, `labels.py` |
 | 14 | High-contrast mode fallbacks (`#htmlContent.pbi-theme-hc`) in every card | 📋 | capabilities.md |
 
@@ -46,6 +46,7 @@ Rule for every step: **the dashboard and the fit between its parts come first.**
 | # | Step | Status | Where |
 | --- | --- | --- | --- |
 | 19 | Layout engine: compute `LAYOUT` from a grid spec (rows, columns, gutters) with overlap / multiple-of-8 asserts, so a new dashboard starts from intent, not coordinates | 📋 | - |
+| 20a | Card builders: waterfall, heat matrix, lift bars, small multiples, scatter, treemap, decomposition - parameterized, gated in 4 palettes × 2 directions + empty state | ✅ | `components.py`, `component_lab_example.py` |
 | 20 | Component kit: the reference build's cards (KPI, lifecycle, segmented bars, 2-column list, donut, timeline, filter panel) extracted as parameterized builders on top of the token + fit system | 📋 the reference build `measures_example_projects.py` is the reference implementation | `measures_example_projects.py` |
 
 Next recommended order: 11 (confirm in Desktop) → 7 → 15 → 12/13 → 19 → 20.
