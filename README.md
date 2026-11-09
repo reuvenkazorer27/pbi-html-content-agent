@@ -2,17 +2,17 @@
 
 # PBI HTML Content Agent
 
-**An AI agent kit that builds pixel-exact, RTL-correct Power BI dashboards on the HTML Content visual - written straight into PBIP/PBIR, checked automatically, versioned like code.**
+**An AI agent kit that builds pixel-exact Power BI dashboards on the HTML Content visual - left-to-right or right-to-left - written straight into PBIP/PBIR, checked automatically, versioned like code.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Power BI](https://img.shields.io/badge/Power%20BI-PBIP%20%2F%20PBIR-F2C811?logo=powerbi&logoColor=black)
 ![HTML Content](https://img.shields.io/badge/HTML%20Content-2.0%20Secure-0F6CBD)
-![RTL](https://img.shields.io/badge/RTL-Hebrew%20first-7C3AED)
+![Direction](https://img.shields.io/badge/direction-LTR%20%2B%20RTL-7C3AED)
 ![Gates](https://img.shields.io/badge/gates-fit%20%C2%B7%20WCAG%20%C2%B7%20stress%20%C2%B7%20regression-15803D)
 
-<img src="docs/images/dashboard-vivid.png" alt="A Hebrew RTL project-portfolio dashboard built by the agent: gradient background, filled KPI cards, lifecycle tracker, segmented bar lists, timeline and donut (anonymized data)" width="100%">
+<img src="docs/images/dashboard.png" alt="A project-portfolio dashboard built by the agent in English, left-to-right: KPI row, lifecycle tracker, segmented bar lists by owner and department, timeline, donut and a filter panel (invented sample data)" width="100%">
 
-<sub>Rendered by the kit's exact-size preview (headless Edge) from the same measures that were verified in Power BI Desktop (1920×1080, HTML Content Secure, palette <code>vivid</code>). Names and projects anonymized.</sub>
+<sub>English / left-to-right build, palette <code>ocean</code>, rendered by the kit's exact-size preview (headless Edge) from measures evaluated on a live Power BI model; all names, projects and departments are invented sample data. The same measures build the Hebrew right-to-left version with one setting.</sub>
 
 </div>
 
@@ -25,7 +25,7 @@ Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar 
 | Problem we hit in Desktop | What the kit does about it |
 | --- | --- |
 | Cards clipped at the bottom, titles wrapping | Reads the theme's padding and writes **padding 0** on every visual (LESSONS L1); an **exact-size fit check** with 8px slack gates every build |
-| Hebrew titles left-aligned despite `dir="rtl"` | Inline `direction:rtl; text-align:right` on every card root (L2) |
+| Hebrew titles left-aligned despite `dir="rtl"` | Direction-aware inline `direction` + `text-align` on every card root (L2) |
 | 12px text unreadable after Fit-to-page | A central **type scale** for 1920×1080 (L3) |
 | Colors that fail contrast on soft fills | **Palette tokens** with separate text-safe colors, and a **WCAG contrast gate** (L11) |
 | "Looks fine" until a filter empties a list | **Stress scenarios** re-render every card under several filter states, including an empty selection (L10) |
@@ -37,7 +37,8 @@ Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar 
 - **A component library** (`library/components/`) - bullet, IBCS variance, dumbbell, lollipop, waffle, calendar heatmap, milestone timeline, org strip, KPI cards and more - each a paste-ready DAX measure.
 - **Real interactivity** - cards respond to every slicer and filter; row-bound cards cross-filter other visuals through the Context role; page navigation through native buttons layered over the HTML.
 - **Theme-aware** - colors from palette tokens or the report theme (`--pbi-theme-*` CSS variables), PBIR GUIDs for both editions (Regular and Secure).
-- **Hebrew / RTL done right** - bidi isolation of numbers, currency and dates; right-docked menus; RTL charts.
+- **Left-to-right and right-to-left** - one setting (`DASH_DIR=ltr|rtl`) flips the whole layout (filter panel, reading order, alignment, arrows); RTL gets bidi isolation of numbers, currency and dates.
+- **UI language** - display strings are translated by `DASH_LANG` (`he` authored, `en` included) while data values and model names are protected, so filters never break; a build fails if any string is left untranslated.
 - **Palettes** - `ocean` (light), `midnight` (dark), `berry` and `vivid` (colorful: gradient page + filled KPI cards). Switch with one variable; every palette passes the fit and contrast gates.
 - **Direct PBIR authoring** - TMDL measures and `visual.json` files written by script; Desktop picks them up with *Apply external changes*.
 - **Honest by design** - no fake buttons, no promises the Secure sandbox cannot keep, and every claim labeled as measured or doc-based.
@@ -63,7 +64,7 @@ powershell -File runq.ps1 -QueryFile q_all.dax -OutFile r_all.json   # run it on
 python -I regress.py r_all.json                                      # only intended cards changed?
 python -I gen_preview.py r_all.json preview.html                     # exact-size preview
 node fitcheck.mjs preview.html --shot full.png                       # GATE: FIT OK + CONTRAST OK
-python -I stress.py                                                  # GATE: filter scenarios (all, one status, one owner, blanks, empty)
+python -I stress.py                                                  # GATE: filter scenarios (all, one status, one owner, blanks, empty, every column filtered)
 python -I versions.py snapshot "what changed" --fit "FIT OK" --results r_all.json --shot full.png
 python -I gen_pbip.py                                                # write TMDL + visual.json
 ```

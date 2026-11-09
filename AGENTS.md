@@ -9,7 +9,7 @@ Read this file fully before producing anything. Then read **`LESSONS.md`** (rule
 ## 0. Fit-to-canvas contract (measured, non-negotiable - see LESSONS.md L1-L6)
 
 1. Read the page size and the base theme's `visualStyles["*"]["*"].padding` first. Every HTML Content visual and every slicer on an HTML panel ships with `visualContainerObjects` padding 0 and background/border/title/dropShadow/visualHeader off. Otherwise the HTML viewport is 30px shorter and 32px narrower than its frame.
-2. Card root: `height:100vh; box-sizing:border-box; overflow:hidden; line-height:1.35; direction:rtl; text-align:right` inline, plus `dir='rtl' lang='he'`.
+2. Card root: `height:100vh; box-sizing:border-box; overflow:hidden; line-height:1.35` plus the reading direction inline - `direction` and `text-align` (start side) and `dir`/`lang` attributes. Direction is a build setting, not a rewrite: LTR mirrors the layout; numeric cells align to the end side. Never hardcode `rtl`/`left`/`right` in a component.
 3. Type scale on 1920×1080: body 15px, secondary 14, captions ≥13, card title 20, header title 26-28, KPI value 48-50. Never below 13px.
 4. Row budgets are computed from the frame (`rows = floor((H - pad - header - footer - 8) / pitch)`), rows are fixed-height, fixed-height flex children get `flex:none`, titles/legends `white-space:nowrap`.
 5. Nothing is written to the PBIP until the exact-size fit check prints `FIT OK` (8px slack on every card), and nothing is called done until a Desktop screenshot after Apply + Refresh confirms it.

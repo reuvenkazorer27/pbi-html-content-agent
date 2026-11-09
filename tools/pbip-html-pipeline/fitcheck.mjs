@@ -1,8 +1,8 @@
 // Headless fit + contrast check for preview.html (no npm packages: Edge + DevTools protocol + Node's WebSocket)
 //   node fitcheck.mjs preview.html [--shot out.png]
 // Prints FIT OK / FIT FAIL lines and CONTRAST OK / CONTRAST FAIL lines; exit code 1 on any failure.
-import { spawn } from 'node:child_process';
-import { writeFileSync, mkdtempSync, existsSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { writeFileSync, mkdtempSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -22,13 +22,35 @@ const prof = mkdtempSync(join(tmpdir(), 'fitck-'));
 const edge = spawn(EDGE, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`,
   '--window-size=1920,1080', '--hide-scrollbars', pathToFileURL(page).href], { stdio: 'ignore' });
 
+
+// Edge forks GPU/renderer/utility children and its launcher exits early, so a tree kill misses them.
+// Close the browser over CDP (Browser.close), then kill anything still holding this run's profile.
+async function closeBrowser() {
+  try {
+    const v = await (await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(2000) })).json();
+    const bws = new WebSocket(v.webSocketDebuggerUrl);
+    await Promise.race([
+      new Promise((r, j) => { bws.addEventListener('open', r, { once: true }); bws.addEventListener('error', j, { once: true }); }),
+      new Promise((_, j) => setTimeout(() => j(new Error('timeout')), 2000))]);
+    bws.send(JSON.stringify({ id: 1, method: 'Browser.close' }));
+    await new Promise(r => setTimeout(r, 700));
+  } catch {}
+}
+function shutdown() {
+  const leaf = prof.split(/[\\/]/).pop();   // e.g. fitck-Ab12Cd (mkdtemp suffix: no quotes or wildcards)
+  spawnSync('powershell', ['-NoProfile', '-Command',
+    `Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('${leaf}') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`],
+    { stdio: 'ignore' });
+  try { rmSync(prof, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch {}
+}
+process.on('exit', shutdown);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let target;
 for (let i = 0; i < 60 && !target; i++) {
   await sleep(250);
   try { target = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(t => t.type === 'page'); } catch {}
 }
-if (!target) { console.log('FIT CHECK DID NOT RUN (Edge did not start)'); edge.kill(); process.exit(2); }
+if (!target) { console.log('FIT CHECK DID NOT RUN (Edge did not start)'); process.exit(2); }
 
 const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise(r => ws.addEventListener('open', r, { once: true }));
@@ -58,7 +80,10 @@ const CONTRAST_JS = `
 })()`;
 
 await send('Runtime.enable');
-await sleep(1500);
+// wait until the page and every card iframe have rendered (fixed sleeps gave false EMPTY results)
+const READY = "document.readyState==='complete' && [...document.querySelectorAll('iframe[data-name]')].every(f=>f.contentDocument&&f.contentDocument.readyState==='complete'&&f.contentDocument.body&&f.contentDocument.body.firstElementChild)";
+for (let i = 0; i < 100; i++) { const r = await send('Runtime.evaluate', { expression: READY, returnByValue: true }); if (r.result?.result?.value) break; await sleep(100); }
+await sleep(300);
 const fit = await send('Runtime.evaluate', { expression: "fitCheck(); document.getElementById('fit').textContent", returnByValue: true });
 const con = await send('Runtime.evaluate', { expression: CONTRAST_JS, returnByValue: true });
 const fitTxt = fit.result?.result?.value ?? ('FIT CHECK ERROR ' + JSON.stringify(fit.result?.exceptionDetails?.text));
@@ -69,5 +94,6 @@ if (shot) {
   const s = await send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(shot, Buffer.from(s.result.data, 'base64')); console.log('screenshot ' + shot);
 }
-ws.close(); edge.kill();
+ws.close();
+await closeBrowser();
 process.exit(fitTxt.startsWith('FIT OK') && conTxt.startsWith('CONTRAST OK') ? 0 : 1);

@@ -5,6 +5,25 @@ property, no <style>, no script) so it renders the same in HTML Content Secure a
 """
 
 from palette import P, resolve, ACTIVE
+import os as _os
+
+# Reading direction of the whole dashboard: "rtl" (Hebrew/Arabic) or "ltr" (English...). Env: DASH_DIR.
+DIR = _os.environ.get("DASH_DIR", "rtl")
+assert DIR in ("rtl", "ltr"), "DASH_DIR must be rtl or ltr"
+DIR_TOKENS = {
+    "rtl": {"dir": "rtl", "lang": "he", "start": "right", "end": "left", "fwd_arrow": "&#9664;"},
+    "ltr": {"dir": "ltr", "lang": "en", "start": "left", "end": "right", "fwd_arrow": "&#9654;"},
+}[DIR]
+DIR_TOKENS["lang"] = _os.environ.get("DASH_LANG", DIR_TOKENS["lang"])   # UI language: he (authored) or en
+LANG = DIR_TOKENS["lang"]
+DIR_TOKENS["locale"] = {"he": "he-IL", "en": "en-US"}.get(LANG, "en-US")   # month names in the timeline
+from labels import translate, STATUS_EN
+
+
+def _resolve_dir(text):
+    for k, v in DIR_TOKENS.items():
+        text = text.replace(f"@@{k}@@", v)
+    return text
 
 T = "'פרויקטים'"
 C = lambda c: f"{T}[{c}]"
@@ -12,7 +31,7 @@ C = lambda c: f"{T}[{c}]"
 FONT = "font-family:Segoe UI,Arial,sans-serif"
 CARD = ("box-sizing:border-box;height:100vh;overflow:hidden;background:@@surface@@;"
         "border-radius:12px;box-shadow:0 1px 3px @@shadow@@;line-height:1.35;"
-        "direction:rtl;text-align:right;" + FONT + ";color:@@fg@@")
+        "direction:@@dir@@;text-align:@@start@@;" + FONT + ";color:@@fg@@")
 FG2 = "@@fg2@@"
 TRACK = "@@track@@"
 
@@ -47,6 +66,9 @@ def status_bg_switch(var):
 
 
 def status_name_switch(var):
+    if LANG == "en":   # data values stay Hebrew in the model; only their display is English
+        pairs = ", ".join(f'"{k}", "{v}"' for k, v in STATUS_EN.items())
+        return f'SWITCH ( {var}, {pairs}, "", "No status", {var} )'
     return f'SWITCH ( {var}, "הושלם/פרויקט חד פעמי", "הושלם", "", "ללא סטטוס", {var} )'
 
 
@@ -69,7 +91,7 @@ def _scale_fonts(expr):
 
 
 def add(name, expr, folder, fmt=None):
-    M[name] = dict(expr=resolve(_scale_fonts(expr.strip())), folder=folder, fmt=fmt)
+    M[name] = dict(expr=translate(resolve(_resolve_dir(_scale_fonts(expr.strip()))), LANG), folder=folder, fmt=fmt)
 
 
 # ---------------------------------------------------------------- base measures
@@ -123,17 +145,17 @@ VAR _state =
         "<span style='font-size:12px;color:{FG2}'>סינון פעיל:</span>" & _chips
     )
 RETURN
-    "<div dir='rtl' lang='he' style='{CARD};display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px'>"
+    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px'>"
         & "<div style='display:flex;align-items:center;gap:16px;min-width:0'>"
             & "<div style='width:48px;height:48px;flex:none;border-radius:12px;background:@@primary@@;display:flex;align-items:center;justify-content:center'>"
                 & "<svg width='26' height='26' viewBox='0 0 26 26'><rect x='2' y='2' width='9' height='9' rx='2' fill='@@on_accent@@'/><rect x='15' y='2' width='9' height='9' rx='2' fill='@@on_accent@@' opacity='.6'/><rect x='2' y='15' width='9' height='9' rx='2' fill='@@on_accent@@' opacity='.6'/><rect x='15' y='15' width='9' height='9' rx='2' fill='@@on_accent@@'/></svg>"
             & "</div>"
             & "<div style='min-width:0'>"
                 & "<div style='font-size:22px;font-weight:700;line-height:1.2'>תיק הפרויקטים</div>"
-                & "<div style='font-size:13px;color:{FG2};line-height:1.35'>מערכות, מסכי ניהול " & LRI & "BI" & PDI & " וסוכנים · מעקב לפי סטטוס, בעלים, מחלקה ומועדי יעד</div>"
+                & "<div style='font-size:13px;color:{FG2};line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>מערכות, מסכי ניהול " & LRI & "BI" & PDI & " וסוכנים · מעקב לפי סטטוס, בעלים, מחלקה ומועדי יעד</div>"
             & "</div>"
         & "</div>"
-        & "<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end'>"
+        & "<div style='display:flex;align-items:center;gap:8px;flex-wrap:nowrap;justify-content:flex-end;flex:0 1 auto;min-width:0;overflow:hidden'>"
             & _state
             & "<span style='padding:4px 12px;border-radius:999px;background:@@neutral_soft@@;font-size:12px;color:@@fg@@;white-space:nowrap'>"
                 & LRI & [# פרויקטים] & PDI & " פרויקטים בתצוגה</span>"
@@ -174,12 +196,12 @@ def kpi(name, title, value_expr, accent, light, icon, sub_expr, value_color=None
 VAR _val = {value_expr}
 VAR _vc = {vc}
 RETURN
-    "<div dir='rtl' lang='he' style='{root}'>"
+    "<div dir='@@dir@@' lang='@@lang@@' style='{root}'>"
         & "<div style='display:flex;align-items:center;justify-content:space-between'>"
             & "<span style='font-size:14px;font-weight:600;color:{title_c}'>{title}</span>"
             & "<span style='width:40px;height:40px;flex:none;border-radius:10px;background:{chip_bg};display:flex;align-items:center;justify-content:center'>{glyph}</span>"
         & "</div>"
-        & "<div style='font-size:40px;font-weight:700;line-height:1;color:" & _vc & ";direction:ltr;unicode-bidi:isolate;text-align:right'>" & FORMAT ( _val + 0, "#,##0" ) & "</div>"
+        & "<div style='font-size:40px;font-weight:700;line-height:1;color:" & _vc & ";direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & FORMAT ( _val + 0, "#,##0" ) & "</div>"
         & {sub_expr}
     & "</div>\"""", "HTML")
 
@@ -232,7 +254,7 @@ bar_parts = []
 legend_parts = []
 for i, (m, disp, col, bg) in enumerate(stage_html):
     if i > 0:
-        stage_parts.append(f'"<div style=\'flex:1;height:2px;background:@@connector@@;margin-top:28px;position:relative\'><span style=\'position:absolute;inset-inline-end:-4px;top:-9px;font-size:12px;color:@@arrow@@\'>&#9664;</span></div>"')
+        stage_parts.append(f'"<div style=\'flex:1;height:2px;background:@@connector@@;margin-top:28px;position:relative\'><span style=\'position:absolute;inset-inline-end:-4px;top:-9px;font-size:12px;color:@@arrow@@\'>@@fwd_arrow@@</span></div>"')
     stage_parts.append(
         f'"<div style=\'display:flex;flex-direction:column;align-items:center;gap:4px;width:104px;flex:none\'>'
         f'<div style=\'width:56px;height:56px;border-radius:50%;background:{bg};border:3px solid {col};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:{_txt(col)}\'>" & ( {m} + 0 ) & "</div>'
@@ -243,7 +265,7 @@ for i, (m, disp, col, bg) in enumerate(stage_html):
     legend_parts.append(
         f'"<div style=\'display:flex;align-items:center;gap:8px;font-size:13px\'><span style=\'width:10px;height:10px;border-radius:3px;background:{col};flex:none\'></span><span style=\'flex:1\'>{disp}</span>'
         f'<span style=\'font-weight:600;direction:ltr;unicode-bidi:isolate\'>" & ( {m} + 0 ) & "</span>'
-        f'<span style=\'width:44px;text-align:left;color:{FG2};direction:ltr;unicode-bidi:isolate\'>" & FORMAT ( DIVIDE ( {m}, _n ) + 0, "0%" ) & "</span></div>"')
+        f'<span style=\'width:44px;text-align:@@end@@;color:{FG2};direction:ltr;unicode-bidi:isolate\'>" & FORMAT ( DIVIDE ( {m}, _n ) + 0, "0%" ) & "</span></div>"')
 
 add("HTML Status Flow", ISO + f"""
 VAR _n = [# פרויקטים]
@@ -255,7 +277,7 @@ VAR _late = [# חלף מועד יעד] + 0
 VAR _noDept = COUNTROWS ( FILTER ( {T}, {C("מחלקה")} = "" ) ) + 0
 VAR _noDate = COUNTROWS ( FILTER ( {T}, ISBLANK ( {C("מועד יעד")} ) ) ) + 0
 RETURN
-    "<div dir='rtl' lang='he' style='{CARD};padding:16px 24px;display:flex;flex-direction:column;gap:14px'>"
+    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 24px;display:flex;flex-direction:column;gap:14px'>"
         & "<div><div style='font-size:16px;font-weight:700'>מחזור חיי הפרויקט</div>"
         & "<div style='font-size:12px;color:{FG2}'>כמה פרויקטים נמצאים בכל שלב, מאפיון ועד סיום</div></div>"
         & "<div style='display:flex;align-items:flex-start;gap:4px'>"
@@ -317,14 +339,14 @@ VAR _body =
             "<div style='display:flex;align-items:center;gap:12px;height:28px'>"
                 & "<div title='" & _lbl & "' style='width:{150 if cols == 1 else 96}px;flex:none;font-size:12px;color:" & _lc & ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & _lbl & "</div>"
                 & "<div style='flex:1;display:flex;height:14px;border-radius:7px;overflow:hidden;background:{TRACK}'>" & {segs} & "</div>"
-                & "<div style='width:32px;flex:none;font-size:13px;font-weight:700;text-align:left;direction:ltr;unicode-bidi:isolate'>" & _n & "</div>"
+                & "<div style='width:32px;flex:none;font-size:13px;font-weight:700;text-align:@@end@@;direction:ltr;unicode-bidi:isolate'>" & _n & "</div>"
             & "</div>",
         "",
         [@n], DESC,
         {C(col)}, ASC
     )
 RETURN
-    "<div dir='rtl' lang='he' style='{CARD};padding:20px 24px;display:flex;flex-direction:column;gap:12px'>"
+    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:20px 24px;display:flex;flex-direction:column;gap:12px'>"
         & "<div><div style='font-size:16px;font-weight:700;white-space:nowrap'>{title}</div><div style='font-size:12px;color:{FG2};white-space:nowrap'>{subtitle}</div></div>"
         & "<div style='display:flex;gap:14px;font-size:11px;color:{FG2};white-space:nowrap'>{legend_html()}</div>"
         & "{"<div style='display:flex;flex-direction:column;gap:4px'>" if cols == 1 else "<div style='display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;grid-template-rows:repeat(" + str(-(-top // 2)) + ",28px);gap:4px 24px'>"}" & _body & "</div>"
@@ -377,12 +399,12 @@ VAR _legend =
                 & "<span style='width:10px;height:10px;border-radius:3px;flex:none;background:" & {color_sw} & "'></span>"
                 & "<span style='flex:1;color:" & IF ( _nm = "", "{FG2}", "@@fg@@" ) & "'>" & IF ( _nm = "", "לא הוגדר", _nm ) & "</span>"
                 & "<span style='font-weight:600;direction:ltr;unicode-bidi:isolate'>" & [@n] & "</span>"
-                & "<span style='width:44px;text-align:left;color:{FG2};direction:ltr;unicode-bidi:isolate'>" & FORMAT ( DIVIDE ( [@n], _tot ), "0%" ) & "</span>"
+                & "<span style='width:44px;text-align:@@end@@;color:{FG2};direction:ltr;unicode-bidi:isolate'>" & FORMAT ( DIVIDE ( [@n], _tot ), "0%" ) & "</span>"
             & "</div>",
         "", [@rk], ASC
     )
 RETURN
-    "<div dir='rtl' lang='he' style='{CARD};padding:20px 24px;display:flex;flex-direction:column;gap:12px'>"
+    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:20px 24px;display:flex;flex-direction:column;gap:12px'>"
         & "<div><div style='font-size:16px;font-weight:700'>פרויקטים לפי סוג</div><div style='font-size:12px;color:{FG2}'>מערכות, מסכי ניהול ו-" & LRI & "BI" & PDI & ", סוכנים</div></div>"
         & "<div style='display:flex;align-items:center;gap:28px;flex:1'>"
             & "<svg width='180' height='180' viewBox='0 0 180 180' style='flex:none'>"
@@ -430,8 +452,8 @@ VAR _axis =
         VAR _m0 = EDATE ( _rs, [Value] )
         VAR _w = DIVIDE ( INT ( EDATE ( _rs, [Value] + 1 ) - _m0 ), _span ) * 100
         RETURN
-            "<div style='position:absolute;top:0;height:22px;left:" & FORMAT ( DIVIDE ( INT ( _m0 - _rs ), _span ) * 100, "0.00" ) & "%;width:" & FORMAT ( _w, "0.00" ) & "%;text-align:center;font-size:11px;color:{FG2};line-height:22px;direction:rtl'>"
-                & FORMAT ( _m0, "mmmm", "he-IL" ) & " " & LRI & YEAR ( _m0 ) & PDI & "</div>",
+            "<div style='position:absolute;top:0;height:22px;left:" & FORMAT ( DIVIDE ( INT ( _m0 - _rs ), _span ) * 100, "0.00" ) & "%;width:" & FORMAT ( _w, "0.00" ) & "%;text-align:center;font-size:11px;color:{FG2};line-height:22px;direction:@@dir@@'>"
+                & FORMAT ( _m0, "mmmm", "@@locale@@" ) & " " & LRI & YEAR ( _m0 ) & PDI & "</div>",
         "", [Value], ASC
     )
 VAR _body =
@@ -454,7 +476,7 @@ VAR _body =
                     & "<div style='position:absolute;top:7px;height:14px;border-radius:7px;left:" & FORMAT ( _l, "0.00" ) & "%;width:" & FORMAT ( _w, "0.00" ) & "%;background:" & _col
                     & IF ( _late, ";box-shadow:0 0 0 2px @@bad@@", "" ) & "'></div>"
                 & "</div>"
-                & "<div style='width:100px;flex:none;font-size:12px;text-align:left;direction:ltr;unicode-bidi:isolate;"
+                & "<div style='width:100px;flex:none;font-size:12px;text-align:@@end@@;direction:ltr;unicode-bidi:isolate;"
                     & IF ( _late, "color:@@bad@@;font-weight:700", "color:@@fg@@" ) & "'>" & FORMAT ( _due, "dd/MM/yyyy" ) & "</div>"
             & "</div>",
         "",
@@ -470,13 +492,13 @@ VAR _head =
         & "<span style='display:inline-flex;align-items:center;gap:4px'><span style='width:12px;height:8px;border-radius:4px;box-shadow:0 0 0 2px @@bad@@'></span>חלף המועד</span></div>"
     & "</div>"
 RETURN
-    "<div dir='rtl' lang='he' style='{CARD};padding:16px 24px;display:flex;flex-direction:column;gap:8px'>"
+    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 24px;display:flex;flex-direction:column;gap:8px'>"
         & _head
         & IF (
             _cnt = 0,
             "<div style='flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:{FG2}'>אין פרויקטים עם מועד יעד בבחירה הנוכחית</div>",
             "<div style='display:flex;gap:12px;height:22px'><div style='width:270px;flex:none'></div><div style='width:116px;flex:none'></div>"
-                & "<div style='flex:1;position:relative;direction:ltr'>" & _axis & "</div><div style='width:100px;flex:none;font-size:11px;color:{FG2};text-align:left;line-height:22px'>מועד יעד</div></div>"
+                & "<div style='flex:1;position:relative;direction:ltr'>" & _axis & "</div><div style='width:100px;flex:none;font-size:11px;color:{FG2};text-align:@@end@@;line-height:22px'>מועד יעד</div></div>"
                 & "<div style='display:flex;flex-direction:column;gap:2px'>" & _body & "</div>"
                 & IF ( _cnt > 7, "<div class='tooltipEnabled'" & _tip & " style='font-size:12px;color:@@primary@@;cursor:help'>ועוד " & LRI & ( _cnt - 7 ) & PDI & " פרויקטים עם מועד מאוחר יותר · העבירו את העכבר לפירוט &#9432;</div>" )
         )
@@ -511,7 +533,7 @@ VAR _items =
         {C("מזהה")}, DESC
     )
 RETURN
-    "<div dir='rtl' lang='he' style='{CARD};padding:0 16px 16px 16px;display:flex;flex-direction:column'>"
+    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:0 16px 16px 16px;display:flex;flex-direction:column'>"
         & "<div style='height:64px;flex:none;box-sizing:border-box;padding-top:16px'>"
             & "<div style='font-size:18px;font-weight:700;line-height:24px'>סינון</div>"
             & "<div style='font-size:12px;color:{FG2};line-height:18px'>הבחירה מסננת את כל הדף</div>"
@@ -555,3 +577,11 @@ SLICERS = [
     ("slOwner",  "בעלים", 1608, 360, 264, 40),
     ("slType",   "סוג",   1608, 440, 264, 40),
 ]
+
+
+# LTR: mirror every visual horizontally (filter panel docks left, reading flow starts left).
+# Coordinates are authored for RTL; x' = page width - x - w keeps every gap and alignment.
+PAGE_W = 1920
+if DIR == "ltr":
+    LAYOUT[:] = [(n, m, PAGE_W - x - w, y, w, h) for n, m, x, y, w, h in LAYOUT]
+    SLICERS[:] = [(n, c, PAGE_W - x - w, y, w, h) for n, c, x, y, w, h in SLICERS]

@@ -90,3 +90,15 @@ An earlier note said "HTML Content in Desktop renders text lines taller than the
 - The project `.gitignore` must exclude: env/key files (`*.env`, `env*.txt`), pulled data (`data/`), `**/.pbi/cache.abf`, `**/.pbi/localSettings.json`, build scratch. Before the first commit run `git ls-files | grep -iE "env|data/|cache.abf|localSettings|\.csv"` - it must print nothing.
 - Measured pitfall: a broad `*.dax` ignore (meant for scratch queries) silently dropped all 32 `library/components/*.dax` from the agent's first commit. Ignore by prefix (`q_*.dax`), and compare `git ls-files | wc -l` with the files on disk before pushing.
 - The agent itself lives in a **private** GitHub repo (reuvenkazorer27/pbi-html-content-agent); run a secrets scan (keys, tokens, `crm_`, `Bearer`) before every push.
+
+## L14 · 09.11.2026 · Headless browser checks must clean up after themselves
+
+- **Broke:** gates failed at random (cards reported EMPTY, `Uncaught`, PowerShell modules failing to load). Root cause: every `fitcheck.mjs` run leaked Edge child processes - `child.kill()` only stops the launcher, and Edge's GPU/renderer/utility children outlive it. After a few stress runs there were ~700 headless Edge processes.
+- **Fix:** wait for real readiness (page + every card iframe rendered) instead of a fixed sleep; close the browser over CDP (`Browser.close` on the `/json/version` socket); then kill any process whose command line holds this run's temp profile, and delete the profile. Verify with a process count before/after a run (must be 0).
+
+## L15 · 09.11.2026 · LTR + UI language without breaking filters
+
+- Direction is a build setting: card roots get `dir`/`direction`/`text-align` from tokens, numeric cells align to the end side, the "next" arrow flips, and `LAYOUT` is mirrored for LTR (x' = page width - x - w). RTL output stayed byte-identical when this was introduced.
+- Translating DAX-generated HTML: some words are both labels and data values (a status shown in a pill is also a filter literal). Mask model references (`[...]`, table names) and the quoted data literals first, translate display strings longest-first, and fail the build if any source-language character is left outside the masks. Display names of data values come from an explicit map, not from the data.
+- Translated text is usually longer: the fit gate caught two cards (3px and 7px). Shorten the wording, keep the layout. Header subtitles and chip rows must be single-line with ellipsis / clipping so any number of filter chips fits.
+- Stress filters should mimic a slicer (a boolean filter on one column); keep one extra scenario that marks every column filtered (`FILTER(ALL(table), ...)`) as the worst case for header chips.
