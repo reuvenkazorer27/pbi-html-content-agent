@@ -1,0 +1,38 @@
+<!--
+  DASHBOARD SHELL - Body template for a single fullscreen HTML Content visual
+  Paste into: visual properties > Templates > Body template (or bind via fx).
+  Editions: Regular + Secure (no scripts in this file).
+  Status: doc-based (HTML Content 2.0), NOT run in Power BI.
+  Pair with: dashboard-shell.css (Stylesheet property).
+  RTL: root dir="rtl", menu docked right. For LTR, flip dir and the grid column order in the CSS.
+  The {{content}} token is where dataset rows land (each wrapped in .htmlViewerEntry).
+  Static header/footer text here is authored content; dynamic values must come
+  from measures (bind the Body template to a measure via fx when it must react to data).
+-->
+<div class="shell" dir="rtl" lang="he">
+  <header class="shell-header">
+    <div class="shell-title">כותרת הדשבורד</div>
+    <div class="shell-header-side">
+      <span class="shell-chip">פרטי הקשר / תאריך מ-measure</span>
+    </div>
+  </header>
+  <aside class="shell-menu">
+    <div class="menu-brand">Data &amp; AI</div>
+    <div class="menu-item active"><span class="menu-ico">◧</span><span>מכירות</span></div>
+    <div class="menu-item"><span class="menu-ico">◫</span><span>מוצרים</span></div>
+    <div class="menu-item"><span class="menu-ico">◉</span><span>לקוחות</span></div>
+    <!--
+      These items are display-only. For page navigation, overlay native blank
+      buttons at each item's rectangle (skills/navigation-header-menu).
+      For in-DOM section switching (Regular edition), append the optional
+      script block from dashboard-shell-script.html and give each item
+      onclick="app.show('section-id')" plus data-hc-suppress="filter".
+    -->
+  </aside>
+  <main class="shell-main">
+    {{content}}
+  </main>
+  <footer class="shell-footer">
+    <span>הובנה עם HTML Content · כל הערכים מגיעים מ-measures</span>
+  </footer>
+</div>

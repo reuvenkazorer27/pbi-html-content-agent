@@ -1,0 +1,47 @@
+<!--
+  OPTIONAL - Regular edition ONLY. Never include for Secure (it is stripped there).
+  Append INSIDE the Body template (dashboard-shell-body.html), right after the
+  opening <div class="shell"> ... or just before {{content}} is fine too: the
+  body template is inserted before any row, so window.app exists before rows run.
+
+  What this does: in-DOM section switching inside the SAME visual. Real and
+  documented. What it does NOT do: change Power BI pages, filters or other
+  visuals. Mark it to the user as in-visual navigation.
+
+  Usage:
+  - Wrap each switchable region of {{content}} in <section class="page-sec" id="sec-...">.
+  - Menu items call: onclick="app.show('sec-sales')" and carry
+    data-hc-suppress="filter" so the click does not cross-filter.
+  Status: doc-based (HTML Content 2.0 scripting guidelines), NOT run in Power BI.
+-->
+<script>
+window.app = {
+  show: function (id) {
+    var secs = document.querySelectorAll('.page-sec');
+    for (var i = 0; i < secs.length; i++) {
+      secs[i].style.display = (secs[i].id === id) ? '' : 'none';
+    }
+    var items = document.querySelectorAll('.menu-item');
+    for (var j = 0; j < items.length; j++) {
+      items[j].classList.toggle('active', items[j].getAttribute('data-sec') === id);
+    }
+    console.log('app.show ->', id);
+  },
+  initRow: function (el) {
+    // per-row init hook. Call it from a tiny per-row script element whose
+    // whole body is:  app.initRow(document.getElementById('row_KEY'))
+    // (never write a literal closing script tag inside this block)
+    console.log('initRow', el && el.id);
+  }
+};
+</script>
+
+<!--
+  Debugging: enable Content formatting > Enable diagnostics, then open the
+  dialog (icon on the visual in edit mode or Ctrl/Cmd+D) - Console tab shows
+  these logs, Events tab shows updates and cross-filter clicks.
+
+  Render mode: Content formatting > On data update.
+  - "Rebuild content": all scripts re-run on every update; in-DOM state resets.
+  - "Preserve unchanged content": only changed rows re-run; this script persists.
+-->

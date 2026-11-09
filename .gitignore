@@ -1,0 +1,23 @@
+# secrets - never commit keys or env files
+*.env
+.env*
+env*.txt
+*secret*
+*.key
+
+# python / node leftovers
+__pycache__/
+*.pyc
+node_modules/
+
+# build outputs produced when the pipeline runs inside this folder
+*.dax
+r_*.json
+preview*.html
+*.png.tmp
+_versions/
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.vscode/
