@@ -8,12 +8,15 @@ one status, many long titles all change row counts and text lengths.
 """
 import os, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
+# demo model identifiers are Hebrew: פרויקטים = projects, סטטוס = status, בעלים = owner,
+# מחלקה = department, מזהה = id; adapt the table/column names and values to your model.
+# Scenario values are data-driven or generic - never hardcode a real person's name here.
 T = "'פרויקטים'"
 SCENARIOS = [
     ("all", None),
     ("status-done", f"{T}[סטטוס] = \"הושלם/פרויקט חד פעמי\""),
     ("status-design", f"{T}[סטטוס] = \"באפיון\""),
-    ("one-owner", f"{T}[בעלים] = \"יאיר בר חי\""),
+    ("one-owner", f"TOPN ( 1, FILTER ( VALUES ( {T}[בעלים] ), {T}[בעלים] <> \"\" ), CALCULATE ( COUNTROWS ( {T} ) ) )"),   # busiest owner, whoever it is
     ("no-department", f"{T}[מחלקה] = \"\""),
     ("empty", f"{T}[מזהה] = -1"),
     ("all-chips", f"FILTER ( ALL ( {T} ), {T}[סטטוס] = \"באפיון\" )"),   # marks every column filtered: header shows 4 chips

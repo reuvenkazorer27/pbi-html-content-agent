@@ -27,17 +27,19 @@ const edge = spawn(EDGE, ['--headless=new', '--disable-gpu', `--remote-debugging
 // Close the browser over CDP (Browser.close), then kill anything still holding this run's profile.
 async function closeBrowser() {
   try {
-    const v = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();
+    const v = await (await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(2000) })).json();
     const bws = new WebSocket(v.webSocketDebuggerUrl);
-    await new Promise((r, j) => { bws.addEventListener('open', r, { once: true }); bws.addEventListener('error', j, { once: true }); });
+    await Promise.race([
+      new Promise((r, j) => { bws.addEventListener('open', r, { once: true }); bws.addEventListener('error', j, { once: true }); }),
+      new Promise((_, j) => setTimeout(() => j(new Error('timeout')), 2000))]);
     bws.send(JSON.stringify({ id: 1, method: 'Browser.close' }));
     await new Promise(r => setTimeout(r, 700));
   } catch {}
 }
 function shutdown() {
-  const leaf = prof.split(/[\/]/).pop();
+  const leaf = prof.split(/[\\/]/).pop();   // e.g. fitck-Ab12Cd (mkdtemp suffix: no quotes or wildcards)
   spawnSync('powershell', ['-NoProfile', '-Command',
-    `Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" | Where-Object { $_.CommandLine -like '*${leaf}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`],
+    `Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('${leaf}') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`],
     { stdio: 'ignore' });
   try { rmSync(prof, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch {}
 }
