@@ -72,6 +72,14 @@ python -I gen_pbip.py                                                # write TMD
 
 Then in Desktop: **Apply external changes → Home ▸ Refresh**. Requirements: **Windows** with Power BI Desktop (PBIP enabled; `runq.ps1` uses Windows PowerShell and Desktop's own AdomdClient), Python 3, Node 22+ and Microsoft Edge (found in the default install paths, or set `EDGE_PATH`) - no npm or pip packages. Details: [`tools/pbip-html-pipeline/README.md`](tools/pbip-html-pipeline/README.md).
 
+### With Power BI's own tools (optional)
+
+The kit does not depend on any Microsoft tool, but uses them when they are there: the **Power BI Modeling MCP** puts measures into the open model live (no Apply, no Refresh, atomic batches), the **Desktop Bridge** (`tools/pbip-html-pipeline/bridge.py`, plain Python) reloads the report files and takes real Desktop screenshots, and the **report-authoring CLI** validates the PBIR. Measured on a new project built end to end with them (10 Nov 2026) - what each one does better, and what it does not do (the bridge does not reload the model), is in [`reference/build-workflow.md`](reference/build-workflow.md) §1b. Without them the loop above is unchanged.
+
+<img src="docs/images/sales-desktop.png" alt="A sales overview dashboard rendered in Power BI Desktop: gradient page, HTML filter panel over native slicers, four filled KPI cards with icons, revenue treemap, region by category heat matrix, orders by region small multiples, a sales reps table with in-cell bars and a totals row, and a returns lift chart (invented sample data)" width="100%">
+
+<sub>Example 2 (<code>measures_example_sales.py</code>), captured from Power BI Desktop through the bridge. Everything except the three slicers is HTML Content; all data is invented.</sub>
+
 ### Card builders
 
 <img src="docs/images/components.png" alt="Nine card builders rendered in English, left-to-right, palette vivid with one color per category: waterfall, heat matrix, lift bars, small multiples, scatter, treemap, decomposition tree, a workload table with in-cell bars and a totals row, and a due-date table with colored type and status pills (invented sample data)" width="100%">
@@ -155,7 +163,8 @@ Every library component is marked with the edition it suits. The agent's default
 ## Verification status (honesty label)
 
 - **Measured in Power BI Desktop (Oct 2026 release, 9 Nov 2026):** the fit-to-canvas contract, the pipeline (`tools/pbip-html-pipeline/`) and the rules in `reference/design-system.md` and `reference/build-workflow.md`, on a real 1920×1080 Hebrew RTL dashboard with the Secure edition - including padding 0, RTL alignment, the type scale, palette-driven slicers, the gradient background layer and filled KPI cards.
-- **Gated, not yet confirmed in Desktop:** the card builders in `components.py` and the LTR/English build - DAX evaluated on a live model, passed the headless fit, contrast and stress gates.
+- **Measured in Power BI Desktop (10 Nov 2026):** the LTR/English build and the builders used by example 2 (`kpi_card`, `treemap_rows`, `heat_matrix`, `small_multiples`, `data_table`, `lift_bars`), and the tools route (Modeling MCP, Desktop Bridge, report-authoring CLI).
+- **Gated, not yet confirmed in Desktop:** `waterfall`, `scatter`, `decomp_static` - DAX evaluated on a live model, passed the headless fit, contrast and stress gates.
 - **Documentation-based, not yet run in Desktop:** the components in `library/components/` and the example in `examples/` (written from the HTML Content 2.0 docs, the PBIR Implementation Guide and Microsoft Learn, 9 Nov 2026), and the items marked 📋 in `ROADMAP.md`. Before production use, run `checklists/validation.md`. Every component that needs checking is marked `not run in Power BI`.
 
 ## Contributing

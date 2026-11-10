@@ -58,6 +58,10 @@ pp = os.path.join(PAGE_DIR, "page.json")
 page = json.load(open(pp, encoding="utf-8"))
 if PAGE_DISPLAY_NAME:
     page["displayName"] = PAGE_DISPLAY_NAME
+# the layout is authored for a fixed canvas: write it, or a new (scaffolded) page stays 1280x720 and clips everything
+import measures as _ms
+page["width"], page["height"] = getattr(_ms, "PAGE_W", 1920), getattr(_ms, "PAGE_H", 1080)
+page["displayOption"] = "FitToPage"
 color = {"solid": {"color": lit(f"'{BG}'")}}
 page["objects"] = {
     "background": [{"properties": {"color": color, "transparency": lit("0D")}}],

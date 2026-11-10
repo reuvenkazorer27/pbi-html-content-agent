@@ -24,6 +24,16 @@ python -I gen_pbip.py                                    # 8. write TMDL + visua
 
 Never write the PBIP (8) unless 5 and 6 pass. Never skip 7: it is what makes revert possible.
 
+**With Power BI's own tools** (see `../../reference/build-workflow.md` §1b): push the changed measures with the Power BI Modeling MCP (`measure_operations` Update - live, no Apply), run 8 to keep the files in sync, then
+
+```
+powerbi-report-author validate <project>.pbip                     # optional PBIR validation (Node CLI)
+python -I bridge.py reload                                       # report files into Desktop (not the model), waits for render
+python -I bridge.py shot <page-id> desktop.png                   # real Desktop screenshot, compare with full.png
+```
+
+Without the bridge (`bridge.py` exits 2) or the MCP: Apply external changes → Home ▸ Refresh → screenshot by hand.
+
 ## Build settings (environment variables)
 
 | Variable | Values | Effect |
@@ -39,7 +49,9 @@ Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_PALETTE=ocean` and `DAS
 | File | Role |
 | --- | --- |
 | `measures.py` (start from `measures_example_projects.py`) | Single source of truth: measures, `LAYOUT`, `SLICERS`. Inline styles only; colors only as `@@token@@`; `FONT_SCALE` remaps sizes; `CARD` root carries `height:100vh;overflow:hidden;line-height:1.35;direction:rtl;text-align:right`. |
-| `components.py` | Parameterized card builders: `waterfall`, `heat_matrix`, `lift_bars`, `small_multiples`, `scatter`, `treemap_rows`, `decomp_static`, `data_table` (column kinds text / number / percent / date / bar / pill, totals row, "and N more" tooltip). Charts take `colors="category"` (stable color per category value: alphabetical rank → `cat1..cat6`); `accent(expr, "cat2")` adds a colored top band. Each returns a DAX expression for `add(...)`; titles, empty text and `blank_label` are arguments, so they work in any language. Designed and gated at 520-640 × 320-400. |
+| `bridge.py` | Power BI Desktop Bridge in plain Python (named pipe, JSON-RPC): `status`, `reload` (report only, then waits for render), `shot <page-id> out.png`. Exit 2 when no bridge - fall back to Apply external changes. |
+| `measures_example_sales.py` + `make_sales_data.py` | Example 2: an English LTR sales dashboard on invented data, built only from the builders (icon KPIs, treemap, heat matrix, small multiples, table, lift bars) + HTML filter panel over native slicers. |
+| `components.py` | Parameterized card builders: `kpi_card` (icon required),  `waterfall`, `heat_matrix`, `lift_bars`, `small_multiples`, `scatter`, `treemap_rows`, `decomp_static`, `data_table` (column kinds text / number / percent / date / bar / pill, totals row, "and N more" tooltip). Charts take `colors="category"` (stable color per category value: alphabetical rank → `cat1..cat6`); `accent(expr, "cat2")` adds a colored top band. Each returns a DAX expression for `add(...)`; titles, empty text and `blank_label` are arguments, so they work in any language. Designed and gated at 520-640 × 320-400. |
 | `component_lab_example.py` | Binds every builder to a model, evaluates them on the open Desktop model and renders a gate page (`node fitcheck.mjs lab.html`). Optional DAX filter argument for empty/filtered states; `LAB_COLORS=category` colors every chart per category; `LAB_FROM=results.json` renders saved (e.g. anonymized) results without querying. |
 | `fitjs.py` | The shared `fitCheck()` script injected into preview and lab pages. |
 | `labels.py` | UI string translation (Hebrew authored → English) with masking of DAX data literals and model references; status display names. |
@@ -52,4 +64,4 @@ Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_PALETTE=ocean` and `DAS
 | `regress.py` | Byte-compares every measure's HTML with the last version: refactors must print IDENTICAL; intended changes list exactly which cards changed. |
 | `versions.py` | `snapshot` / `list` / `diff vA vB` / `revert vN` (auto pre-revert snapshot). A version = zip of .pbip + report/model definitions + `_build` sources + the real HTML outputs + screenshot, in `<project>/_versions/`. After revert: Apply external changes -> Refresh. |
 | `config.py` / `pipeline.json` | Project settings (PBIP name, host table, page, backup, optional partition M); no project names or paths are hardcoded in the scripts. |
-| `gen_pbip.py` | Measures into TMDL (rebuilt from the backup copy each run), optional partition M swap, page background from palette, `visual.json` per visual with padding 0 / chrome off, slicer `items.fontColor`/`items.background` from palette, AppSource visual registered in `report.json`. |
+| `gen_pbip.py` | Measures into TMDL (rebuilt from the backup copy each run), optional partition M swap, page background from palette, `visual.json` per visual with padding 0 / chrome off, page canvas size from `PAGE_W`/`PAGE_H` (default 1920×1080), slicer `items.fontColor`/`items.background` from palette, AppSource visual registered in `report.json`. |

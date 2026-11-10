@@ -11,8 +11,9 @@ Conventions (see reference/design-system.md):
 - every card has an empty state and fixed row heights; lists are capped by top/max_* arguments (pick the
   cap from the card height; the cards do not add an "and N more" line - add one in your layout if needed)
 
-Card sizes the builders are designed for (fit-checked): 520-640 wide x 320-400 high.
+Card sizes the builders are designed for (fit-checked): 520-640 wide x 320-400 high (KPI cards: 280-400 x 140-180).
 """
+import re
 
 FONT = "font-family:Segoe UI,Arial,sans-serif"
 CARD = ("box-sizing:border-box;height:100vh;overflow:hidden;background:@@surface@@;"
@@ -342,9 +343,12 @@ def data_table(table, key, columns, title, subtitle, sort_by, top=5, key_label=N
     if totals and not key_label:
         raise ValueError("totals needs key_label: the totals label is written in the key column")
     cols = ([{"label": key_label, "value": f"{table}[{key}]", "kind": "key", "width": "1.6fr"}] if key_label else []) + list(columns)
-    widths = " ".join(c.get("width", "1fr") for c in cols)
+    # one grid per row: "1fr" means minmax(auto,1fr), so a wide value would widen its column in that row only and break
+    # the line-up with the header -> every fr track is minmax(0,fr) and every cell can shrink (min-width:0)
+    widths = " ".join(re.sub(r"^([\d.]+)fr$", r"minmax(0,\1fr)", c.get("width", "1fr")) for c in cols)
     grid = f"display:grid;grid-template-columns:{widths};column-gap:12px;align-items:center"
-    num_style = "text-align:@@end@@;direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums;white-space:nowrap"
+    num_style = ("text-align:@@end@@;direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums;white-space:nowrap;"
+                 "min-width:0;overflow:hidden;text-overflow:ellipsis")
     clip = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0"
     hdr_bg = (f"background:@@{header_accent}_soft@@;color:@@{header_accent}_text@@" if header_accent
               else f"background:@@inset@@;color:{FG2}")
@@ -363,9 +367,9 @@ def data_table(table, key, columns, title, subtitle, sort_by, top=5, key_label=N
         elif kind == "bar":
             fmt = c.get("fmt") or "#,0"
             color = f"@@{c.get('color', 'primary')}@@"
-            cell = (f'"<div style=\'display:flex;align-items:center;gap:8px;min-width:0\'><div style=\'flex:1;height:10px;border-radius:5px;background:@@track@@;overflow:hidden;display:flex\'>'
+            cell = (f'"<div style=\'display:flex;align-items:center;gap:8px;min-width:0\'><div style=\'flex:1;min-width:16px;height:10px;border-radius:5px;background:@@track@@;overflow:hidden;display:flex\'>'
                     f'<div style=\'flex:none;width:" & FORMAT ( MAX ( DIVIDE ( {v}, _mx{j} ), 0 ) * 100, "0.0" ) & "%;background:{color}\'></div></div>'
-                    f'<div style=\'{num_style};width:44px;flex:none\'>" & IF ( ISBLANK ( {v} ), "-", FORMAT ( {v}, "{fmt}" ) ) & "</div></div>"')
+                    f'<div style=\'{num_style};flex:none;min-width:auto;overflow:visible\'>" & IF ( ISBLANK ( {v} ), "-", FORMAT ( {v}, "{fmt}" ) ) & "</div></div>"')
         elif kind == "pill":
             pc = c["pill_col"]
             ref = v
@@ -413,3 +417,53 @@ VAR _totals = {f'"<div style=\'{grid};height:30px;padding:0 8px;border-top:2px s
             f"<div style='{grid};height:30px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:700;{hdr_bg}'>\" & {head_cells} & \"</div>\" & _body & _totals & \"</div>\""
             f" & IF ( _rest > 0, \"<div class='tooltipEnabled'\" & _tip & \" style='font-size:12px;color:@@primary_text@@;margin-top:4px;flex:none'>{more}</div>\" )",
             empty_text)
+
+
+# 9 --------------------------------------------------------------- KPI card (an icon is required)
+# 22px glyphs on a 24-unit grid, drawn with {c} (glyph color) and {k} (detail color). Generic shapes, no brand marks.
+KPI_ICONS = {
+    "money":  "<svg width='22' height='22' viewBox='0 0 24 24'><rect x='2' y='6' width='20' height='12' rx='2.5' fill='{c}'/><circle cx='12' cy='12' r='3.2' fill='{k}'/></svg>",
+    "cart":   "<svg width='22' height='22' viewBox='0 0 24 24'><path d='M3 4h3l2.2 10.2h10.3L21 7H7.2' fill='none' stroke='{c}' stroke-width='2.4' stroke-linejoin='round'/><circle cx='9.5' cy='19' r='1.9' fill='{c}'/><circle cx='17' cy='19' r='1.9' fill='{c}'/></svg>",
+    "tag":    "<svg width='22' height='22' viewBox='0 0 24 24'><path d='M3 12.5V4h8.5L21 13.5 12.5 22z' fill='{c}'/><circle cx='7.5' cy='8.5' r='1.8' fill='{k}'/></svg>",
+    "return": "<svg width='22' height='22' viewBox='0 0 24 24'><path d='M9 5L4 10l5 5' fill='none' stroke='{c}' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/><path d='M5 10h9a6 6 0 0 1 0 12h-3' fill='none' stroke='{c}' stroke-width='2.6' stroke-linecap='round'/></svg>",
+    "people": "<svg width='22' height='22' viewBox='0 0 24 24'><circle cx='9' cy='8' r='4' fill='{c}'/><path d='M1.5 21a7.5 7.5 0 0 1 15 0z' fill='{c}'/><circle cx='17.5' cy='9' r='3' fill='{c}' opacity='.6'/></svg>",
+    "clock":  "<svg width='22' height='22' viewBox='0 0 24 24'><circle cx='12' cy='12' r='10' fill='{c}'/><path d='M12 6.5V12l3.5 2.5' stroke='{k}' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>",
+    "check":  "<svg width='22' height='22' viewBox='0 0 24 24'><circle cx='12' cy='12' r='10' fill='{c}'/><path d='M7 12.5l3.2 3.2L17 9' stroke='{k}' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>",
+    "chart":  "<svg width='22' height='22' viewBox='0 0 24 24'><rect x='3' y='12' width='4' height='9' rx='1' fill='{c}'/><rect x='10' y='7' width='4' height='14' rx='1' fill='{c}'/><rect x='17' y='3' width='4' height='18' rx='1' fill='{c}'/></svg>",
+    "list":   "<svg width='22' height='22' viewBox='0 0 24 24'><rect x='2' y='3' width='20' height='5' rx='1.5' fill='{c}'/><rect x='2' y='10' width='20' height='5' rx='1.5' fill='{c}' opacity='.6'/><rect x='2' y='17' width='12' height='4' rx='1.5' fill='{c}' opacity='.35'/></svg>",
+    "alert":  "<svg width='22' height='22' viewBox='0 0 24 24'><path d='M12 2.5L23 21H1z' fill='{c}'/><rect x='11' y='9' width='2' height='6' fill='{k}'/><rect x='11' y='17' width='2' height='2' fill='{k}'/></svg>",
+}
+
+
+def kpi_card(title, value, fmt, icon, sub='""', cat="cat1", filled=False):
+    """KPI card: title + icon chip on one line, one big number, one single-line caption.
+
+    value  DAX for the number; BLANK shows "-"     fmt  FORMAT string ("#,0", "$#,0", "0.0%")
+    icon   a KPI_ICONS key - required: a KPI without an icon is rejected
+    sub    DAX text expression for the caption line (single line, clipped)
+    cat    color token base for the accent (cat1..cat6, or primary/done/bad/...)
+    filled True: deep fill (@@strong@@ + darkening overlay), white text, colored top band;
+           False: light card with a colored start border and a tinted icon chip."""
+    if icon not in KPI_ICONS:
+        raise ValueError(f"kpi_card needs an icon from KPI_ICONS ({', '.join(KPI_ICONS)}), got {icon!r}")
+    title = _t(title)
+    if filled:
+        root = (f"{CARD};background:linear-gradient(160deg,rgba(0,0,0,0),rgba(0,0,0,.24)),@@strong@@;color:@@on_accent@@;"
+                f"border-top:6px solid @@{cat}@@;padding:12px 20px 14px")
+        chip, title_c = "rgba(255,255,255,.22)", "@@on_accent@@"
+        glyph = KPI_ICONS[icon].format(c="@@on_accent@@", k="@@strong@@")
+    else:
+        root = f"{CARD};border-inline-start:5px solid @@{cat}@@;padding:12px 20px 14px"
+        chip, title_c = f"@@{cat}_soft@@", FG2
+        glyph = KPI_ICONS[icon].format(c=f"@@{cat}@@", k="@@surface@@")
+    return ISO + f"""
+VAR _v = {value}
+RETURN
+    "<div dir='@@dir@@' lang='@@lang@@' style='{root};display:flex;flex-direction:column;justify-content:space-between'>"
+        & "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none'>"
+            & "<span style='font-size:14px;font-weight:600;color:{title_c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{title}</span>"
+            & "<span style='width:40px;height:40px;flex:none;border-radius:10px;background:{chip};display:flex;align-items:center;justify-content:center'>{glyph}</span>"
+        & "</div>"
+        & "<div style='font-size:40px;font-weight:700;line-height:1;direction:ltr;unicode-bidi:isolate;text-align:@@start@@;white-space:nowrap'>" & IF ( ISBLANK ( _v ), "-", FORMAT ( _v, "{fmt}" ) ) & "</div>"
+        & "<div style='font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none'>" & {sub} & "</div>"
+    & "</div>\""""
