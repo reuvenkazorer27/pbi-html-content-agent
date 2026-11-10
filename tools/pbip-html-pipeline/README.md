@@ -30,7 +30,7 @@ Never write the PBIP (8) unless 5 and 6 pass. Never skip 7: it is what makes rev
 | --- | --- | --- |
 | `DASH_DIR` | `rtl` (default) / `ltr` | Reading direction: card `dir`/`text-align`, number alignment, arrows; `LAYOUT` and `SLICERS` are mirrored for LTR (x' = page width - x - w) |
 | `DASH_LANG` | `he` (default for rtl) / `en` (default for ltr) | UI language: `labels.py` translates display strings only (model refs and data literals are masked) and fails the build on any untranslated string; month names follow the locale |
-| `DASH_PALETTE` | `ocean`, `midnight`, `berry`, `vivid` | Color tokens, page background, slicer colors, gradient layer and filled KPI cards (`vivid`) |
+| `DASH_PALETTE` | `ocean`, `midnight`, `berry`, `vivid`, presets `exec`, `trend`, `mono`, `night`, `warm`, `forest` | Color tokens, page background, slicer colors, gradient layer and filled KPI cards (`vivid`) |
 
 Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_PALETTE=ocean` and `DASH_DIR=rtl DASH_PALETTE=vivid` each through `fitcheck.mjs` and `stress.py`. Translated strings are usually longer - the fit gate catches it; shorten the wording, not the layout.
 
@@ -39,8 +39,8 @@ Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_PALETTE=ocean` and `DAS
 | File | Role |
 | --- | --- |
 | `measures.py` (start from `measures_example_projects.py`) | Single source of truth: measures, `LAYOUT`, `SLICERS`. Inline styles only; colors only as `@@token@@`; `FONT_SCALE` remaps sizes; `CARD` root carries `height:100vh;overflow:hidden;line-height:1.35;direction:rtl;text-align:right`. |
-| `components.py` | Parameterized card builders: `waterfall`, `heat_matrix`, `lift_bars`, `small_multiples`, `scatter`, `treemap_rows`, `decomp_static`. Each returns a DAX expression for `add(...)`; titles, empty text and `blank_label` are arguments, so they work in any language. Designed and gated at 520-640 × 320-400. |
-| `component_lab_example.py` | Binds every builder to a model, evaluates them on the open Desktop model and renders a gate page (`node fitcheck.mjs lab.html`). Optional DAX filter argument for empty/filtered states. |
+| `components.py` | Parameterized card builders: `waterfall`, `heat_matrix`, `lift_bars`, `small_multiples`, `scatter`, `treemap_rows`, `decomp_static`, `data_table` (column kinds text / number / percent / date / bar / pill, totals row, "and N more" tooltip). Charts take `colors="category"` (stable color per category value: alphabetical rank → `cat1..cat6`); `accent(expr, "cat2")` adds a colored top band. Each returns a DAX expression for `add(...)`; titles, empty text and `blank_label` are arguments, so they work in any language. Designed and gated at 520-640 × 320-400. |
+| `component_lab_example.py` | Binds every builder to a model, evaluates them on the open Desktop model and renders a gate page (`node fitcheck.mjs lab.html`). Optional DAX filter argument for empty/filtered states; `LAB_COLORS=category` colors every chart per category; `LAB_FROM=results.json` renders saved (e.g. anonymized) results without querying. |
 | `fitjs.py` | The shared `fitCheck()` script injected into preview and lab pages. |
 | `labels.py` | UI string translation (Hebrew authored → English) with masking of DAX data literals and model references; status display names. |
 | `palette.py` (brand + theme) | `DASH_PRIMARY` / `DASH_ACCENT` / `DASH_DARK` derive a palette named `brand` (text tokens pushed to WCAG 4.5:1, `strong` fill safe for white text). `python -I palette.py theme out.json` writes the active palette as a report theme (View → Themes → Browse). |
