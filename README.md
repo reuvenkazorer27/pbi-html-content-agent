@@ -34,13 +34,13 @@ Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar 
 ## Features
 
 - **Composite or fullscreen dashboards** of HTML Content visuals at exact coordinates, mixed with native slicers and buttons.
-- **Gated card builders** (`tools/pbip-html-pipeline/components.py`, headless gates on a live model, not yet confirmed in Desktop) - waterfall, heat matrix, key-influencer lift bars, small multiples, scatter/bubble, treemap and a static decomposition tree. Parameterized by table/column/measure, built on the token, type-scale and direction system, and gated (fit, contrast, empty state) in light, dark and colorful palettes, LTR and RTL.
+- **Gated card builders** (`tools/pbip-html-pipeline/components.py`, headless gates on a live model, not yet confirmed in Desktop) - waterfall, heat matrix, key-influencer lift bars, small multiples, scatter/bubble, treemap, a static decomposition tree and a **data table** (header row, aligned numeric columns, in-cell bars, colored pills, totals row, "and N more" with a hover list). Charts take `colors="category"` for one stable color per category value, and `accent()` gives any card a colored top band. Parameterized by table/column/measure, built on the token, type-scale and direction system, and gated (fit, contrast, empty state) in light, dark and colorful palettes, LTR and RTL.
 - **A component library** (`library/components/`) - bullet, IBCS variance, dumbbell, lollipop, waffle, calendar heatmap, milestone timeline, org strip, KPI cards and more - each a paste-ready DAX measure.
 - **Real interactivity** - cards respond to every slicer and filter; row-bound cards cross-filter other visuals through the Context role; page navigation through native buttons layered over the HTML.
 - **Theme-aware** - colors from palette tokens or the report theme (`--pbi-theme-*` CSS variables), PBIR GUIDs for both editions (Regular and Secure).
 - **Left-to-right and right-to-left** - one setting (`DASH_DIR=ltr|rtl`) flips the whole layout (filter panel, reading order, alignment, arrows); RTL gets bidi isolation of numbers, currency and dates.
 - **UI language** - display strings are translated by `DASH_LANG` (`he` authored, `en` included) while data values and model names are protected, so filters never break; a build fails if any string is left untranslated.
-- **Palettes** - `ocean` (light), `midnight` (dark), `berry` and `vivid` (colorful: gradient page + filled KPI cards), or **your brand**: `DASH_PRIMARY=#hex [DASH_ACCENT=#hex] [DASH_DARK=1]` derives a full palette whose text colors are pushed until they pass WCAG 4.5:1. Export any palette as a Power BI report theme so native visuals match.
+- **Palettes** - `ocean` (light), `midnight` (dark), `berry` and `vivid` (colorful: gradient page + filled KPI cards), the catalog presets `exec`, `trend`, `mono`, `night`, `warm`, `forest` (each with a six-color categorical set, `cat1`..`cat6`, plus text-safe `*_soft`/`*_text` pairs), or **your brand**: `DASH_PRIMARY=#hex [DASH_ACCENT=#hex] [DASH_DARK=1]` derives a full palette whose text colors are pushed until they pass WCAG 4.5:1. Export any palette as a Power BI report theme so native visuals match.
 - **Direct PBIR authoring** - TMDL measures and `visual.json` files written by script; Desktop picks them up with *Apply external changes*.
 - **Honest by design** - no fake buttons, no promises the Secure sandbox cannot keep, and every claim labeled as measured or doc-based.
 
@@ -74,9 +74,9 @@ Then in Desktop: **Apply external changes → Home ▸ Refresh**. Requirements: 
 
 ### Card builders
 
-<img src="docs/images/components.png" alt="Seven card builders rendered in English, left-to-right: waterfall, department-by-status heat matrix, lift bars, small multiples, scatter, two-row treemap and a static decomposition tree (invented sample data)" width="100%">
+<img src="docs/images/components.png" alt="Nine card builders rendered in English, left-to-right, palette vivid with one color per category: waterfall, heat matrix, lift bars, small multiples, scatter, treemap, decomposition tree, a workload table with in-cell bars and a totals row, and a due-date table with colored type and status pills (invented sample data)" width="100%">
 
-<sub>Every builder bound to a live model and rendered at card size (608×328); names are invented sample data.</sub>
+<sub>Every builder bound to a live model and rendered at card size (608×328), palette <code>vivid</code>, <code>LAB_COLORS=category</code>; names are invented sample data.</sub>
 
 ## Repository map
 

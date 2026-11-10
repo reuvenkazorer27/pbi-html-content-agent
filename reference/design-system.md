@@ -41,6 +41,8 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 - A fill color is not a text color. Each status needs a fill token (bars, borders, dots) and a darker `*_text` token for text on its soft background (a typical teal on its pale fill measured 2.73:1). Dark palettes need lighter `*_text` variants.
 - A fill that carries white text needs its own token (`strong`): a palette's primary can be too light for white text (a dark palette's light blue measured 2.68:1). Use `*_soft` + `*_text` pairs for tiles and pills, and `strong` + `on_accent` for filled highlights.
 - Brand palettes: derive every token from one or two brand colors and push each text color toward black (light) or white (dark) until it passes 4.5:1 on its background - never accept a brand color as a text color unchecked.
+- **Categorical colors** (`cat1`..`cat6`, each with `catN_soft` and a text-safe `catN_text`): use them when color encodes *which category*, not *how good*. A category keeps its color everywhere - assign by the value's rank over the whole column (`ALL(column)`), never by its position in the current top N, or a filter recolors it. Status colors (`done`, `bad`, ...) stay for status meaning only.
+- Six hues are the limit a reader can tell apart; beyond six, colors repeat - put the label on the mark, not only in a legend.
 - Native slicers default to a white dropdown: set `items.fontColor` / `items.background` from the palette, or a dark page gets white boxes.
 
 ### Colorful dashboards
@@ -52,6 +54,7 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 ## 5. Lists, slicers and interactivity
 
 - **Lists that do not fit:** show the top N rows; the overflow line ("and N more") carries a manual tooltip that lists the hidden items: `class='tooltipEnabled'` + `data-tooltip-title-NN` / `data-tooltip-value-NN` (one pair per item, NN zero-padded). Works in Secure. *Click to expand* is not possible in Secure - it needs the Regular edition with script, or a native drillthrough page.
+- **Tables in HTML:** a header row on a tinted band, fixed 30px rows, zebra striping, numbers end-aligned with tabular figures (`font-variant-numeric:tabular-nums`) and isolated (`direction:ltr;unicode-bidi:isolate`), text clipped with an ellipsis (never wrapped), an optional totals row with a heavier top rule, and an "and N more" line with the hover list. Rows come from the fit budget, not the data. Columns are a CSS grid shared by header, rows and totals so they always line up.
 - **A dominant blank category** ("no department" at 35%) is not a bar - drop it from the list and state it in a note line; otherwise it compresses every real bar.
 - **Short categorical lists** (≤12 items) fit in two columns (`display:grid; grid-auto-flow:column; grid-template-rows:repeat(n,28px)`) instead of being truncated.
 - **Native slicers on an HTML panel:** draw only the label in HTML (no box - it doubles the border); the slicer (padding 0, header off, background off, dropdown mode) supplies its own box. Position: `y = panelTop + titleBlock + i × slotPitch + labelHeight`, from the same constants the HTML uses.
