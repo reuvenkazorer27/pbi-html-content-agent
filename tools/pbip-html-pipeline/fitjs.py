@@ -7,7 +7,13 @@ function fitCheck(){
   document.querySelectorAll('iframe[data-name]').forEach(function(f){
     var d=f.contentDocument, root=d && d.body && d.body.firstElementChild; if(!root) {out.push(f.dataset.name+': EMPTY');return;}
     var W=f.clientWidth, H=f.clientHeight, worst=null;
+    /* motion: measure the resting layout - finish entrances, park endless loops at their start */
+    if(d.getAnimations) d.getAnimations().forEach(function(a){ try{
+      if(a.effect && a.effect.getComputedTiming().iterations===Infinity){ a.pause(); a.currentTime=0; } else { a.finish(); }
+    }catch(e){} });
     root.querySelectorAll('*').forEach(function(el){
+      /* .fit-clip = clipped on purpose (odometer digit strips, sweeping sheens) */
+      if(el.closest && el.closest('.fit-clip')) return;
       var r=el.getBoundingClientRect(); if(!r.width||!r.height) return;
       var over=Math.max(r.bottom-(H-SAFE), r.right-(W-SAFE), SAFE-r.left);
       if(over>0.5 && (!worst||over>worst.over)) worst={over:over,tag:el.tagName,txt:(el.textContent||'').trim().slice(0,40)};

@@ -69,3 +69,12 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 - **RTL text:** isolate every number, currency, date and Latin run (LRI/PDI in DAX strings, `<bdi>` in static markup) - see `skills/rtl-hebrew/SKILL.md`.
 - **UI language:** some words are both labels and data values (a status shown in a pill is also a filter literal). Never translate data literals or model names: translate display strings only, give data values an explicit display-name map, and fail the build if any source-language text is left. Translated text is usually longer - the fit gate will catch it; shorten the wording, keep the layout.
 - **Stress every language and direction** with slicer-like filters (one column at a time), an empty selection, and one scenario that marks every column filtered (the worst case for header filter chips).
+
+## 7. Motion (measured 10 Nov 2026 - details and patterns in `skills/motion/SKILL.md`)
+
+- **CSS `@keyframes` in an inline `<style>` inside the measure** - the only motion that runs in the Secure edition. No script, no external file. Each visual is its own document, so each measure carries its own `<style>`.
+- **Two kinds:** an *entrance* (plays on every render - page open, filter change, Refresh; finished within ~1.2 s) and an *ambient loop* (2-3 s cycles, runs for every viewer with no interaction). Loops go only on what the reader must notice.
+- **Windows "Animation effects" off makes Power BI Desktop report `prefers-reduced-motion: reduce`.** A reduced-motion media query then hides all motion on that machine. The library components ship without it (motion always plays, short and flash-free); add it when accessibility comes first and say which in the deliverable.
+- **No flashes:** gradual opacity, shadow and transform only. A Desktop burst must show no frame-to-frame change near 10/255 (measured loop: 0.16/255).
+- **Clipped on purpose = class `fit-clip`.** The fit gate skips those elements and settles animations first (entrances finished, loops parked at 0), so it measures the resting layout.
+- **Static outputs** (PDF/PowerPoint export, subscriptions) show one still moment: entrances show their end state; every moment of a loop must read well.

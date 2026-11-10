@@ -36,6 +36,7 @@ Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar 
 - **HTML Content everywhere except the slicers** - header, KPI cards (each with an icon), charts, tables and matrices are HTML Content visuals at exact coordinates; native slicers are the only native visuals (native buttons only when a report needs several pages).
 - **Gated card builders** (`tools/pbip-html-pipeline/components.py`, headless gates on a live model, not yet confirmed in Desktop) - waterfall, heat matrix, key-influencer lift bars, small multiples, scatter/bubble, treemap, a static decomposition tree and a **data table** (header row, aligned numeric columns, in-cell bars, colored pills, totals row, "and N more" with a hover list). Charts take `colors="category"` for one stable color per category value, and `accent()` gives any card a colored top band. Parameterized by table/column/measure, built on the token, type-scale and direction system, and gated (fit, contrast, empty state) in light, dark and colorful palettes, LTR and RTL.
 - **A component library** (`library/components/`) - bullet, IBCS variance, dumbbell, lollipop, waffle, calendar heatmap, milestone timeline, org strip, KPI cards and more - each a paste-ready DAX measure.
+- **Motion** (`skills/motion/SKILL.md`) - CSS-only, Secure-safe: KPI cards whose digits roll and bars grow on every render (`kpi-card-motion.dax`), and an exception list that keeps pulsing for every viewer (`watch-list-motion.dax`); frozen-frame and Desktop-burst checks. Measured in Desktop.
 - **Real interactivity** - cards respond to every slicer and filter; row-bound cards cross-filter other visuals through the Context role; page navigation through native buttons layered over the HTML.
 - **Theme-aware** - colors from palette tokens or the report theme (`--pbi-theme-*` CSS variables), PBIR GUIDs for both editions (Regular and Secure).
 - **Left-to-right and right-to-left** - one setting (`DASH_DIR=ltr|rtl`) flips the whole layout (filter panel, reading order, alignment, arrows); RTL gets bidi isolation of numbers, currency and dates.
@@ -96,7 +97,8 @@ The kit does not depend on any Microsoft tool, but uses them when they are there
 | [`ROADMAP.md`](ROADMAP.md) | 20-step plan: what is built and measured, what is researched next |
 | [`tools/pbip-html-pipeline/`](tools/pbip-html-pipeline/) | Build · gate · version · write pipeline |
 | [`library/`](library/) | Components (`.dax`), palettes, icons (Kubai, MIT), fullscreen shell |
-| [`skills/`](skills/) | dashboard-shell, composite-dashboard, html-slicers-filters, navigation-header-menu, rtl-hebrew |
+| [`skills/`](skills/) | dashboard-shell, composite-dashboard, html-slicers-filters, navigation-header-menu, rtl-hebrew, motion |
+| [`tools/motion-bake/`](tools/motion-bake/) | Experimental: bake a motion2code SVG+GSAP loop into CSS keyframes for HTML Content (headless-verified, not run in Power BI) |
 | [`reference/`](reference/) | Verified PBIR / HTML Content properties, capabilities, canvas and layout |
 | [`examples/`](examples/) | Worked examples (sales dashboard, context interaction, KPI with icon) |
 | [`checklists/validation.md`](checklists/validation.md) | What to check in Desktop, Service, mobile and export |

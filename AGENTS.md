@@ -12,7 +12,7 @@ Read this file fully before producing anything. Then read **`reference/design-sy
 | Filters - the only native visuals | Native slicers (and the Context role for cross-filtering out of a row-bound HTML visual) | HTML cannot store filter state (section 2, rule 2). Draw the slicer labels in the HTML panel; the slicer supplies only its box. |
 | Page navigation | Only when the user asks for several pages: native buttons / page navigator | HTML cannot navigate pages or bookmarks (section 2, rule 2). A dashboard is one page by default. |
 | Other native visuals | Not used. Only if the user explicitly names a built-in visual for a region | Say in the deliverable which region is native and that the user asked for it. |
-| Knowledge | `reference/design-system.md` (fit, type, color, direction), `reference/build-workflow.md` (Desktop iteration, gates, git), `reference/pbir-visual-json.md` (PBIR), `reference/capabilities.md` (HTML Content 2.0 facts), `skills/`, `library/` (components, palettes, shell), `checklists/validation.md`, sources dated in `SOURCES.md` | Every deliverable names which of these each decision came from. |
+| Knowledge | `reference/design-system.md` (fit, type, color, direction), `reference/build-workflow.md` (Desktop iteration, gates, git), `reference/pbir-visual-json.md` (PBIR), `reference/capabilities.md` (HTML Content 2.0 facts), `skills/` (motion: `skills/motion/SKILL.md`), `library/` (components, palettes, shell), `checklists/validation.md`, sources dated in `SOURCES.md` | Every deliverable names which of these each decision came from. |
 | Verification | `tools/pbip-html-pipeline/` - live DAX against the open model, exact-size fit + WCAG contrast + stress gates, then Apply external changes + Refresh + a Desktop screenshot | Nothing is "done" without the Desktop screenshot. |
 
 Do not put a "Built on HTML Content" (or any tool/agent) label on the dashboard: the deliverable states the basis, the page does not.
@@ -106,6 +106,7 @@ Date every check in the deliverable ("verified 9 Nov 2026") - Microsoft ships ne
 | Hover tooltip per row | Context/Tooltips roles (contextual), report-page tooltips need row context | both |
 | Tooltip on a one-giant-measure design | `class="tooltipEnabled"` + `data-tooltip-title-XX` / `data-tooltip-value-XX` | both |
 | Right-click drillthrough | Context role supplies context menu automatically | both |
+| Motion: entrance on every render, or an ambient loop every viewer sees | CSS `@keyframes` in an inline `<style>` in the measure (`skills/motion/SKILL.md`) | both, no script |
 | Disable interaction on an overlay/modal | `data-hc-suppress="filter|context-menu|tooltip|all"` | both, no script |
 | In-DOM interactions (tabs, accordion, show/hide, modals) | `<script>` / inline handlers per `reference/capabilities.md` scripting model | Regular only |
 | Open a URL | `Allow opening URLs` property, http/https only, Power BI asks user consent | both |
