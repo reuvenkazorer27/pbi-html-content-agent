@@ -12,7 +12,10 @@ import components as K
 from config import TABLE
 
 DIR, LANG = _os.environ["DASH_DIR"], _os.environ["DASH_LANG"]
-DIR_TOKENS = {"dir": "ltr", "lang": "en", "start": "left", "end": "right", "fwd_arrow": "&#9654;", "locale": "en-US"}
+assert DIR in ("ltr", "rtl"), "DASH_DIR must be ltr or rtl"
+DIR_TOKENS = {"dir": DIR, "lang": LANG, "locale": {"he": "he-IL"}.get(LANG, "en-US"),
+              **({"start": "left", "end": "right", "fwd_arrow": "&#9654;"} if DIR == "ltr" else
+                 {"start": "right", "end": "left", "fwd_arrow": "&#9664;"})}
 T = f"'{TABLE}'"
 C = lambda c: f"{T}[{c}]"
 CARD, FG2, ISO = K.CARD, "@@fg2@@", K.ISO
@@ -71,7 +74,7 @@ kpi("HTML KPI Revenue", "Revenue", "[Revenue]", "$#,0", "money", "cat1",
     '''VAR _c = [Revenue 30d] VAR _p = [Revenue prev 30d] RETURN IF ( ISBLANK ( _p ), "No prior 30 days", "Last 30 days " & FORMAT ( DIVIDE ( _c - _p, _p ), "+0%;-0%;0%" ) & " vs prior 30" )''')
 kpi("HTML KPI Orders", "Orders", "[Orders]", "#,0", "cart", "cat2", '"Units " & FORMAT ( [Total units] + 0, "#,0" )')
 kpi("HTML KPI AOV", "Avg order value", "[Avg order value]", "$#,0", "tag", "cat3",
-    f'FORMAT ( DISTINCTCOUNT ( {C("Product")} ) + 0, "0" ) & " products · " & FORMAT ( DISTINCTCOUNT ( {C("Region")} ) + 0, "0" ) & " regions"')
+    f'LRI & FORMAT ( DISTINCTCOUNT ( {C("Product")} ) + 0, "0" ) & PDI & " products · " & LRI & FORMAT ( DISTINCTCOUNT ( {C("Region")} ) + 0, "0" ) & PDI & " regions"')
 kpi("HTML KPI Returns", "Return rate", "[Return rate]", "0.0%", "return", "cat4", '"Returned orders " & FORMAT ( [Returns] + 0, "#,0" )')
 
 # ---------------------------------------------------------------- filter panel (labels only; native slicers sit under them)
@@ -125,3 +128,9 @@ if P.get("bg_layer") != "1":
     M.pop("HTML Background")
 # slicer y = panel top 112 + title 64 + i*80 + label 24 (+16 panel padding)
 SLICERS = [(f"sl{f}", f, 48, 112 + 16 + 64 + 24 + 80 * i, 264, 40) for i, f in enumerate(FILTERS)]
+
+# RTL: mirror the LTR-authored layout (x' = page width - x - w); the filter panel docks right
+PAGE_W, PAGE_H = 1920, 1080
+if DIR == "rtl":
+    LAYOUT[:] = [(n, m, PAGE_W - x - w, y, w, h) for n, m, x, y, w, h in LAYOUT]
+    SLICERS[:] = [(n, c, PAGE_W - x - w, y, w, h) for n, c, x, y, w, h in SLICERS]
