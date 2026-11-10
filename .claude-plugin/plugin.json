@@ -1,0 +1,11 @@
+{
+  "name": "pbi-html-content-agent",
+  "displayName": "PBI HTML Content Agent",
+  "version": "1.0.0",
+  "description": "Build pixel-exact Power BI dashboards on the HTML Content visual, fitted to your data and brand: gated card builders, colorful styles, motion, LTR/RTL, PBIP/PBIR writer, fit/contrast/stress gates.",
+  "author": { "name": "Reuven Kazorer", "url": "https://github.com/reuvenkazorer27" },
+  "homepage": "https://github.com/reuvenkazorer27/pbi-html-content-agent",
+  "repository": "https://github.com/reuvenkazorer27/pbi-html-content-agent",
+  "license": "MIT",
+  "keywords": ["power-bi", "pbip", "pbir", "dax", "html-content", "dashboard", "rtl", "data-visualization"]
+}
