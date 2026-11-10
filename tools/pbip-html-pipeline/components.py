@@ -41,11 +41,11 @@ def _head(title, subtitle):
             f"<div style='font-size:12px;color:{FG2};white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{subtitle}</div></div>\"")
 
 
-def _wrap(title, subtitle, body, empty_text, is_empty="_n = 0"):
+def _wrap(title, subtitle, body, empty_text, is_empty="_n = 0", motion=False):
     empty_text = _t(empty_text)
     return f"""
 RETURN
-    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 20px;display:flex;flex-direction:column;gap:10px'>"
+    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 20px;display:flex;flex-direction:column;gap:10px'>{_mstyle(motion)}"
         & {_head(title, subtitle)}
         & IF ( {is_empty},
             "<div data-fill='free' style='flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:{FG2}'>{empty_text}</div>",
@@ -95,9 +95,84 @@ def _fmt(expr):
             f"IF ( ABS ( {expr} ) >= 1000, FORMAT ( {expr} / 1000, \"0.0\" ) & \"K\", FORMAT ( {expr}, \"#,0\" ) ) ) & PDI")
 
 
+# ---------------------------------------------------------------- motion (opt-in, see skills/motion/SKILL.md)
+# Every builder takes motion = False | True | k, and alert = None | "<DAX condition>".
+#   motion=True  an entrance on every render (page open, filter change, Refresh): bars grow from the axis (no overshoot -
+#                it would misstate values), tiles/cells pop, rows slide in, KPI digits roll (from prev= when given, so
+#                the roll shows the change).
+#   alert="..."  a DAX condition in the builder's row context; items that break it pulse a red ring twice (4.8 s, then
+#                stop - WCAG 2.2.2 needs a pause control for motion longer than 5 s) on every render. Nothing else
+#                loops: decorative motion (sheens, "breathing", grow-in for its own sake) is left out on purpose.
+#   k > 1        slows every animation k times (only to check frames in Desktop). False: output byte-identical.
+# CSS keyframes only (Secure edition). Rules and sources: skills/motion/SKILL.md.
+# Individual transform properties (scale, translate) are used, so an element's own inline transform keeps working.
+_STAGGER = "".join(f".mo-st>:nth-child({i}){{--mo-i:{i - 1}}}" for i in range(2, 25))
+MOTION_CSS = (
+    _STAGGER
+    + ".mo-gy,.mo-gx,.mo-pop,.mo-in{animation-duration:calc(var(--mo-k,1)*.55s);animation-fill-mode:both;"
+      "animation-timing-function:cubic-bezier(.2,.8,.2,1);animation-delay:calc(var(--mo-k,1)*var(--mo-i,0)*55ms)}"
+    + ".mo-gy{transform-origin:50% 100%;animation-name:mo-gy}"
+    + ".mo-gx{transform-origin:0 50%;animation-name:mo-gx}[dir=rtl] .mo-gx{transform-origin:100% 50%}"
+    + ".mo-pop{animation-name:mo-pop;animation-timing-function:cubic-bezier(.34,1.56,.64,1)}"
+    + ".mo-in{animation-name:mo-in}"
+    + ".mo-late{animation-delay:calc(var(--mo-k,1)*.65s)}"
+    + ".mo-od{display:inline-block;height:1em;overflow:hidden;vertical-align:top}"
+    + ".mo-os{display:block;animation:mo-roll calc(var(--mo-k,1)*.9s) cubic-bezier(.2,.8,.2,1) both}"
+    + ".mo-os i{display:block;height:1em;font-style:normal}"
+    + "@keyframes mo-gy{from{scale:1 0}}@keyframes mo-gx{from{scale:0 1}}"
+    + "@keyframes mo-pop{from{opacity:0;scale:.6}}@keyframes mo-in{from{opacity:0;translate:0 8px}}"
+    + "@keyframes mo-roll{from{translate:0 var(--mo-from,0em)}}"
+    + ".mo-gw{animation:mo-gw calc(var(--mo-k,1)*.8s) cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--mo-k,1)*var(--mo-i,0)*55ms)}"
+    + "@keyframes mo-gw{from{width:var(--mo-w0)}}"
+)
+
+
+_K = "var(--mo-k,1)"
+ALERT_CSS = (
+    # an alerted element keeps its entrance and adds the ring: two animations in one list, the ring runs twice
+    "".join(
+        f".{e}.mo-focus{{animation-name:{e},{ring};animation-duration:calc({_K}*.55s),calc({_K}*2.4s);"
+        f"animation-iteration-count:1,2;animation-timing-function:{tf},ease-out;animation-fill-mode:both,none;"
+        f"animation-delay:calc({_K}*var(--mo-i,0)*55ms),calc({_K}*.8s)}}"
+        for e, ring, tf in (("mo-pop", "mo-ring", "cubic-bezier(.34,1.56,.64,1)"), ("mo-in", "mo-ring", "cubic-bezier(.2,.8,.2,1)"),
+                            ("mo-gy", "mo-ringin", "cubic-bezier(.2,.8,.2,1)"), ("mo-gx", "mo-ringin", "cubic-bezier(.2,.8,.2,1)"),
+                            ("mo-gw", "mo-ringin", "cubic-bezier(.2,.8,.2,1)")))
+    + f".mo-late.mo-focus{{animation-delay:calc({_K}*.65s),calc({_K}*1.2s)}}"
+    # outer ring for chips, cells, rows; inner ring for bars (their track clips anything outside)
+    "@keyframes mo-ring{0%{box-shadow:0 0 0 0 color-mix(in srgb,@@bad@@ 55%,transparent)}70%,100%{box-shadow:0 0 0 9px color-mix(in srgb,@@bad@@ 0%,transparent)}}"
+    "@keyframes mo-ringin{0%,100%{box-shadow:inset 0 0 0 0 color-mix(in srgb,@@bad@@ 0%,transparent)}40%{box-shadow:inset 0 0 0 3px @@bad@@}}"
+    # data freshness: a fresh dot pulses twice; a stale one stays still
+    f".mo-fd{{animation:mo-fd calc({_K}*1.2s) ease-in-out 2}}@keyframes mo-fd{{50%{{opacity:.3;scale:.6}}}}"
+)
+
+
+def _m(motion, cls):
+    """class attribute for a motion hook - empty when motion is off (byte-identical output)"""
+    return f" class='{cls}'" if motion else ""
+
+
+def _mf(motion, cls, alert):
+    """like _m, plus 'mo-focus' (the alert ring) where the caller's DAX condition holds"""
+    if not motion:
+        return ""
+    if not alert:
+        return f" class='{cls}'"
+    cond = alert
+    return f" class='{cls}\" & IF ( {cond}, \" mo-focus\", \"\" ) & \"'"
+
+
+def _mstyle(motion):
+    """the motion <style> block for a card root - empty when motion is off"""
+    if not motion:
+        return ""
+    k = 1 if motion is True else float(motion)
+    return ("<style>" + MOTION_CSS + ALERT_CSS
+            + ("" if k == 1 else f":root{{--mo-k:{k:g}}}") + "</style>")
+
+
 # 1 --------------------------------------------------------------- waterfall
 def waterfall(table, category, delta, title, subtitle, order=None, start=None, start_label="Start", end_label="End",
-              empty_text="No data", blank_label="-"):
+              empty_text="No data", blank_label="-", motion=False, alert=None):
     """Start bar, one floating bar per category (positive / negative), end bar. Reads in the page's direction.
     order: optional sort column (one value per category); default = category name."""
     s0 = start or "0"
@@ -122,27 +197,29 @@ VAR _bars =
         RETURN
             "<div style='flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:4px'>"
             & "<div style='position:relative;height:" & _H & "px'>"
-            & "<div style='position:absolute;inset-inline-start:15%;width:70%;border-radius:3px;background:" & _col
+            & "<div{_mf(motion, 'mo-gy', alert)} style='position:absolute;inset-inline-start:15%;width:70%;border-radius:3px;background:" & _col
             & ";bottom:" & FORMAT ( DIVIDE ( _bot - _lo, _rng ) * _H, "0.0" ) & "px;height:" & FORMAT ( MAX ( DIVIDE ( ABS ( _v ), _rng ) * _H, 2 ), "0.0" ) & "px'></div>"
-            & "<div style='position:absolute;inset-inline-start:0;width:100%;text-align:center;font-size:11px;font-weight:700;color:" & _col
+            & "<div{_m(motion, 'mo-in')} style='position:absolute;inset-inline-start:0;width:100%;text-align:center;font-size:11px;font-weight:700;color:" & _col
             & ";bottom:" & FORMAT ( MIN ( DIVIDE ( _top - _lo, _rng ) * _H + 2, _H - 16 ), "0.0" ) & "px'>" & LRI & IF ( _v >= 0, "+", "" ) & FORMAT ( _v, "#,0" ) & PDI & "</div></div>"
             & "<div style='height:18px;font-size:11px;color:{FG2};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{table}[{category}]", blank_label)} & "</div></div>",
         "", [@o], ASC )
 VAR _total = ( lbl, v ) => BLANK ()
 VAR _openBar =
     "<div style='flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:4px'><div style='position:relative;height:" & _H & "px'>"
-    & "<div style='position:absolute;inset-inline-start:15%;width:70%;border-radius:3px;background:@@muted@@;bottom:" & FORMAT ( DIVIDE ( MIN ( _start, 0 ) - _lo, _rng ) * _H, "0.0" ) & "px;height:" & FORMAT ( MAX ( DIVIDE ( ABS ( _start ), _rng ) * _H, 2 ), "0.0" ) & "px'></div></div>"
+    & "<div{_m(motion, 'mo-gy')} style='position:absolute;inset-inline-start:15%;width:70%;border-radius:3px;background:@@muted@@;bottom:" & FORMAT ( DIVIDE ( MIN ( _start, 0 ) - _lo, _rng ) * _H, "0.0" ) & "px;height:" & FORMAT ( MAX ( DIVIDE ( ABS ( _start ), _rng ) * _H, 2 ), "0.0" ) & "px'></div></div>"
     & "<div style='height:18px;font-size:11px;font-weight:700;text-align:center'>{start_label} " & {_fmt('_start')} & "</div></div>"
 VAR _closeBar =
     "<div style='flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:4px'><div style='position:relative;height:" & _H & "px'>"
-    & "<div style='position:absolute;inset-inline-start:15%;width:70%;border-radius:3px;background:@@primary@@;bottom:" & FORMAT ( DIVIDE ( MIN ( _end, 0 ) - _lo, _rng ) * _H, "0.0" ) & "px;height:" & FORMAT ( MAX ( DIVIDE ( ABS ( _end ), _rng ) * _H, 2 ), "0.0" ) & "px'></div></div>"
+    & "<div{_m(motion, 'mo-gy')} style='position:absolute;inset-inline-start:15%;width:70%;border-radius:3px;background:@@primary@@;bottom:" & FORMAT ( DIVIDE ( MIN ( _end, 0 ) - _lo, _rng ) * _H, "0.0" ) & "px;height:" & FORMAT ( MAX ( DIVIDE ( ABS ( _end ), _rng ) * _H, 2 ), "0.0" ) & "px'></div></div>"
     & "<div style='height:18px;font-size:11px;font-weight:700;text-align:center'>{end_label} " & {_fmt('_end')} & "</div></div>"
 """.replace("VAR _bar = ( lbl, v, b, col, sgn ) => BLANK ()\n", "").replace("VAR _total = ( lbl, v ) => BLANK ()\n", "") + _wrap(
-        title, subtitle, "\"<div style='flex:1;display:flex;align-items:flex-end;gap:6px'>\" & _openBar & _bars & _closeBar & \"</div>\"", empty_text)
+        title, subtitle, f"\"<div{_m(motion, 'mo-st')} style='flex:1;display:flex;align-items:flex-end;gap:6px'>\" & _openBar & _bars & _closeBar & \"</div>\"", empty_text,
+        motion=motion)
 
 
 # 2 --------------------------------------------------------------- heat matrix
-def heat_matrix(table, row_col, col_col, value, title, subtitle, max_rows=6, max_cols=6, empty_text="No data", blank_label="-"):
+def heat_matrix(table, row_col, col_col, value, title, subtitle, max_rows=6, max_cols=6, empty_text="No data", blank_label="-",
+                motion=False, alert=None):
     """Category x category grid; cell color intensity = value / max. Top rows/cols by total."""
     return ISO + f"""
 VAR _rows = TOPN ( {max_rows}, ADDCOLUMNS ( VALUES ( {table}[{row_col}] ), "@t", {value} + 0 ), [@t], DESC, {table}[{row_col}], ASC )
@@ -163,18 +240,19 @@ VAR _grid =
                 VAR _c = {table}[{col_col}]
                 VAR _v = CALCULATE ( {value}, {table}[{row_col}] = _r, {table}[{col_col}] = _c ) + 0
                 VAR _a = DIVIDE ( _v, _max )
-                RETURN "<div style='flex:1 1 0;min-width:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;"
+                RETURN "<div{_mf(motion, 'mo-pop', alert)} style='flex:1 1 0;min-width:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;"
                     & IF ( _v = 0, "background:@@track@@;color:@@fg2@@", IF ( _a > 0.5, "background:@@strong@@;color:@@on_accent@@", "background:@@primary_soft@@;color:@@primary_text@@" ) )
                     & "'>" & IF ( _v = 0, "", LRI & _v & PDI ) & "</div>",
                 "", [@t], DESC )
             & "</div>",
         "", [@t], DESC )
-""" + _wrap(title, subtitle, "\"<div style='flex:1;min-height:0;display:flex;flex-direction:column;gap:3px'>\" & _hdr & _grid & \"</div>\"", empty_text)
+""" + _wrap(title, subtitle, f"\"<div{_m(motion, 'mo-st')} style='flex:1;min-height:0;display:flex;flex-direction:column;gap:3px'>\" & _hdr & _grid & \"</div>\"", empty_text,
+             motion=motion)
 
 
 # 3 --------------------------------------------------------------- lift bars (key influencers, static)
 def lift_bars(table, category, target_filter, title, subtitle, top=6, min_support=2, empty_text="No data", blank_label="-",
-              colors="single"):
+              colors="single", motion=False, alert=None):
     """For each category: share of rows meeting target_filter vs. the overall share (lift = x times).
     Categories with fewer than min_support rows and blank categories are left out (a 1-row category has a
     meaningless lift)."""
@@ -195,18 +273,18 @@ VAR _body =
         RETURN "<div style='display:flex;align-items:center;gap:10px;height:28px'>"
             & "<div style='width:130px;flex:none;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {table}[{category}] & "</div>"
             & "<div style='flex:1;height:14px;border-radius:7px;background:@@track@@;overflow:hidden;display:flex'>"
-            & "<div style='flex:none;width:" & FORMAT ( DIVIDE ( _l, _maxL ) * 100, "0.0" ) & "%;background:" & {"IF ( _l >= 1, \"@@primary@@\", \"@@muted@@\" )" if not _mode(colors, "single") else _catcolor(table, category, f"{table}[{category}]")} & "'></div></div>"
+            & "<div{_mf(motion, 'mo-gx', alert)} style='flex:none;width:" & FORMAT ( DIVIDE ( _l, _maxL ) * 100, "0.0" ) & "%;background:" & {"IF ( _l >= 1, \"@@primary@@\", \"@@muted@@\" )" if not _mode(colors, "single") else _catcolor(table, category, f"{table}[{category}]")} & "'></div></div>"
             & "<div style='width:64px;flex:none;font-size:13px;font-weight:700;text-align:@@end@@;direction:ltr;unicode-bidi:isolate'>" & FORMAT ( _l, "0.0" ) & "x</div>"
             & "</div>",
         "", [@l], DESC, [@n], DESC )
 """ + _wrap(title, subtitle,
-            f"\"<div style='font-size:12px;color:{FG2}'>\" & LRI & FORMAT ( _base, \"0%\" ) & PDI & \" = 1.0x</div><div style='display:flex;flex-direction:column;gap:4px'>\" & _body & \"</div>\"",
-            empty_text)
+            f"\"<div style='font-size:12px;color:{FG2}'>\" & LRI & FORMAT ( _base, \"0%\" ) & PDI & \" = 1.0x</div><div{_m(motion, 'mo-st')} style='display:flex;flex-direction:column;gap:4px'>\" & _body & \"</div>\"",
+            empty_text, motion=motion)
 
 
 # 4 --------------------------------------------------------------- small multiples
 def small_multiples(table, category, date_col, value, title, subtitle, top=6, months=6, cols=3, empty_text="No data",
-                    blank_label="-", colors="single"):   # blank categories are skipped here; blank_label kept for a uniform signature
+                    blank_label="-", colors="single", motion=False, alert=None):   # blank categories are skipped here; blank_label kept for a uniform signature
     """One mini column chart per category over the last `months` months (by date_col), shared scale."""
     return ISO + f"""
 VAR _endM = EOMONTH ( MAX ( {table}[{date_col}] ), 0 )
@@ -225,18 +303,18 @@ VAR _panels =
             & "<b style='direction:ltr;unicode-bidi:isolate'>" & [@t] & "</b></div>"
             & "<div style='display:flex;align-items:flex-end;gap:3px;flex:1;min-height:34px;direction:ltr'>"
             & CONCATENATEX ( FILTER ( _vals, [cat] = _c ),
-                "<div style='flex:1 1 0;border-radius:2px 2px 0 0;background:" & {"\"@@primary@@\"" if not _mode(colors, "single") else _catcolor(table, category, "_c")} & ";height:" & FORMAT ( MAX ( DIVIDE ( [@v], _max ) * 100, 5 ), "0" ) & "%;opacity:" & IF ( [@v] = 0, "0.25", "1" ) & "'></div>",
+                "<div{_mf(motion, 'mo-gy', alert)} style='flex:1 1 0;border-radius:2px 2px 0 0;background:" & {"\"@@primary@@\"" if not _mode(colors, "single") else _catcolor(table, category, "_c")} & ";height:" & FORMAT ( MAX ( DIVIDE ( [@v], _max ) * 100, 5 ), "0" ) & "%;opacity:" & IF ( [@v] = 0, "0.25", "1" ) & "'></div>",
                 "", [Value], DESC )
             & "</div></div>",
         "", [@t], DESC )
 """ + _wrap(title, subtitle,
-            f"\"<div style='flex:1;min-height:0;display:flex;flex-wrap:wrap;align-content:stretch;gap:8px'>\" & _panels & \"</div><div style='font-size:12px;color:{FG2}'>\" & FORMAT ( EOMONTH ( _endM, -{months} ) + 1, \"MMM yyyy\", \"@@locale@@\" ) & \" - \" & FORMAT ( _endM, \"MMM yyyy\", \"@@locale@@\" ) & \"</div>\"",
-            empty_text)
+            f"\"<div{_m(motion, 'mo-st')} style='flex:1;min-height:0;display:flex;flex-wrap:wrap;align-content:stretch;gap:8px'>\" & _panels & \"</div><div style='font-size:12px;color:{FG2}'>\" & FORMAT ( EOMONTH ( _endM, -{months} ) + 1, \"MMM yyyy\", \"@@locale@@\" ) & \" - \" & FORMAT ( _endM, \"MMM yyyy\", \"@@locale@@\" ) & \"</div>\"",
+            empty_text, motion=motion)
 
 
 # 5 --------------------------------------------------------------- scatter / bubble
 def scatter(table, category, x, y, size, title, subtitle, x_label, y_label, top=12, empty_text="No data", blank_label="-",
-            colors="single"):
+            colors="single", motion=False, alert=None):
     """Bubble per category: position x/y, area by size. x grows left-to-right in both directions (axis)."""
     x_label, y_label = _t(x_label), _t(y_label)
     return ISO + f"""
@@ -253,20 +331,20 @@ VAR _dots =
         VAR _cy = 86 - 74 * DIVIDE ( [@y] - _y0, _yr )
         VAR _rk = RANKX ( _pts, [@s] + DIVIDE ( RANKX ( _pts, {table}[{category}], , DESC ), 1000 ), , DESC )
         VAR _lbl = _rk <= 5
-        RETURN "<div title='" & SUBSTITUTE ( {table}[{category}], "'", "’" ) & "' style='position:absolute;transform:translate(-50%,-50%);border-radius:50%;opacity:.8;background:" & {"\"@@primary@@\"" if not _mode(colors, "single") else _catcolor(table, category, f"{table}[{category}]")} & ";"
+        RETURN "<div{_mf(motion, 'mo-pop', alert)} title='" & SUBSTITUTE ( {table}[{category}], "'", "’" ) & "' style='position:absolute;transform:translate(-50%,-50%);border-radius:50%;opacity:.8;background:" & {"\"@@primary@@\"" if not _mode(colors, "single") else _catcolor(table, category, f"{table}[{category}]")} & ";"
             & "left:" & FORMAT ( _cx, "0.0" ) & "%;top:" & FORMAT ( _cy, "0.0" ) & "%;width:" & FORMAT ( 2 * _r, "0" ) & "px;height:" & FORMAT ( 2 * _r, "0" ) & "px'></div>"
-            & IF ( _lbl, "<div style='position:absolute;font-size:11px;color:{FG2};white-space:nowrap;transform:translate(-50%,0);left:" & FORMAT ( _cx, "0.0" ) & "%;top:calc(" & FORMAT ( _cy, "0.0" ) & "% " & IF ( MOD ( _rk, 2 ) = 0, "- " & FORMAT ( _r + 18, "0" ), "+ " & FORMAT ( _r + 1, "0" ) ) & "px)'>"
+            & IF ( _lbl, "<div{_m(motion, 'mo-in')} style='position:absolute;font-size:11px;color:{FG2};white-space:nowrap;transform:translate(-50%,0);left:" & FORMAT ( _cx, "0.0" ) & "%;top:calc(" & FORMAT ( _cy, "0.0" ) & "% " & IF ( MOD ( _rk, 2 ) = 0, "- " & FORMAT ( _r + 18, "0" ), "+ " & FORMAT ( _r + 1, "0" ) ) & "px)'>"
             & LEFT ( {_cat(f"{table}[{category}]", blank_label)}, 14 ) & "</div>" ),
         "" )
 """ + _wrap(title, subtitle,
             f"\"<div style='flex:1;display:flex;flex-direction:column;gap:4px;min-height:0'>"
-            f"<div style='flex:1;position:relative;border-inline-start:1px solid @@border@@;border-bottom:1px solid @@border@@;direction:ltr;min-height:0'>\" & _dots & \"</div>"
+            f"<div{_m(motion, 'mo-st')} style='flex:1;position:relative;border-inline-start:1px solid @@border@@;border-bottom:1px solid @@border@@;direction:ltr;min-height:0'>\" & _dots & \"</div>"
             f"<div style='display:flex;justify-content:space-between;font-size:11px;color:{FG2};flex:none'><span>{y_label} ↑</span><span>{x_label} →</span></div></div>\"",
-            empty_text)
+            empty_text, motion=motion)
 
 
 # 6 --------------------------------------------------------------- treemap (two rows, proportional)
-def treemap_rows(table, category, value, title, subtitle, top=8, empty_text="No data", blank_label="-", colors="status"):
+def treemap_rows(table, category, value, title, subtitle, top=8, empty_text="No data", blank_label="-", colors="status", motion=False, alert=None):
     """Approximate treemap: largest categories split over two rows, tile width proportional to value.
     colors: "status" (default, status-token cycle) or "category" (stable color per category value)."""
     TILE = 'SWITCH ( _i, 0, "background:@@primary_soft@@;color:@@primary_text@@;border-top:3px solid @@primary@@", 1, "background:@@maint_soft@@;color:@@maint_text@@;border-top:3px solid @@maint@@", 2, "background:@@design_soft@@;color:@@design_text@@;border-top:3px solid @@design@@", 3, "background:@@done_soft@@;color:@@done_text@@;border-top:3px solid @@done@@", 4, "background:@@bad_soft@@;color:@@fg@@;border-top:3px solid @@bad@@", "background:@@neutral_soft@@;color:@@fg@@;border-top:3px solid @@muted@@" )'
@@ -283,23 +361,24 @@ VAR _row2 = EXCEPT ( _ranked, _row1 )
 VAR _tiles = ( t ) => BLANK ()
 VAR _r1 = CONCATENATEX ( _row1,
     VAR _i = MOD ( INT ( [@k] ) - 1, 6 )
-    RETURN "<div style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
+    RETURN "<div{_mf(motion, 'mo-pop', alert)} style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
         & {tile} & "'>"
         & "<div style='font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{table}[{category}]", blank_label)} & "</div>"
         & "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div></div>", "", [@k], ASC )
 VAR _r2 = CONCATENATEX ( _row2,
     VAR _i = MOD ( INT ( [@k] ) - 1, 6 )
-    RETURN "<div style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
+    RETURN "<div{_mf(motion, 'mo-pop', alert)} style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
         & {tile} & "'>"
         & "<div style='font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{table}[{category}]", blank_label)} & "</div>"
         & "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div></div>", "", [@k], ASC )
 """.replace("VAR _tiles = ( t ) => BLANK ()\n", "") + _wrap(title, subtitle,
-            "\"<div style='flex:1;display:flex;flex-direction:column;gap:6px;min-height:0'><div style='flex:1;display:flex;gap:6px;min-height:0'>\" & _r1 & \"</div><div style='flex:1;display:flex;gap:6px;min-height:0'>\" & _r2 & \"</div></div>\"",
-            empty_text)
+            f"\"<div style='flex:1;display:flex;flex-direction:column;gap:6px;min-height:0'><div{_m(motion, 'mo-st')} style='flex:1;display:flex;gap:6px;min-height:0'>\" & _r1 & \"</div><div{_m(motion, 'mo-st')} style='flex:1;display:flex;gap:6px;min-height:0'>\" & _r2 & \"</div></div>\"",
+            empty_text, motion=motion)
 
 
 # 7 --------------------------------------------------------------- decomposition (static, largest branch)
-def decomp_static(table, levels, value, title, subtitle, level_names, total_label="Total", empty_text="No data", blank_label="-"):
+def decomp_static(table, levels, value, title, subtitle, level_names, total_label="Total", empty_text="No data", blank_label="-",
+                  motion=False, alert=None):
     """Total -> split by each level in turn, always following the largest branch (no drill interaction)."""
     assert len(levels) == len(level_names) and 1 <= len(levels) <= 3
     level_names, total_label = [_t(n) for n in level_names], _t(total_label)
@@ -313,7 +392,7 @@ VAR _h{i} =
     "<div style='flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:6px'><div style='font-size:11px;color:{FG2};white-space:nowrap'>{level_names[i]}</div>"
     & CONCATENATEX ( _l{i},
         VAR _top = {table}[{col}] = _k{i}
-        RETURN "<div style='box-sizing:border-box;border-radius:6px;padding:4px 8px;font-size:12px;display:flex;justify-content:space-between;gap:6px;"
+        RETURN "<div{_mf(motion, 'mo-in', alert)} style='box-sizing:border-box;border-radius:6px;padding:4px 8px;font-size:12px;display:flex;justify-content:space-between;gap:6px;"
             & IF ( _top, "background:@@strong@@;color:@@on_accent@@;font-weight:700", "background:@@track@@" ) & "'>"
             & "<span style='white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{table}[{col}]", blank_label)} & "</span>"
             & "<span style='direction:ltr;unicode-bidi:isolate'>" & [@v] & "</span></div>",
@@ -323,16 +402,17 @@ VAR _h{i} =
     return ISO + f"""
 VAR _tot = {value} + 0
 VAR _n = IF ( _tot > 0, 1, 0 )""" + "".join(parts) + "\n" + _wrap(title, subtitle,
-        f"\"<div style='flex:1;display:flex;align-items:flex-start;gap:8px;min-height:0'>"
-        f"<div style='flex:none;width:90px;border-radius:8px;background:@@fg@@;color:@@surface@@;padding:8px;box-sizing:border-box'>"
+        f"\"<div{_m(motion, 'mo-st')} style='flex:1;display:flex;align-items:flex-start;gap:8px;min-height:0'>"
+        f"<div{_m(motion, 'mo-pop')} style='flex:none;width:90px;border-radius:8px;background:@@fg@@;color:@@surface@@;padding:8px;box-sizing:border-box'>"
         f"<div style='font-size:11px'>{total_label}</div><div style='font-size:22px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>\" & {_fmt('_tot')} & \"</div></div>"
         f"<div style='flex:none;align-self:center;color:@@arrow@@'>@@fwd_arrow@@</div>\" & {cols} & \"</div>\"",
-        empty_text)
+        empty_text, motion=motion)
 
 
 # 8 --------------------------------------------------------------- data table
 def data_table(table, key, columns, title, subtitle, sort_by, top=5, key_label=None, totals=None,
-               empty_text="No data", blank_label="-", more_label="and {n} more", header_accent=None, zebra=True, tip_value='FORMAT ( [@s], "#,0" )'):
+               empty_text="No data", blank_label="-", more_label="and {n} more", header_accent=None, zebra=True, tip_value='FORMAT ( [@s], "#,0" )',
+               motion=False, alert=None):
     """A real table card (header row, aligned columns, zebra rows, optional totals, "and N more" + tooltip).
 
     key      column whose values are the rows (shown first unless key_label is None and you list it yourself)
@@ -341,6 +421,7 @@ def data_table(table, key, columns, title, subtitle, sort_by, top=5, key_label=N
              "width": CSS grid width (e.g. "1.4fr", "90px"), optional "fmt" (number format), optional "total" (DAX)}
              pill: colored by value (stable category colors) - pass "pill_col": a column name of `table`
              optional "blank": label for an empty value in this column (default: blank_label)
+             bar + motion: optional "prev" (DAX, same row context) - the bar moves from the previous value to the current one
     sort_by  DAX sort expression (DESC), ties broken by the key (a measure or CALCULATE(...), like values)
     top      rows shown, 30px each - from the fit budget, not the data: at 328px card height 5 rows with totals,
              6 without: rows = (H - 32 padding - 58 title - 30 header - 30 totals - 22 more line - 8 slack) / 30
@@ -375,8 +456,11 @@ def data_table(table, key, columns, title, subtitle, sort_by, top=5, key_label=N
         elif kind == "bar":
             fmt = c.get("fmt") or "#,0"
             color = f"@@{c.get('color', 'primary')}@@"
+            pv = c.get("prev") if motion else None   # previous value: the bar moves from it to the current one
+            fill = (f'<div{_mf(motion, "mo-gw", alert)} style=\'--mo-w0:" & FORMAT ( MIN ( MAX ( DIVIDE ( {pv}, _mx{j} ), 0 ), 1 ) * 100, "0.0" ) & "%;'
+                    if pv else f'<div{_mf(motion, "mo-gx", alert)} style=\'')
             cell = (f'"<div style=\'display:flex;align-items:center;gap:8px;min-width:0\'><div style=\'flex:1;min-width:16px;height:10px;border-radius:5px;background:@@track@@;overflow:hidden;display:flex\'>'
-                    f'<div style=\'flex:none;width:" & FORMAT ( MAX ( DIVIDE ( {v}, _mx{j} ), 0 ) * 100, "0.0" ) & "%;background:{color}\'></div></div>'
+                    f'{fill}flex:none;width:" & FORMAT ( MAX ( DIVIDE ( {v}, _mx{j} ), 0 ) * 100, "0.0" ) & "%;background:{color}\'></div></div>'
                     f'<div style=\'{num_style};flex:none;min-width:auto;overflow:visible\'>" & IF ( ISBLANK ( {v} ), "-", FORMAT ( {v}, "{fmt}" ) ) & "</div></div>"')
         elif kind == "pill":
             pc = c["pill_col"]
@@ -415,16 +499,16 @@ VAR _body =
     CONCATENATEX ( _top,
         VAR _cur = [@s] VAR _ck = {table}[{key}]
         VAR _i = COUNTROWS ( FILTER ( _top, [@s] > _cur || ( [@s] = _cur && {table}[{key}] < _ck ) ) ) + 1
-        RETURN "<div style='{grid};height:30px;padding:0 8px;border-bottom:1px solid @@divider@@;font-size:12px;"
+        RETURN "<div{_mf(motion, 'mo-in', alert)} style='{grid};height:30px;padding:0 8px;border-bottom:1px solid @@divider@@;font-size:12px;"
             {'& IF ( MOD ( _i, 2 ) = 0, "background:@@inset@@", "" ) ' if zebra else ""}& "'>"
             & {row_cells} & "</div>",
         "", [@s], DESC, {table}[{key}], ASC )
 VAR _totals = {f'"<div style=\'{grid};height:30px;padding:0 8px;border-top:2px solid @@border@@;font-size:12px\'>" & ' + " & ".join(tcells) + ' & "</div>"' if totals else '""'}
 """ + _wrap(title, subtitle,
-            f"\"<div style='display:flex;flex-direction:column;min-height:0'>"
+            f"\"<div{_m(motion, 'mo-st')} style='display:flex;flex-direction:column;min-height:0'>"
             f"<div style='{grid};height:30px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:700;{hdr_bg}'>\" & {head_cells} & \"</div>\" & _body & _totals & \"</div>\""
             f" & IF ( _rest > 0, \"<div class='tooltipEnabled'\" & _tip & \" style='font-size:12px;color:@@primary_text@@;margin-top:4px;flex:none'>{more}</div>\" )",
-            empty_text)
+            empty_text, motion=motion)
 
 
 # 9 --------------------------------------------------------------- KPI card (an icon is required)
@@ -443,7 +527,8 @@ KPI_ICONS = {
 }
 
 
-def kpi_card(title, value, fmt, icon, sub='""', cat="cat1", filled=False):
+def kpi_card(title, value, fmt, icon, sub='""', cat="cat1", filled=False, motion=False, alert=None, prev=None,
+             updated=None, stale_after=60):
     """KPI card: title + icon chip on one line, one big number, one single-line caption.
 
     value  DAX for the number; BLANK shows "-"     fmt  FORMAT string ("#,0", "$#,0", "0.0%")
@@ -451,7 +536,12 @@ def kpi_card(title, value, fmt, icon, sub='""', cat="cat1", filled=False):
     sub    DAX text expression for the caption line (single line, clipped)
     cat    color token base for the accent (cat1..cat6, or primary/done/bad/...)
     filled True: deep fill (@@strong@@ + darkening overlay), white text, colored top band;
-           False: light card with a colored start border and a tinted icon chip."""
+           False: light card with a colored start border and a tinted icon chip.
+    motion True: the number rolls in digit by digit - from prev (DAX, the previous period's value) when given, so the
+           roll shows the change; the icon chip pops last.
+    alert  DAX condition on _v (the value): when it holds, the icon chip pulses a red ring twice (needs motion).
+    updated  DAX datetime of the data's last refresh, in UTC (compared with UTCNOW()): adds "Updated N ago" to the
+           caption line; older than stale_after minutes -> an amber "Stale" state. With motion, a fresh dot pulses twice."""
     if icon not in KPI_ICONS:
         raise ValueError(f"kpi_card needs an icon from KPI_ICONS ({', '.join(KPI_ICONS)}), got {icon!r}")
     title = _t(title)
@@ -468,14 +558,40 @@ def kpi_card(title, value, fmt, icon, sub='""', cat="cat1", filled=False):
         root = f"{CARD};border-inline-start:5px solid @@{cat}@@;padding:12px 20px 14px"
         chip, title_c = f"@@{cat}_soft@@", FG2
         glyph = KPI_ICONS[icon].format(c=f"@@{cat}@@", k="@@surface@@")
+    odo = ("" if not motion else
+           '\nVAR _txt = IF ( ISBLANK ( _v ), "-", FORMAT ( _v, "' + fmt + '" ) )'
+           '\nVAR _dg = "<i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i>"'
+           '\nVAR _odo = CONCATENATEX ( GENERATESERIES ( 1, LEN ( _txt ), 1 ), VAR _ch = MID ( _txt, [Value], 1 ) RETURN'
+           ' IF ( CONTAINSSTRINGEXACT ( "0123456789", _ch ), "<span class=\'mo-od fit-clip\'><span class=\'mo-os\' style=\'translate:0 -" & _ch'
+           ' & "em;animation-delay:calc(var(--mo-k,1)*" & FORMAT ( 0.06 * [Value], "0.00" ) & "s)\'>" & _dg & "</span></span>",'
+           ' "<span>" & _ch & "</span>" ), "", [Value], ASC )')
+    if motion and prev:
+        odo = odo.replace("VAR _odo", '\nVAR _ptxt = IF ( ISBLANK ( ' + prev + ' ), "", FORMAT ( ' + prev + ', "' + fmt + '" ) )'
+                          '\nVAR _off = LEN ( _txt ) - LEN ( _ptxt )\nVAR _odo').replace(
+            "\"em;animation-delay", "\"em;--mo-from:-\" & VAR _pc = IF ( [Value] - _off >= 1, MID ( _ptxt, [Value] - _off, 1 ), \"0\" ) "
+            "RETURN IF ( CONTAINSSTRINGEXACT ( \"0123456789\", _pc ), _pc, \"0\" ) & \"em;animation-delay")
+    fresh = ""
+    if updated:
+        fresh = (f'\nVAR _age = DATEDIFF ( {updated}, UTCNOW (), MINUTE )'
+                 '\nVAR _ago = IF ( ISBLANK ( _age ), "", IF ( _age < 1, "just now", IF ( _age < 60, _age & " min ago", IF ( _age < 1440, INT ( _age / 60 ) & " h ago", INT ( _age / 1440 ) & " d ago" ) ) ) )'
+                 f'\nVAR _stale = _age > {int(stale_after)}'
+                 '\nVAR _fresh = IF ( _ago = "", "", "<span style=\'flex:none;white-space:nowrap;color:" & IF ( _stale, "@@warn_text@@", "@@done_text@@" ) & "\'>"'
+                 f' & "<i{_m(motion, "mo-fd")}" & IF ( _stale, "", "" ) & " style=\'display:inline-block;width:7px;height:7px;border-radius:50%;margin-inline-end:5px;vertical-align:middle;background:currentColor\'></i>"'
+                 ' & IF ( _stale, "Stale · " & _ago, "Updated " & _ago ) & "</span>" )')
+        if motion:   # a stale dot does not pulse
+            fresh = fresh.replace('"<i class=\'mo-fd\'" & IF ( _stale, "", "" ) & "', '"<i class=\'" & IF ( _stale, "", "mo-fd" ) & "\'')
+        else:
+            fresh = fresh.replace(' & IF ( _stale, "", "" ) & "', "")
+    number = "_odo" if motion else f'IF ( ISBLANK ( _v ), "-", FORMAT ( _v, "{fmt}" ) )'
     return ISO + f"""
-VAR _v = {value}
+VAR _v = {value}{odo}{fresh}
 RETURN
-    "<div dir='@@dir@@' lang='@@lang@@' style='{root};display:flex;flex-direction:column;justify-content:space-between'>"
+    "<div dir='@@dir@@' lang='@@lang@@' style='{root};display:flex;flex-direction:column;justify-content:space-between'>{_mstyle(motion)}"
         & "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none'>"
             & "<span style='font-size:14px;font-weight:600;color:{title_c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{title}</span>"
-            & "<span style='width:40px;height:40px;flex:none;border-radius:10px;background:{chip};display:flex;align-items:center;justify-content:center'>{glyph}</span>"
+            & "<span{_mf(motion, 'mo-pop mo-late', alert)} style='width:40px;height:40px;flex:none;border-radius:10px;background:{chip};display:flex;align-items:center;justify-content:center'>{glyph}</span>"
         & "</div>"
-        & "<div style='font-size:40px;font-weight:700;line-height:1;direction:ltr;unicode-bidi:isolate;text-align:@@start@@;white-space:nowrap'>" & IF ( ISBLANK ( _v ), "-", FORMAT ( _v, "{fmt}" ) ) & "</div>"
-        & "<div style='font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none'>" & {sub} & "</div>"
+        & "<div style='font-size:40px;font-weight:700;line-height:1;direction:ltr;unicode-bidi:isolate;text-align:@@start@@;white-space:nowrap{';font-variant-numeric:tabular-nums' if motion else ''}'>" & {number} & "</div>"
+        & {('"<div style=' + "'" + 'font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none' + "'" + '>" & ' + sub + ' & "</div>"') if not updated else
+           ('"<div style=' + "'" + 'display:flex;justify-content:space-between;gap:8px;font-size:12px;flex:none;min-width:0' + "'" + '><span style=' + "'" + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0' + "'" + '>" & ' + sub + ' & "</span>" & _fresh & "</div>"')}
     & "</div>\""""

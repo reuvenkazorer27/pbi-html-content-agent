@@ -1,0 +1,82 @@
+-- =============================================================
+-- COMPONENT: KPI card with motion - odometer value, growing sparkline bars, popping status badge
+-- Layer:     foundation - the agent's default KPI card when motion is wanted (everything except slicers is HTML Content).
+-- Binding:   Values = [HTML KPI Motion - Revenue]
+-- Context:   none (single aggregated visual). Incoming filters apply - and every filter change replays the entrance.
+-- Edition:   Regular + Secure (CSS @keyframes in an inline <style>, no script, no external URL)
+-- Status:    run in Power BI Desktop (Secure edition, 10 Nov 2026): rendered after Apply + Refresh, motion seen in a
+--            screen burst. Ported from that build with model names replaced - re-run the live DAX gate on your model.
+-- Requires:  [Revenue], [Revenue Prior] (same days of the prior period), 'Sales'[Date]. Rename to your model.
+-- Motion:    entrance only, about 1.2 s: digits roll to the value, bars grow left to right, the badge pops last.
+--            Plays whenever the visual renders (page open, filter change, Refresh). See skills/motion/SKILL.md.
+-- Fit gate:  the digit strips are clipped on purpose - they carry class 'fit-clip', which the fit check skips.
+-- Direction: Dir is a build setting ('ltr' / 'rtl'); the number itself always reads left to right.
+-- =============================================================
+
+HTML KPI Motion - Revenue =
+VAR Dir = "ltr"
+VAR Title = "Revenue"
+VAR Fmt = "#,0"
+VAR v = [Revenue]
+VAR prev = [Revenue Prior]
+VAR delta = DIVIDE ( v - prev, ABS ( prev ) )
+-- one status for stripe, badge and value (thresholds in one place)
+VAR st = IF ( ISBLANK ( prev ) || ISBLANK ( v ), 0, IF ( delta >= 0.03, 1, IF ( delta <= -0.05, -1, 0 ) ) )
+VAR fg = SWITCH ( st, 1, "var(--pbi-theme-good,#047857)", -1, "var(--pbi-theme-bad,#B91C1C)", "#B45309" )
+VAR bg = SWITCH ( st, 1, "#D1FAE5", -1, "#FEE2E2", "#FEF3C7" )
+VAR badge = IF ( st = 0 && ( ISBLANK ( prev ) || ISBLANK ( v ) ), "No prior period",
+    IF ( delta >= 0, UNICHAR ( 9650 ), UNICHAR ( 9660 ) ) & " " & FORMAT ( ABS ( delta ), "0.0%" ) )
+-- odometer: every digit is a 0-9 strip translated to its digit; the keyframe only says where it starts
+VAR valTxt = IF ( ISBLANK ( v ), "–", FORMAT ( v, Fmt ) )
+VAR digits = "<i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i>"
+VAR odo = CONCATENATEX ( GENERATESERIES ( 1, LEN ( valTxt ), 1 ),
+    VAR ch = MID ( valTxt, [Value], 1 )
+    RETURN IF ( CONTAINSSTRINGEXACT ( "0123456789", ch ),
+        "<span class='kd fit-clip'><span class='ks' style='transform:translateY(-" & ch & "em);animation-delay:"
+            & FORMAT ( 0.06 * [Value], "0.00" ) & "s'>" & digits & "</span></span>",
+        "<span>" & ch & "</span>" ), "", [Value], ASC )
+-- weekly bars across the selected date range
+VAR d0 = CALCULATE ( MIN ( 'Sales'[Date] ), ALLSELECTED ( 'Sales' ) )
+VAR d1 = CALCULATE ( MAX ( 'Sales'[Date] ), ALLSELECTED ( 'Sales' ) )
+VAR nW = MAX ( 1, INT ( ( d1 - d0 ) / 7 ) + 1 )
+VAR wk = ADDCOLUMNS ( GENERATESERIES ( 0, nW - 1, 1 ), "@v",
+    VAR s = d0 + 7 * [Value]
+    RETURN CALCULATE ( [Revenue], KEEPFILTERS ( 'Sales'[Date] >= s && 'Sales'[Date] <= s + 6 ) ) )
+VAR W = 150
+VAR H = 52
+VAR mx = MAX ( 0, MAXX ( wk, [@v] ) )
+VAR mn = MIN ( 0, MINX ( wk, [@v] ) )
+VAR rng = IF ( mx - mn = 0, 1, mx - mn )
+VAR y0 = H * mx / rng
+VAR slot = W / nW
+VAR bars = CONCATENATEX ( wk,
+    VAR b = [@v]
+    VAR h = ABS ( b ) / rng * H
+    RETURN "<rect class='kb" & IF ( b < 0, " kn", "" ) & "' style='animation-delay:" & FORMAT ( 0.15 + 0.045 * [Value], "0.00" ) & "s'"
+        & " x='" & FORMAT ( [Value] * slot + slot * 0.15, "0.0" ) & "' y='" & FORMAT ( IF ( b >= 0, y0 - h, y0 ), "0.0" )
+        & "' width='" & FORMAT ( slot * 0.7, "0.0" ) & "' height='" & FORMAT ( MAX ( h, IF ( ISBLANK ( b ), 0, 1.5 ) ), "0.0" )
+        & "' rx='1.5' fill='" & IF ( b < 0, "#F87171", "var(--pbi-theme-color-1,#0D9488)" ) & "'/>", "", [Value], ASC )
+VAR css =
+    ".kd{display:inline-block;height:1em;overflow:hidden;vertical-align:top}"
+    & ".ks{display:block;animation:kroll .9s cubic-bezier(.2,.8,.2,1) both}"
+    & ".ks i{display:block;height:1em;font-style:normal}"
+    & "@keyframes kroll{from{transform:translateY(0)}}"
+    & ".kb{transform-box:fill-box;transform-origin:50% 100%;animation:kgrow .55s cubic-bezier(.2,.8,.2,1) both}"
+    & ".kb.kn{transform-origin:50% 0}"
+    & "@keyframes kgrow{from{transform:scaleY(0)}}"
+    & ".kp{display:inline-block;animation:kpop .45s cubic-bezier(.34,1.56,.64,1) .75s both}"
+    & "@keyframes kpop{from{opacity:0;transform:scale(.6)}}"
+RETURN
+"<div dir='" & Dir & "' style='height:100vh;box-sizing:border-box;overflow:hidden;line-height:1.35;font-family:Segoe UI,Arial,sans-serif;"
+    & "background:var(--pbi-theme-bg-light,#FFFFFF);border:1px solid #E5E7EB;border-inline-start:5px solid " & fg & ";border-radius:12px;"
+    & "padding:16px 20px 14px 20px;display:flex;flex-direction:column;justify-content:space-between'>"
+& "<style>" & css & "</style>"
+& "<div style='flex:none;display:flex;justify-content:space-between;align-items:center;height:26px'>"
+    & "<span style='font-size:15px;font-weight:600;color:var(--pbi-theme-fg-neutral-secondary,#475569);white-space:nowrap'>" & Title & "</span>"
+    & "<span class='kp' style='font-size:13px;font-weight:600;color:" & fg & ";background:" & bg & ";border-radius:999px;padding:2px 10px;white-space:nowrap'>" & badge & "</span></div>"
+& "<div style='flex:none;display:flex;justify-content:space-between;align-items:flex-end;height:60px'>"
+    & "<span style='direction:ltr;unicode-bidi:isolate;font-size:46px;font-weight:700;color:var(--pbi-theme-fg,#0F172A);letter-spacing:-0.5px;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums'>" & odo & "</span>"
+    & "<svg width='" & W & "' height='" & H & "' viewBox='0 0 " & W & " " & H & "' xmlns='http://www.w3.org/2000/svg' style='display:block'>" & bars
+    & "<line x1='0' x2='" & W & "' y1='" & FORMAT ( y0, "0.0" ) & "' y2='" & FORMAT ( y0, "0.0" ) & "' stroke='#E5E7EB' stroke-width='1'/></svg></div>"
+& "<div style='flex:none;height:20px;font-size:13px;color:var(--pbi-theme-fg-neutral-tertiary,#64748B);white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>weekly</div>"
+& "</div>"

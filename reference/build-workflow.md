@@ -53,6 +53,8 @@ Costs and limits:
 
 ## 3. Testing before writing
 
+- **Motion** (`skills/motion/SKILL.md`): freeze frames with `motion_frames.mjs` (pauses every animation at exact times - deterministic), then after Apply + **Refresh** record the Desktop window with `burst.ps1` (Desktop must be the front window: the burst captures the screen). An entrance is checked during a filter change, a loop with no interaction at all.
+
 - Evaluate every HTML measure against the open model before writing anything: `runq.ps1` loads `Microsoft.PowerBI.AdomdClient.dll` from Desktop's own folder, finds the model port in `...\AnalysisServicesWorkspaces\*\Data\msmdsrv.port.txt` (UTF-16, newest file) and runs a `DEFINE MEASURE ... EVALUATE ROW(...)` query. The real HTML it returns feeds the preview.
 - Gates, in order: `regress.py` (only the intended cards changed), `fitcheck.mjs` (fit + WCAG contrast on the exact-size preview), `stress.py` (filter scenarios). Verify that a scenario really filters - a gate that tests nothing passes everything.
 - Headless browser checks must clean up after themselves. `child.kill()` stops only the browser launcher; Edge's GPU/renderer children outlive it and accumulate into hundreds of processes, which then make later checks fail at random. Wait for real readiness (page and every card rendered) instead of a fixed sleep, close the browser over the DevTools protocol (`Browser.close`), kill anything left on the run's temporary profile, and delete the profile. Check: a process count before and after a run must match.

@@ -21,7 +21,7 @@ Use
   3. In your measures' add(): expr = apply(expr, role). Build card roots with CARD and use the
      tokens @@c_chip@@ / @@c_icon@@ / @@c_icon_in@@ for icon chips.
 Roles map to data tokens too: c1..c3 -> primary / design / maint, good -> done, bad -> bad,
-c4 -> series3, warn -> series4, c1..c6 -> cat1..cat6, so data and cards share one set of colors.
+c4 -> series3, warn -> series4 and warn, c1..c6 -> cat1..cat6, so data and cards share one set of colors.
 """
 import colorsys
 import json
@@ -163,7 +163,7 @@ DEFAULT = "accent"
 
 # ---------------------------------------------------------------- the palette a style implies
 DATA_TOKENS = {"primary": "c1", "design": "c2", "maint": "c3", "done": "good", "bad": "bad",
-               "series3": "c4", "series4": "warn"}
+               "series3": "c4", "series4": "warn", "warn": "warn"}
 
 
 def style_palette(st):
@@ -190,7 +190,7 @@ def style_palette(st):
         p[tok] = readable(readable(c[role], [card, p["track"]], MARK, away), [card, p["inset"]], TEXT, away)
     for k, soft, txt in (("primary", "primary_soft", "primary_text"), ("design", "design_soft", "design_text"),
                          ("maint", "maint_soft", "maint_text"), ("done", "done_soft", "done_text"),
-                         ("bad", "bad_soft", None)):
+                         ("warn", "warn_soft", "warn_text"), ("bad", "bad_soft", None)):
         p[soft] = _mix(p[k], card, .80)
         if txt:
             p[txt] = readable(p[k], [p[soft]], TEXT, "#FFFFFF" if _lum(p[soft]) < 0.2 else "#000000")
