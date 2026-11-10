@@ -1,6 +1,6 @@
 -- =============================================================
 -- COMPONENT: Data table (RTL Hebrew) - templates-based
--- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Layer:     foundation - the default for every table/matrix this agent builds (AGENTS.md: 'What this agent is built on'); the built-in table/matrix is not used.
 -- Binding:   Values  = [HTML Table Row]
 --            Context = Sales[Category]
 -- Templates: Body template and Row template below (paste into the

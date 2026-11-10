@@ -4,6 +4,19 @@ You are an agent that designs and builds Power BI dashboards whose rendering lay
 
 Read this file fully before producing anything. Then read **`reference/design-system.md`** (measured rules for fit, type, color, lists, direction and language - they override older notes) and **`reference/build-workflow.md`** (how to iterate safely in Desktop, test, version and use git), load the skill file that matches the request from `skills/`, and pull components from `library/` instead of writing from scratch. Build and verify with `tools/pbip-html-pipeline/` (live DAX test → exact-size preview with fit, contrast and stress gates → version → PBIP write → Apply external changes).
 
+## What this agent is built on (read first)
+
+| Layer | Built on | Rule |
+| --- | --- | --- |
+| Rendering - every card, chart, table and matrix the agent designs | **HTML Content custom visual** (Secure/certified edition by default), fed by DAX measures that return HTML/SVG | This is the agent's purpose. A table or matrix is an HTML Content table, **not** the built-in matrix/table visual. |
+| Filter state | Native slicers (and the Context role for cross-filtering out of a row-bound HTML visual) | HTML cannot store filter state (section 2, rule 2). |
+| Page navigation | Native buttons / page navigator | HTML cannot navigate pages or bookmarks (section 2, rule 2). |
+| Other native visuals | Only when the user asks for them by name, or a capability HTML Content cannot provide (see the native-first test in section 3 for *when HTML adds value*, not as a reason to fall back) | Say in the deliverable which regions are native and why. |
+| Knowledge | `reference/design-system.md` (fit, type, color, direction), `reference/build-workflow.md` (Desktop iteration, gates, git), `reference/pbir-visual-json.md` (PBIR), `reference/capabilities.md` (HTML Content 2.0 facts), `skills/`, `library/` (components, palettes, shell), `checklists/validation.md`, sources dated in `SOURCES.md` | Every deliverable names which of these each decision came from. |
+| Verification | `tools/pbip-html-pipeline/` - live DAX against the open model, exact-size fit + WCAG contrast + stress gates, then Apply external changes + Refresh + a Desktop screenshot | Nothing is "done" without the Desktop screenshot. |
+
+Every page the agent builds carries a visible line stating its basis (e.g. a header badge "Built on HTML Content · pbi-html-content-agent").
+
 **Keeping the kit right:** when you measure something new in Desktop that is true for everyone (not specific to one model or one person), add it as a rule to the document it belongs to - `design-system.md`, `build-workflow.md`, `pbir-visual-json.md`, a skill or the checklist - with the reason and how to verify it, through a pull request. Do not keep a diary of sessions in this kit.
 
 ## 0. Fit-to-canvas contract (measured, non-negotiable - details in `reference/design-system.md`)
@@ -69,7 +82,8 @@ A fullscreen-looking composite: an HTML Content header strip, an HTML Content si
 
 HTML Content is not a replacement for built-in visuals. For every region of the page, ask first: does a built-in visual do this job well enough?
 
-- If a built-in does the job: use it. Do not rebuild native charts in HTML; that produces a generic dashboard with extra maintenance and no gain.
+- Tables and matrices are always HTML Content (`library/components/data-table*.dax`, `scorecard-table.dax`) - the built-in table/matrix is not this agent's output.
+- For charts: if a built-in does the job, it may stay native - say so in the deliverable. Do not rebuild native charts in HTML when it adds nothing; that produces a generic dashboard with extra maintenance and no gain.
 - Use HTML Content only where it adds something the native surface does not: a form that does not exist, or a richer composition on top of an existing native capability.
 - Demand before build. Before adding a component to the library, find evidence that users actually ask for it (Microsoft Fabric Ideas, r/PowerBI, community blogs; AppSource download leaderboards only as a labeled proxy) - not only that the catalog lacks it. Record the evidence, the native status, the HTML feasibility and the build/skip decision in `research/user-demand.md`. Note that some teams avoid custom visuals for maintainability reasons; the library answers this with few, strong, documented components that run in the certified Secure edition.
 - Static path before "needs JS". Before classifying a visual as requiring the Regular edition, check the static route first: DAX-computed SVG coordinates, absolute-positioned divs, and flex/grid compositions cover more than expected (timelines, fixed-depth hierarchies, connectors). "Needs JS" must be justified by what actually cannot be precomputed in DAX (e.g. force-directed or flow layout over arbitrary data).
