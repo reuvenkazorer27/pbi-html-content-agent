@@ -12,9 +12,9 @@
 ![Styles](https://img.shields.io/badge/styles-brand--fitted%2C%20contrast--computed-DB2777)
 ![Motion](https://img.shields.io/badge/motion-CSS%20keyframes%2C%20Secure--safe-0D9488)
 
-<a href="docs/demo/ecommerce-dashboard-demo.mp4"><img src="docs/demo/demo.gif" alt="55-second demo: the agent reads a live Power BI model, lays out an executive page, writes the DAX, runs its gates, and the result in Power BI Desktop - KPI cards whose digits roll in, an exception list that keeps pulsing, every visual updating from a slicer" width="100%"></a>
+<a href="https://github.com/reuvenkazorer27/pbi-html-content-agent/raw/main/docs/demo/ecommerce-dashboard-demo.mp4"><img src="https://github.com/reuvenkazorer27/pbi-html-content-agent/raw/main/docs/demo/demo.gif" alt="55-second demo: the agent reads a live Power BI model, lays out an executive page, writes the DAX, runs its gates, and the result in Power BI Desktop - KPI cards whose digits roll in, an exception list that keeps pulsing, every visual updating from a slicer" width="100%"></a>
 
-<sub>From one prompt to a verified page: live model → layout → DAX → gates → Power BI Desktop → motion. Everything except the three slicers is HTML Content (Secure edition); sample data. <a href="docs/demo/ecommerce-dashboard-demo.mp4"><b>▶ Full-quality video (MP4, 55 s)</b></a></sub>
+<sub>From one prompt to a verified page: live model → layout → DAX → gates → Power BI Desktop → motion. Everything except the three slicers is HTML Content (Secure edition); sample data. <a href="https://github.com/reuvenkazorer27/pbi-html-content-agent/raw/main/docs/demo/ecommerce-dashboard-demo.mp4"><b>▶ Full-quality video (MP4, 55 s)</b></a></sub>
 
 </div>
 
@@ -34,13 +34,19 @@ On older versions, run `/plugin marketplace add reuvenkazorer27/pbi-html-content
 - **Update:** run `/plugin marketplace update pbi-html-content-agent`, then `/plugin update pbi-html-content-agent@pbi-html-content-agent`.
 - **No GitHub SSH key:** set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` before you add the marketplace.
 
-**Cursor, Codex and other agents:** copy the kit into a folder and point the agent at its `AGENTS.md`:
+**Any agent (Cursor, Codex, Claude Code, ...), set up next to your report in one step.** Run this in the folder that holds your `.pbip`:
 
 ```bash
-npx degit reuvenkazorer27/pbi-html-content-agent pbi-kit
+npx pbi-html-content-agent init
 ```
 
-`git clone` works the same way.
+It does the following:
+- copies the kit next to the report and sets up `_build/` with a backup copy;
+- asks which table, page and style to use, and writes `pipeline.json`;
+- leaves a pointer to `AGENTS.md` for your agent;
+- checks Python, Node, Edge and Power BI Desktop.
+
+`npx pbi-html-content-agent doctor` runs only the checks. To get just the files, use `npx degit reuvenkazorer27/pbi-html-content-agent pbi-kit` or `git clone`.
 
 **Then ask in plain language**, from the folder that holds your `.pbip`. For example: *"Set up the kit next to Sales.pbip and build an executive page with a KPI row, a filter panel and a regional breakdown, in our brand blue #0E7490."* The agent copies the pipeline next to your report, asks for what only you know (which table, which page, brand colors), and runs the gates before it writes anything.
 

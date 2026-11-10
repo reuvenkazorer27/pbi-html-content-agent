@@ -1,0 +1,51 @@
+{
+  "name": "pbi-html-content-agent",
+  "version": "1.0.0",
+  "description": "An AI agent kit for pixel-exact Power BI dashboards on the HTML Content visual: gated card builders, colorful styles, motion, LTR/RTL, a PBIP/PBIR writer and fit/contrast/stress gates. `npx pbi-html-content-agent init` sets it up next to your report.",
+  "type": "module",
+  "bin": {
+    "pbi-html-content-agent": "bin/cli.mjs"
+  },
+  "files": [
+    "bin/",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "ROADMAP.md",
+    "SOURCES.md",
+    "checklists/",
+    "examples/",
+    "library/",
+    "reference/",
+    "research/",
+    "skills/",
+    "tools/",
+    ".claude-plugin/",
+    "!**/__pycache__/",
+    "!**/*.pyc"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "power-bi",
+    "pbip",
+    "pbir",
+    "dax",
+    "html-content",
+    "dashboard",
+    "rtl",
+    "data-visualization",
+    "ai-agent",
+    "claude-code"
+  ],
+  "author": "Reuven Kazorer (https://github.com/reuvenkazorer27)",
+  "license": "MIT",
+  "homepage": "https://github.com/reuvenkazorer27/pbi-html-content-agent#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reuvenkazorer27/pbi-html-content-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/reuvenkazorer27/pbi-html-content-agent/issues"
+  }
+}
