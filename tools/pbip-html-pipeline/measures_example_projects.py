@@ -407,8 +407,8 @@ VAR _legend =
 RETURN
     "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:20px 24px;display:flex;flex-direction:column;gap:12px'>"
         & "<div><div style='font-size:16px;font-weight:700'>פרויקטים לפי סוג</div><div style='font-size:12px;color:{FG2}'>מערכות, מסכי ניהול ו-" & LRI & "BI" & PDI & ", סוכנים</div></div>"
-        & "<div style='display:flex;align-items:center;gap:28px;flex:1'>"
-            & "<svg width='180' height='180' viewBox='0 0 180 180' style='flex:none'>"
+        & "<div style='display:flex;align-items:center;gap:28px;flex:1;min-height:0'>"
+            & "<svg viewBox='0 0 180 180' style='flex:none;height:100%;max-height:260px;aspect-ratio:1/1'>"
                 & "<circle cx='90' cy='90' r='" & _R & "' fill='none' stroke='{TRACK}' stroke-width='24'/>" & _segs
                 & "<text x='90' y='92' text-anchor='middle' style='font-size:30px;font-weight:700;fill:@@fg@@;{FONT}'>" & _tot & "</text>"
                 & "<text x='90' y='114' text-anchor='middle' style='font-size:12px;fill:{FG2};{FONT}'>פרויקטים</text>"

@@ -7,6 +7,9 @@
                                                   HTML visuals to render; the live MODEL is NOT reloaded from TMDL
                                                   (push measures with the Modeling MCP, or Apply external changes)
   python -I bridge.py shot <page-id> out.png [--pid N] [--scale 1]
+                                                  -> captures until two captures 5s apart are the same size: custom
+                                                  visuals render after the page, and a capture right after a reload
+                                                  (measured: 15s was not always enough) shows empty cards
 Without --pid the Desktop whose open file is <project>.pbip (pipeline.json) is used. Exit 2 = no bridge (fall back to
 Apply external changes + Refresh + a manual screenshot)."""
 import base64, glob, json, os, sys, time
@@ -95,8 +98,15 @@ if __name__ == "__main__":
         time.sleep(float(_arg("--settle", 15)))   # a capture right after reload shows empty custom visuals
     elif cmd == "shot":
         page, out = sys.argv[2], sys.argv[3]
-        r = call(pid, "report.snapshot.capture/v1", {"pageId": page, "scale": float(_arg("--scale", 1))}, wait=120)
-        open(out, "wb").write(base64.b64decode(r["payload"]))
-        print(f"{out} ({r.get('mimeType')}) from pid {pid}")
+        prev, png = None, b""
+        for _ in range(12):   # up to ~60s: stop when the render is stable (same PNG size twice, within 1%)
+            r = call(pid, "report.snapshot.capture/v1", {"pageId": page, "scale": float(_arg("--scale", 1))}, wait=120)
+            png = base64.b64decode(r["payload"])
+            if prev is not None and abs(len(png) - prev) <= 0.01 * prev:
+                break
+            prev = len(png)
+            time.sleep(5)
+        open(out, "wb").write(png)
+        print(f"{out} ({r.get('mimeType')}, {len(png)} bytes, stable) from pid {pid}")
     else:
         sys.exit(__doc__)

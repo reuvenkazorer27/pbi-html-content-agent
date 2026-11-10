@@ -18,6 +18,7 @@ Everything on the page is HTML Content except the slicers (AGENTS.md, "What this
 
 - Rows are fixed-height; the number of rows comes from the frame, not from the data: `rows = floor((H - padding - header - footer - 8) / rowPitch)`.
 - **Must:** every card keeps 8px of slack at the bottom and sides. The pipeline's exact-size fit check renders each measure in an iframe of the visual's exact size and fails on any element past `edge - 8px` or a root taller than the frame. A full-page screenshot is not enough: cards that look fine overflow by 2-30px.
+- **Must: no card with a large empty area.** Content fills the card: below the lowest text, bar or box, at most max(40px, 15% of the card height) may stay blank. A card that is half empty looks broken. Fix it in this order: (1) let the content stretch - rows `flex:1 1 0` with a min and max height instead of a fixed height, charts sized in % of a `flex:1` area, an svg at `height:100%` with `aspect-ratio`; (2) show more of the data (more rows, a second view); (3) make the card smaller and give the space to a neighbour. A tall panel (e.g. a filter column) gets useful content under its controls - such as what the current selection is made of. A short last row in a grid of panels widens to fill the row (`flex-wrap` with `flex:1 1 calc(100%/cols - gap)`). The fit check enforces the bottom band; the deliberate exceptions are marked `data-fill='free'` (the background layer, an empty-state message).
 - Gate every combination you ship (direction × language × palette), and every filter state (see §6).
 
 ## 3. Type scale

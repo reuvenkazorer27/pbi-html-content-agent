@@ -24,7 +24,7 @@ When they are available the loop needs no clicks and no manual screenshots. Each
 | Measures into the live model | **Power BI Modeling MCP** `measure_operations` Create/Update | applied at once, no Apply, no Refresh; a batch is one transaction | caught a measure named like a column (`Units`) and rolled the whole batch back - the file route only fails inside Desktop |
 | Report files into Desktop | `bridge.py reload` (`file.reload/v1`) | reloads the PBIR from disk, ~10s, no click | **does not reload the model**: TMDL written to disk stays out of the live model (cards show "Something's wrong with one or more fields") - push measures with the MCP first, or use Apply external changes |
 | Validate PBIR | `powerbi-report-author validate` (`@microsoft/powerbi-report-authoring-cli`, Node) | schema + layout diagnostics | found a real bug: a new page is 1280×720 unless the writer sets 1920×1080. Its slicer-height error (40 < 48px) is a false positive when padding is 0 - Desktop rendered the 40px slicer correctly; Desktop wins |
-| Screenshot | `bridge.py shot <page-id>` (`report.snapshot.capture/v1`) | real Desktop render as PNG, ~8s | right after a reload the HTML visuals are still empty - wait (`--settle`, default 15s) |
+| Screenshot | `bridge.py shot <page-id>` (`report.snapshot.capture/v1`) | real Desktop render as PNG, ~8s | right after a reload the HTML visuals are still empty, and a fixed 15s wait was not always enough - `shot` captures until two captures 5s apart are the same size |
 | Gate the HTML | `runq.ps1` → preview → `fitcheck.mjs` (unchanged) | evaluates every card to files | keep it: the MCP's DAX results come back inline, and HTML cards are kilobytes each |
 
 Safety with the Modeling MCP:
