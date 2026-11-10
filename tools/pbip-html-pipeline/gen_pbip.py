@@ -7,6 +7,11 @@ from measures import M, LAYOUT, SLICERS
 from config import TMDL, TMDL_BACKUP, REPORT_DIR, PAGE_DIR, TABLE as ENTITY, PAGE_DISPLAY_NAME, PARTITION_M, LINEAGE_NS, require_paths
 
 require_paths()
+import measures as _ms
+from layout_check import check as _layout_check
+_problems = _layout_check(LAYOUT, SLICERS, getattr(_ms, "PAGE_W", 1920), getattr(_ms, "PAGE_H", 1080))
+if _problems:   # never place a visual on top of another - fix LAYOUT / SLICERS first
+    raise SystemExit("layout check failed, nothing written:\n  " + "\n  ".join(_problems))
 REPORT = os.path.join(REPORT_DIR, "definition")
 HTML_GUID = "htmlContent443BE3AD55E043BF878BED274D3A6865"  # HTML Content Secure (certified)
 VC_SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json"
@@ -59,7 +64,6 @@ page = json.load(open(pp, encoding="utf-8"))
 if PAGE_DISPLAY_NAME:
     page["displayName"] = PAGE_DISPLAY_NAME
 # the layout is authored for a fixed canvas: write it, or a new (scaffolded) page stays 1280x720 and clips everything
-import measures as _ms
 page["width"], page["height"] = getattr(_ms, "PAGE_W", 1920), getattr(_ms, "PAGE_H", 1080)
 page["displayOption"] = "FitToPage"
 color = {"solid": {"color": lit(f"'{BG}'")}}

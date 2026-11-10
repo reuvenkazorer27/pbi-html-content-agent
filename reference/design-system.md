@@ -63,6 +63,10 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 - **Short categorical lists** (≤12 items) fit in two columns (`display:grid; grid-auto-flow:column; grid-template-rows:repeat(n,28px)`) instead of being truncated.
 - **Native slicers on an HTML panel:** draw only the label in HTML (no box - it doubles the border); the slicer (padding 0, header off, background off, dropdown mode) supplies its own box. Position: `y = panelTop + titleBlock + i × slotPitch + labelHeight`, from the same constants the HTML uses.
 
+## 5b. Text built from numbers
+
+- **Must:** every number concatenated into text goes through `+ 0` or `IF ( ISBLANK ( ... ), ... )`. A BLANK measure under a filter turns `x & " vs " & y` into `" vs ·"` and `"2 of 3"` into `" of 3"` - the stress scenarios (one value, empty selection) are where it shows.
+
 ## 6. Direction and language
 
 - **Direction is a build setting, not a rewrite.** Components never hardcode `rtl`/`ltr`/`left`/`right`: card roots use direction tokens, numeric cells align to the end side, "next" arrows flip, and the layout is mirrored for LTR (`x' = page width - x - w`). Time axes stay left-to-right in both directions (say so in the subtitle).
