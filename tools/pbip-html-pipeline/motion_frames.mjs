@@ -37,7 +37,7 @@ for (const t of times) {
     `[...document.querySelectorAll('iframe')].reduce((n, f) => { const a = f.contentDocument.getAnimations(); a.forEach(x => { x.pause(); x.currentTime = ${t * 1000}; }); return n + a.length; }, 0)` });
   counts.push(r.result.result.value);
   await sleep(80);
-  const s = await send('Page.captureScreenshot', { format: 'png', clip: { x: cx, y: cy, width: cw, height: ch, scale: 1 } });
+  const s = await send('Page.captureScreenshot', { format: 'png', clip: { x: cx, y: cy, width: cw, height: ch, scale: 1 }, captureBeyondViewport: true });
   writeFileSync(`${prefix}_${t}s.png`, Buffer.from(s.result.data, 'base64'));
 }
 console.log('animations found per frame:', counts.join(','), '-> frames:', times.map(t => `${prefix}_${t}s.png`).join(' '));

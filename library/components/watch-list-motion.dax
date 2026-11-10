@@ -1,16 +1,17 @@
 -- =============================================================
--- COMPONENT: Watch list with ambient motion - rows below target pulse, bars carry a sheen, a 'live' dot breathes
--- Layer:     foundation - an exception list that keeps moving for every viewer, not only on refresh.
+-- COMPONENT: Watch list with alert motion - rows at a loss pulse a red ring twice on every render, then stop
+-- Layer:     foundation - an exception list whose worst rows call for attention whenever the view changes.
 -- Binding:   Values = [HTML Watch Motion - Margin]
 -- Context:   none (single aggregated visual). Incoming filters apply; rows slide in again on every render.
 -- Edition:   Regular + Secure (CSS @keyframes in an inline <style>, no script, no external URL)
--- Status:    run in Power BI Desktop (Secure edition, 10 Nov 2026): a 3.5 s screen burst with no interaction changed
---            on 39 of 39 frames, largest frame-to-frame change 0.16/255 (no flash). Ported with model names replaced.
+-- Status:    run in Power BI Desktop (Secure edition, 10 Nov 2026) in an earlier looping form; this form follows the
+--            research in skills/motion/SKILL.md (alerts brief, stopping within 5 s - WCAG 2.2.2). Ported with model
+--            names replaced - re-run the live DAX gate on your model.
 -- Requires:  'Sales'[SubCategory], 'Sales'[Category], [Revenue], [Margin], [Margin Target]. Rename to your model.
--- Motion:    loops forever: pulse ring 2.4 s on badges below target (red = loss, amber = under target), sheen 2.8 s on
---            the bars (staggered per row), breathing dot 2 s. Gradual opacity/shadow only - no flashes.
---            Export to PDF/PowerPoint shows one still moment of the loop. See skills/motion/SKILL.md.
--- Direction: Dir is a build setting ('ltr' / 'rtl'); the slide-in and the sheen follow the reading direction.
+-- Motion:    rows slide in on every render; badges at a loss pulse a red ring twice (4.8 s) and stop. Under-target
+--            rows stay still - their amber badge already says it (one attention animation at a time). No sheen,
+--            no breathing: decoration is left out. See skills/motion/SKILL.md.
+-- Direction: Dir is a build setting ('ltr' / 'rtl'); the slide-in follows the reading direction.
 -- =============================================================
 
 HTML Watch Motion - Margin =
@@ -25,15 +26,14 @@ VAR rowsHtml = CONCATENATEX ( tbl,
     VAR i = RANKX ( tbl, [@m], , ASC, Dense )
     VAR fg = IF ( m >= [Margin Target], "var(--pbi-theme-good,#047857)", IF ( m >= 0, "#B45309", "var(--pbi-theme-bad,#B91C1C)" ) )
     VAR bg = IF ( m >= [Margin Target], "#D1FAE5", IF ( m >= 0, "#FEF3C7", "#FEE2E2" ) )
-    VAR risk = IF ( m < 0, " mwp-bad", IF ( m < [Margin Target], " mwp-warn", "" ) )
+    VAR risk = IF ( m < 0, " mwp-bad", "" )
     VAR w = MIN ( 1, ABS ( m ) / 0.3 ) * 120
     RETURN "<div class='mwr' style='animation-delay:" & FORMAT ( 0.07 * i, "0.00" ) & "s;flex:none;height:44px;display:flex;align-items:center;gap:14px;border-top:1px solid #E5E7EB'>"
         & "<div style='flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"
             & "<span style='font-size:15px;font-weight:600;color:var(--pbi-theme-fg,#0F172A)'>" & 'Sales'[SubCategory] & "</span>"
             & "<span style='font-size:13px;color:#64748B'> · " & 'Sales'[Category] & "</span></div>"
         & "<div style='flex:none;width:120px;height:8px;border-radius:4px;background:#F3F4F6;overflow:hidden'>"
-            & "<div class='mwb' style='width:" & FORMAT ( w, "0" ) & "px;height:8px;background:" & fg & "'>"
-            & "<span class='mws fit-clip' style='animation-delay:" & FORMAT ( 0.45 * i, "0.00" ) & "s'></span></div></div>"
+            & "<div style='width:" & FORMAT ( w, "0" ) & "px;height:8px;background:" & fg & "'></div></div>"
         & "<div style='flex:none;width:76px;text-align:end'><span class='mwp" & risk & "' style='direction:ltr;unicode-bidi:isolate;font-size:13px;font-weight:700;color:" & fg & ";background:" & bg & ";border-radius:999px;padding:2px 8px'>" & FORMAT ( m, "0.0%" ) & "</span></div>"
         & "<div style='flex:none;width:72px;text-align:end;direction:ltr;unicode-bidi:isolate;font-size:14px;color:#475569'>" & FORMAT ( [@s], "#,0" ) & "</div></div>",
     "", [@m], ASC, [@s], DESC )
@@ -41,23 +41,14 @@ VAR css =
     ".mwr{animation:mwin .5s cubic-bezier(.2,.8,.2,1) both}"
     & "@keyframes mwin{from{opacity:0;transform:translateX(" & -12 * sgn & "px)}}"
     & ".mwp{display:inline-block}"
-    & ".mwp-bad{animation:mwpb 2.4s ease-out infinite}"
-    & ".mwp-warn{animation:mwpw 2.4s ease-out infinite}"
+    & ".mwp-bad{animation:mwpb 2.4s ease-out .7s 2}"
     & "@keyframes mwpb{0%{box-shadow:0 0 0 0 rgba(185,28,28,.45)}70%,100%{box-shadow:0 0 0 9px rgba(185,28,28,0)}}"
-    & "@keyframes mwpw{0%{box-shadow:0 0 0 0 rgba(180,83,9,.40)}70%,100%{box-shadow:0 0 0 9px rgba(180,83,9,0)}}"
-    & ".mwb{position:relative;overflow:hidden}"
-    & ".mws{position:absolute;top:0;bottom:0;inset-inline-start:0;width:40px;"
-    & "background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.65),rgba(255,255,255,0));animation:mwsh 2.8s ease-in-out infinite}"
-    & "@keyframes mwsh{0%{transform:translateX(" & -40 * sgn & "px)}60%,100%{transform:translateX(" & 130 * sgn & "px)}}"
-    & ".mwd{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--pbi-theme-color-1,#0D9488);margin-inline-start:10px;vertical-align:middle;"
-    & "animation:mwdot 2s ease-in-out infinite}"
-    & "@keyframes mwdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}"
 RETURN
 "<div dir='" & Dir & "' style='height:100vh;box-sizing:border-box;overflow:hidden;line-height:1.35;font-family:Segoe UI,Arial,sans-serif;"
     & "background:var(--pbi-theme-bg-light,#FFFFFF);border:1px solid #E5E7EB;border-radius:12px;padding:16px 20px;display:flex;flex-direction:column'>"
 & "<style>" & css & "</style>"
 & "<div style='flex:none;height:28px;display:flex;justify-content:space-between;align-items:baseline'>"
-    & "<span style='font-size:20px;font-weight:700;color:var(--pbi-theme-fg,#0F172A)'>Margin watch<span class='mwd'></span></span>"
+    & "<span style='font-size:20px;font-weight:700;color:var(--pbi-theme-fg,#0F172A)'>Margin watch</span>"
     & "<span style='font-size:13px;color:#64748B'>" & FORMAT ( below, "0" ) & " of " & FORMAT ( COUNTROWS ( base ), "0" ) & " below target</span></div>"
 & "<div style='flex:none;height:22px;font-size:13px;color:#64748B;margin-bottom:4px'>Lowest margin first · bar = margin, end = revenue</div>"
 & IF ( ISBLANK ( rowsHtml ), "<div style='font-size:15px;color:#475569;padding-top:12px'>No data in the current selection</div>", rowsHtml )

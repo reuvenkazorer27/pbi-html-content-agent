@@ -1,54 +1,96 @@
 ---
 name: motion
-description: Add motion to HTML Content visuals - an entrance that replays on every render (KPI odometer, growing bars, line draw-in, badge pop) or an ambient loop every viewer sees all the time (pulse on risk rows, sheen, live dot). CSS keyframes only, so it runs in the Secure edition. Use when the user asks for motion, animation, "alive" visuals, counting numbers, or attention on exceptions in a dashboard.
+description: Add motion to HTML Content visuals where it carries meaning - the change from the previous value (KPI digits roll from last period, table bars move from their previous value), a brief alert pulse on items that break a threshold, data freshness (updated / stale), and an entrance on every render. CSS keyframes only, so it runs in the Secure edition. Use when the user asks for motion, animation, "alive" or "live" visuals, counting numbers, attention on exceptions, or freshness of a dashboard.
 ---
 
 # Motion in HTML Content visuals
 
-Motion in this kit is **CSS `@keyframes` in an inline `<style>` inside the measure**. No script, no GSAP, no external file: the Secure edition strips `<script>`, and the CSS route also works in the Regular edition, in Desktop and in the Service. Measured in Power BI Desktop (Secure edition, 10 Nov 2026) - see "Verified" below.
+Motion in this kit is **CSS `@keyframes` in an inline `<style>` inside the measure**. No script, no GSAP, no external file: the Secure edition strips `<script>`, and the CSS route also works in the Regular edition, in Desktop and in the Service. Measured in Power BI Desktop (Secure edition, 10 Nov 2026) - see "Verified".
 
-## Pick the kind of motion first
+## What motion is for (research, checked 10 Nov 2026)
 
-| Kind | When it plays | Use for | Component |
-| --- | --- | --- | --- |
-| **Entrance** | every time the visual renders: page open, slicer or cross-filter change, Refresh | KPI values, bars, lines - "the numbers just updated" | `library/components/kpi-card-motion.dax` |
-| **Ambient loop** | all the time, for every viewer, with no interaction | exceptions that need attention: rows below target, live status | `library/components/watch-list-motion.dax` |
+| Use | Why it earns motion | In this kit |
+| --- | --- | --- |
+| **Show the change** | Static updates get missed (change blindness); animating from the old value to the new one shows how the data moved - the main reason to animate a chart | `kpi_card(prev=...)`: digits roll from last period's value; `data_table` bar `"prev"`: the bar moves from its previous value |
+| **Draw attention to an exception** | Alerts are "essential motion"; keep them brief, one kind at a time, stop after a few cycles | `alert="<DAX condition>"` on every builder: a red ring pulses twice (4.8 s) on items that break it, then stops |
+| **Say how fresh the data is** | A visible "data as of" and a stale flag past a budget; a "live" label on data that is not live misleads | `kpi_card(updated=..., stale_after=60)`: "Updated N min ago" / amber "Stale · 3 h ago"; a fresh dot pulses twice |
+| **Show flow and its direction** | Moving dashes along a connector, speed tied to volume (process / network flow panels) | not built yet - needs flow data (source -> target -> volume) |
+| **Keep orientation on a view change** | Elements that move rather than jump keep the reader's place | entrance on every render (page open, filter change, Refresh) |
 
-Motion must carry meaning. A loop goes only on things the reader should notice (risk rows, not every row); an entrance says "this changed". One or two moving regions per page - a page where everything moves has no focus.
+What does **not** earn motion, and is left out on purpose:
 
-## Patterns (all in the two components)
+- **Decoration:** sheens, "breathing" elements, grow-in for its own sake, motion on a chart that never changes.
+- **Bounce or overshoot on data:** it misstates the values while it plays - bars grow from the axis with ease-out (pops keep a small overshoot on badges and chips only, which are not data).
+- **Endless loops:** WCAG 2.2.2 (level A) requires a pause control for moving content that starts by itself and lasts more than 5 seconds. HTML Content has no script for a control, so every loop in this kit stops within 5 seconds and plays again on the next render.
+- **Many things moving at once:** one attention animation at a time - alert only what breaks a threshold, never "the largest" or every row.
 
-- **Odometer value:** each digit is a 0-9 strip (`<i>` per digit, `height:1em`) inside a clipped box; the strip's inline `transform:translateY(-Nem)` is its resting place and the keyframe only defines `from{transform:translateY(0)}`. Stagger with inline `animation-delay`. The number stays left to right (`direction:ltr; unicode-bidi:isolate`) in RTL pages.
-- **Growing bars:** SVG `<rect>` with `transform-box:fill-box; transform-origin:50% 100%` (negative bars `50% 0`), `from{transform:scaleY(0)}`, a small overshoot easing `cubic-bezier(.34,1.4,.64,1)`, staggered per bar.
+Sources: [Geckoboard - To animate or not to animate](https://www.geckoboard.com/blog/to-animate-or-not-to-animate/) · [NN/g - The role of animation and motion in UX](https://www.nngroup.com/articles/animation-purpose-ux/) · [W3C - Understanding SC 2.2.2 Pause, Stop, Hide](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html) · [Colorado Digital Service - Motion & Interaction (essential vs non-essential)](https://dcs.colorado.gov/ids/digital-guidelines/design-tokens/motion-interaction) · [Carbon - Motion](https://v9.carbondesignsystem.com/guidelines/motion) · [Data Trust Engineering - Data freshness pattern](https://github.gg22.workers.dev/datatrustengineering/DataTrustEngineering/blob/main/docs/patterns/data-freshness/data-freshness.md) · [Grafana Flow panel](https://grafana.com/grafana/plugins/andrewbmchugh-flow-panel/). Most dashboard-specific guidance is vendor and practitioner advice, not research studies - treat the numbers as conventions.
+
+## Every builder: `motion=` and `alert=`
+
+All nine builders in `tools/pbip-html-pipeline/components.py` take `motion=False | True | k` and `alert=None | "<DAX condition>"`. `motion=False` (default) leaves the output byte-identical, so existing dashboards do not change. `k > 1` slows every animation k times - only to check frames in Desktop.
+
+| Builder | Entrance (`motion=True`) | `alert=` evaluates in this row context |
+| --- | --- | --- |
+| `kpi_card` | digits roll to the value - from `prev=` when given; the icon chip pops last | `_v` (the value) - the chip pulses |
+| `waterfall` | bars grow from their base one after another | `_v` (the step) |
+| `heat_matrix` | cells pop row by row | `_v` (the cell value) |
+| `lift_bars` | bars grow from the start side (right in RTL) | `_l` (the lift) |
+| `small_multiples` | mini columns grow, panel by panel | `[@v]` (the month's value) |
+| `scatter` | bubbles pop, labels slide in | `[@x]`, `[@y]`, `[@s]` |
+| `treemap_rows` | tiles pop, tile by tile | `[@v]` (the tile value) |
+| `decomp_static` | the total pops, then each level slides in after the previous one | `[@v]` (the branch value) |
+| `data_table` | rows slide in, in-cell bars grow - or move from `"prev"` | the key's row context (measures, `[@s]`) |
+
+```python
+# KPI: rolls from last period's value, pulses when below target, shows freshness
+add("HTML KPI Revenue", K.kpi_card("Revenue", "[Revenue]", "$#,0", "money", sub, motion=True,
+    prev="[Revenue PM]", alert="_v < [Revenue Target]", updated="MAX ( 'Refresh'[UTC] )", stale_after=60), "HTML")
+# table: bars move from last month, rows below target pulse
+add("HTML Regions", K.data_table(T, "Region",
+    [{"label": "Sales", "value": "[Revenue]", "kind": "bar", "prev": "[Revenue PM]"}, ...],
+    "Regions", "vs last month", sort_by="[Revenue]", motion=True, alert="[Margin] < [Margin Target]"), "HTML")
+```
+
+`updated` must be a UTC datetime (it is compared with `UTCNOW()`), for example a one-row refresh table filled by Power Query with `DateTimeZone.UtcNow()`.
+
+One shared CSS block drives all of it: `MOTION_CSS` (entrance: `mo-gy` / `mo-gx` grow, `mo-pop`, `mo-in` slide in, `mo-gw` width from the previous value, `mo-st` staggers a container's children 55 ms apart, `mo-late` waits for the value, `mo-od`/`mo-os` odometer) and `ALERT_CSS` (`mo-focus`: the entrance and a two-cycle ring in one animation list; an outer ring for chips, cells and rows, an inner ring for bars, whose track clips anything outside; `mo-fd` fresh dot). It animates the individual properties `scale` and `translate`, so an element's own inline `transform` (the scatter bubbles) keeps working.
+
+## Patterns
+
+- **Odometer value:** each digit is a 0-9 strip in a clipped box; the strip's inline `translate:0 -Nem` is its resting place, the keyframe starts from `var(--mo-from,0em)` - the previous value's digit when `prev` is given. The number stays left to right (`direction:ltr; unicode-bidi:isolate`) in RTL pages.
+- **Bars from the axis:** `scale` from 0 with `transform-origin` at the base (start side for horizontal bars), ease-out, no overshoot.
+- **Bars from the previous value:** `--mo-w0` (previous width, inline) -> `@keyframes {from{width:var(--mo-w0)}}`.
 - **Line draw-in:** `<polyline pathLength='1'>` with `stroke-dasharray:1`, `from{stroke-dashoffset:1}`.
-- **Badge pop:** `from{opacity:0;transform:scale(.6)}` with `cubic-bezier(.34,1.56,.64,1)`, delayed until the value has landed (~0.75 s).
-- **Pulse ring (loop):** `box-shadow` growing from 0 to 9px while fading out, 2.4 s `ease-out infinite`. Red for loss, amber for under target; rows on target do not pulse.
-- **Sheen (loop):** a 40px white-to-transparent gradient sweeping across a bar inside `overflow:hidden`, 2.8 s, staggered per row.
-- **Live dot (loop):** opacity 1 -> .35 and scale 1 -> .7, 2 s `ease-in-out infinite`.
+- **Alert ring:** `box-shadow` from 0 to 9px while fading out (`color-mix` on the `@@bad@@` token), 2.4 s, **2 iterations**, starting after the entrance.
+- **Freshness:** green `@@done_text@@` "Updated N ago" with a dot that pulses twice; past `stale_after` an amber `@@warn_text@@` "Stale · N ago" with a still dot.
 
-Timing budget: entrances finish within ~1.2 s; loops 2-3 s per cycle. Easing: ease-out for arrivals, small overshoot only on pops and bar tops.
+Timing: entrances finish within ~1.2 s; attention motion stops within 5 s.
 
 ## Rules (measured)
 
-1. **Keyframe names and classes are per visual.** Every HTML Content visual is its own document, so put the `<style>` in each measure; short prefixed names (`kroll`, `mwpb`) avoid clashes when a measure is reused.
-2. **Windows "Animation effects" off = `prefers-reduced-motion: reduce` inside Power BI Desktop.** Desktop's WebView2 follows the Windows setting. A `@media (prefers-reduced-motion: reduce)` rule therefore turns the motion off on such machines - and on the machine where this was built it did, so nobody saw any motion. Decide it per dashboard and say so in the deliverable: the components ship **without** the media query (motion always plays, kept short and flash-free); add `@media (prefers-reduced-motion: reduce){...{animation:none}}` when accessibility comes first.
-3. **After "Apply external changes", click Refresh.** The visuals keep their cached HTML until Refresh; "the motion does not run" right after Apply usually means the old measure is still on screen. Check the model with a DAX query (`SEARCH` for a keyframe name in `INFO.VIEW.MEASURES()`) before judging the render.
-4. **No flashes.** Animate opacity, shadow and transform gradually; never toggle a large area between light and dark. A burst of the Desktop window must show no frame-to-frame change near 10/255 or more (measured loop: 0.16/255).
-5. **Elements clipped on purpose carry class `fit-clip`** (digit strips, sheens). The fit check skips them and settles every animation first (entrances finished, loops parked at time 0), so the gate measures the resting layout.
-6. **Export to PDF / PowerPoint and subscriptions show one still moment.** Entrances show their end state; make sure any moment of a loop also reads well.
-7. **DAX variable names:** `Rows` and `cell` are reserved words in a DAX query - name them `TopRows`, `tcell`.
+1. **One `<style>` per measure.** Every HTML Content visual is its own document; prefixed names (`mo-*`) avoid clashes.
+2. **Windows "Animation effects" off = `prefers-reduced-motion: reduce` inside Power BI Desktop.** Desktop's WebView2 follows the Windows setting, so a reduced-motion rule hides all motion on such machines (on the machine where this was built, nobody saw any motion). The kit ships without it - every animation is short and stops within 5 s; add `@media (prefers-reduced-motion: reduce){...}` when the audience needs it, and say which in the deliverable.
+3. **After "Apply external changes", click Refresh.** The visuals keep their cached HTML until Refresh. Check the model first with a DAX query (`SEARCH` for a keyframe name in `INFO.VIEW.MEASURES()`).
+4. **Switching pages replays the entrance** (the visuals are rebuilt); "Refresh visuals" on the Optimize tab does not.
+5. **No flashes.** Gradual opacity, shadow and transform only; a Desktop burst must show no frame-to-frame change near 10/255.
+6. **Clipped on purpose = class `fit-clip`.** The fit gate skips those elements; it parks every animation at its resting moment to measure and then **puts every animation back** (a `finish()` would end a fill-less alert for good and change the page under test).
+7. **Static outputs** (PDF/PowerPoint export, subscriptions) show one still moment - the end state of entrances; alerts are visible through their color (the red badge, the amber "Stale") even when not pulsing.
+8. **DAX variable names:** `Rows`, `cell` and `on` are reserved words in a DAX query - name them `TopRows`, `tcell`, `isOn`.
 
 ## Verify (in this order)
 
-1. Live DAX gate and preview as usual (`gen_query.py` -> `runq.ps1` -> `gen_preview.py` -> `fitcheck.mjs`): FIT OK and CONTRAST OK in every stress scenario.
-2. **Frozen frames:** `node tools/pbip-html-pipeline/motion_frames.mjs preview.html out/frame 0.15,0.45,0.8,1.5 x,y,w,h` pauses every animation in every card at exact times and screenshots a region. Look at the frames: the motion is there, and the last frame equals the static card.
-3. **Desktop:** write the PBIP, Apply external changes, **Refresh**, then record a burst of the window region with `tools/pbip-html-pipeline/burst.ps1` (Power BI Desktop must be the front window - the burst captures the screen, not the window). Entrance: change a filter during the burst. Loop: no interaction at all; most consecutive frames must differ.
+1. Live DAX gate and preview as usual: FIT OK and CONTRAST OK in every stress scenario (all, a filter, an empty selection).
+2. **Frozen frames:** `node tools/pbip-html-pipeline/motion_frames.mjs preview.html out/frame 0.35,1.3,1.8,6.5 x,y,w,h` pauses every animation at exact times (it can capture below the fold). The alerts are visible at ~1.8 s and gone at 6.5 s.
+3. **Desktop:** Apply external changes, **Refresh**, then switch to the page. Alerts last under 5 s and a slow machine draws cards one by one, so check them with a `k = 8` build of the same cards (the ring then lasts ~45 s) or a `burst.ps1` recording (Desktop must be the front window - the burst captures the screen).
 
 ## Verified
 
-- Desktop, Secure edition, 10 Nov 2026: KPI entrance seen frame by frame after Refresh; watch-list loop changed on 39 of 39 frames of a 3.5 s burst with no interaction; largest frame-to-frame change 0.16/255. Both components re-run against a live model: FIT OK and CONTRAST OK for all data, a category filter and an empty selection.
+- **Desktop, Secure edition, 10 Nov 2026, all nine builders:** entrance (8x slow: bars growing from the base, cells and tiles popping, rows sliding in, digits rolling) and `alert=` on a lab page bound to a live model - every ring sat exactly on the items breaking their condition (waterfall steps < 100, heat cells < 100, lift < 1.0x, scatter margin < 15%, treemap tiles < 300, table rows with margin < 15%, KPI below target); KPI rolling from the previous value; "Updated 5 min ago" and amber "Stale · 3 h ago".
+- **Gates:** `motion=False` byte-identical for all builders; motion on: FIT OK and CONTRAST OK for all data, a category filter and an empty selection (fit check stable 6 of 6 runs).
+- **Components:** `kpi-card-motion.dax` (entrance) and `watch-list-motion.dax` (alert list) measured in Desktop.
 - Not yet checked in the Power BI Service or on mobile.
 
 ## Brand loops from a video (experimental)
 
-For a logo sting or a hero loop that is not data-driven, rebuild the clip as SVG + GSAP with [motion2code](https://github.com/lovisdotio/motion2code) (MIT), then bake it into CSS keyframes for HTML Content with `tools/motion-bake/bake.mjs` (see its README). Status: passed its own fidelity gate on two motion2code samples in headless Edge; **not run in Power BI** yet.
+For a logo sting that is not data-driven, rebuild the clip as SVG + GSAP with [motion2code](https://github.com/lovisdotio/motion2code) (MIT) and bake it into CSS keyframes with `tools/motion-bake/bake.mjs`. Status: passed its own fidelity gate on two samples in headless Edge; **not run in Power BI** yet. A brand loop is decoration - keep it out of analytical pages, or let it stop within 5 s.

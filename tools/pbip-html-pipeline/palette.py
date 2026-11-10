@@ -17,6 +17,7 @@ PALETTES = {
         "design": "#8764B8", "design_text": "#6B4C9A", "design_soft": "#F1ECF8",   # v002: text darkened for WCAG 4.5:1
         "maint": "#00A3AE", "maint_text": "#00747C", "maint_soft": "#E0F6F7",
         "done": "#107C10", "done_text": "#107C10", "done_soft": "#E5F2E5",
+        "warn": "#C77700", "warn_text": "#8A5300", "warn_soft": "#FFF4E0",
         "bad": "#D13438", "bad_soft": "#FBE7E7", "neutral_soft": "#F3F2F1",
         "track": "#EEF2F6", "border": "#E1E5EA", "divider": "#EEF1F4", "divider2": "#F0F2F5",
         "grid": "#E8ECF1", "connector": "#D6DCE3", "arrow": "#A0A8B3", "inset": "#F6F8FB",
@@ -31,6 +32,7 @@ PALETTES = {
         "design": "#9B8AFB", "design_text": "#C4B9FD", "design_soft": "#2E2A4F",
         "maint": "#34D3BE", "maint_text": "#7FE6D8", "maint_soft": "#163A3A",
         "done": "#4CC38A", "done_text": "#8EDDB6", "done_soft": "#173826",
+        "warn": "#F2A93B", "warn_text": "#F7C77A", "warn_soft": "#3A2E17",
         "bad": "#F16B6B", "bad_soft": "#3D2024", "neutral_soft": "#2A3646",
         "track": "#2A3646", "border": "#33404F", "divider": "#2A3646", "divider2": "#2A3646",
         "grid": "#2E3A49", "connector": "#3E4C5C", "arrow": "#6E7C8B", "inset": "#18212C",
@@ -45,6 +47,7 @@ PALETTES = {
         "design": "#4A3B76", "design_text": "#4A3B76", "design_soft": "#ECE8F5",
         "maint": "#E56BA0", "maint_text": "#A8336A", "maint_soft": "#FBE7F0",
         "done": "#3E7D4E", "done_text": "#2F6A3E", "done_soft": "#E6F2E9",
+        "warn": "#C77700", "warn_text": "#8A5300", "warn_soft": "#FFF4E0",
         "bad": "#D13438", "bad_soft": "#FBE7E7", "neutral_soft": "#F1E4EC",
         "track": "#F1E4EC", "border": "#E8D8E2", "divider": "#F3EAF0", "divider2": "#F3EAF0",
         "grid": "#EEE2EA", "connector": "#DCCAD6", "arrow": "#B3A2AE", "inset": "#FBF7FA",
@@ -60,6 +63,7 @@ PALETTES = {
         "design": "#7C3AED", "design_text": "#5B21B6", "design_soft": "#EDE9FE",
         "maint": "#0F766E", "maint_text": "#115E59", "maint_soft": "#CCFBF1",
         "done": "#15803D", "done_text": "#166534", "done_soft": "#DCFCE7",
+        "warn": "#D97706", "warn_text": "#92400E", "warn_soft": "#FEF3C7",
         "bad": "#C81E1E", "bad_soft": "#FEE2E2", "neutral_soft": "#EEF2FF",
         "track": "#EEF2FF", "border": "#E0E7FF", "divider": "#EEF2FF", "divider2": "#EEF2FF",
         "grid": "#E0E7FF", "connector": "#C7D2FE", "arrow": "#A5B4FC", "inset": "#F5F3FF",
@@ -168,7 +172,7 @@ def derive(primary, accent=None, dark=False, cats=None):
         "series3": _mix(primary, accent, 0.5),
         "bg_from": page, "bg_mid": page, "bg_to": page,
     })
-    for k in ("primary_text", "active_text", "maint_text", "design_text", "done_text"):
+    for k in ("primary_text", "active_text", "maint_text", "design_text", "done_text", "warn_text"):
         bgk = k.replace("_text", "_soft").replace("active_soft", "primary_soft")
         assert contrast(out[k], out[bgk]) >= 4.5, (k, out[k], out[bgk])
     assert contrast("#FFFFFF", out["strong"]) >= 4.5 and contrast(fg, surface) >= 4.5

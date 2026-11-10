@@ -49,16 +49,18 @@ Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar 
 
 ## Motion
 
-Dashboards built by the agent can move - inside HTML Content, with no script, so it also runs in the certified **Secure** edition and in the Power BI Service. Two kinds, each with a ready component:
+Dashboards built by the agent can move - inside HTML Content, with no script, so it also runs in the certified **Secure** edition and in the Power BI Service. The kit only animates what research says earns it: **the change** (a KPI rolls from last period's value, table bars move from their previous value), **an exception** (items that break a threshold pulse a red ring twice and stop - under 5 s, WCAG 2.2.2), **freshness** ("Updated 5 min ago" / amber "Stale"), and a short entrance when the view changes. Decoration (sheens, breathing, endless loops, bouncy bars) is left out on purpose - sources in the skill.
 
 | Kind | When it plays | Example | Component |
 | --- | --- | --- | --- |
 | **Entrance** | every render: page open, slicer or filter change, Refresh | KPI digits roll to the value, sparkline bars grow, the line draws in, the status badge pops | [`kpi-card-motion.dax`](library/components/kpi-card-motion.dax) |
-| **Ambient loop** | all the time, for every viewer, no interaction | rows below target pulse a soft ring, a sheen sweeps the bars, a "live" dot breathes | [`watch-list-motion.dax`](library/components/watch-list-motion.dax) |
+| **Alert** | on every render, twice, then still | rows at a loss pulse a red ring | [`watch-list-motion.dax`](library/components/watch-list-motion.dax) |
+
+**Every card builder takes `motion=True` and `alert="<DAX condition>"`**; `kpi_card` adds `prev=` (roll from the previous value) and `updated=` / `stale_after=` (freshness), and `data_table` bars take `"prev"`. Off by default, and off means byte-identical output. Measured in Power BI Desktop on all nine builders.
 
 How the agent uses it - [`skills/motion/SKILL.md`](skills/motion/SKILL.md):
 
-- **CSS `@keyframes` in an inline `<style>` inside the measure.** Motion only where it carries meaning (what changed, what needs attention), short entrances (~1.2 s), gentle 2-3 s loops, no flashes.
+- **CSS `@keyframes` in an inline `<style>` inside the measure.** Motion only where it carries meaning (what changed, what needs attention, how fresh), entrances ~1.2 s, attention motion stops within 5 s, no flashes, no overshoot on data.
 - **Gates that understand motion.** The fit check settles every animation first (entrances finished, loops parked at the start) and skips parts clipped on purpose (`fit-clip`); `motion_frames.mjs` freezes every animation at exact times for a deterministic look; `burst.ps1` records Power BI Desktop itself to prove the motion runs there.
 - **Two traps measured in Desktop:** with Windows *Animation effects* turned off, Desktop reports `prefers-reduced-motion: reduce`, so a reduced-motion rule hides all motion on that machine (the components ship without it; add it when accessibility comes first). And after *Apply external changes* the visuals keep their old HTML until **Refresh**.
 - **Brand loops from a video (experimental).** [`tools/motion-bake/`](tools/motion-bake/) bakes a [motion2code](https://github.com/lovisdotio/motion2code) SVG + GSAP loop into CSS keyframes with a fidelity gate against the original - headless-verified, not yet run in Power BI.

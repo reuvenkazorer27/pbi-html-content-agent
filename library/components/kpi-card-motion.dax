@@ -61,7 +61,7 @@ VAR css =
     & ".ks{display:block;animation:kroll .9s cubic-bezier(.2,.8,.2,1) both}"
     & ".ks i{display:block;height:1em;font-style:normal}"
     & "@keyframes kroll{from{transform:translateY(0)}}"
-    & ".kb{transform-box:fill-box;transform-origin:50% 100%;animation:kgrow .55s cubic-bezier(.34,1.4,.64,1) both}"
+    & ".kb{transform-box:fill-box;transform-origin:50% 100%;animation:kgrow .55s cubic-bezier(.2,.8,.2,1) both}"
     & ".kb.kn{transform-origin:50% 0}"
     & "@keyframes kgrow{from{transform:scaleY(0)}}"
     & ".kp{display:inline-block;animation:kpop .45s cubic-bezier(.34,1.56,.64,1) .75s both}"
