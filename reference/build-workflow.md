@@ -49,7 +49,7 @@ Costs and limits:
 - Register the AppSource visual in `report.json` (`publicCustomVisuals`) so Desktop fetches it on open.
 - Write the page canvas (`width`/`height` in `page.json`) with the layout: a new or scaffolded page is 1280×720 and clips a 1920×1080 layout.
 - **Never place a visual on top of another.** `layout_check.py` (run by `gen_pbip.py`, which refuses to write on failure) checks that every visual is on the page, HTML visuals do not overlap (a full-page background layer is the one exception), and each slicer sits inside exactly one HTML panel. Adding a region means re-laying out or a new page, not stacking. Navigation buttons link to the pages' actual names.
-- DAX style: `VAR` for every reused value, `DIVIDE` instead of `/`, `KEEPFILTERS ( col = value )` instead of `FILTER ( ALL ( ... ) )` for a filter argument.
+- DAX style: `VAR` for every reused value, `DIVIDE` instead of `/`, a filter argument as `KEEPFILTERS ( col = value )` when the user's selection on that column must still apply (a slicer); `FILTER ( ALL ( ... ) )` / `REMOVEFILTERS` only when you mean to ignore it - they return different numbers under a slicer.
 
 ## 3. Testing before writing
 
