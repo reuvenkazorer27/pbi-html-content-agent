@@ -3,8 +3,9 @@
 \\\\.\\pipe\\pbi-desktop-bridge-<pid>. Needs Desktop's preview feature "external tool access" (Options > Preview features).
 
   python -I bridge.py status                     -> every Desktop with the bridge: pid, open file, unsaved changes
-  python -I bridge.py reload  [--pid N] [--settle 15]  -> reload the REPORT (PBIR) from disk, then wait for the
-                                                  HTML visuals to render; the live MODEL is NOT reloaded from TMDL
+  python -I bridge.py reload  [--pid N]          -> reload the REPORT (PBIR) from disk, then wait until the active
+                                                  page has rendered (its capture grew and held still);
+                                                  the live MODEL is NOT reloaded from TMDL
                                                   (push measures with the Modeling MCP, or Apply external changes)
   python -I bridge.py shot <page-id> out.png [--pid N] [--scale 1]
                                                   -> captures until two captures 5s apart are the same size: custom
@@ -41,8 +42,10 @@ def call(pid, method, args=None, wait=60):
             out = json.loads(data)
             if "error" in out:
                 err = out["error"]
-                if time.time() < end and "busy" in json.dumps(err).lower():
-                    time.sleep(1)
+                info = err.get("data") or {}
+                # the bridge marks transient states retryable (e.g. CaptureMetadataNotReady right after a reload)
+                if time.time() < end and (info.get("retryable") or "busy" in json.dumps(err).lower()):
+                    time.sleep(max(0.5, (info.get("retryAfterMs") or 1000) / 1000))
                     continue
                 raise RuntimeError(f"{method}: {err}")
             return out["result"]
@@ -71,6 +74,17 @@ def find_pid(project):
     return None
 
 
+def _active_page():
+    """the PBIR active page id of this project (pipeline.json), or None"""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from config import REPORT_DIR
+        pj = json.load(open(os.path.join(REPORT_DIR, "definition", "pages", "pages.json"), encoding="utf-8"))
+        return pj.get("activePageName") or (pj.get("pageOrder") or [None])[0]
+    except Exception:
+        return None
+
+
 def _arg(name, default=None):
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
 
@@ -95,7 +109,24 @@ if __name__ == "__main__":
     if cmd == "reload":
         name = next((m for m in methods if m.startswith("report.reload")), None) or next(m for m in methods if "reload" in m)
         print(name, call(pid, name, {}, wait=120))
-        time.sleep(float(_arg("--settle", 15)))   # a capture right after reload shows empty custom visuals
+        # right after a reload the custom visuals are empty and two empty captures are the same size, so "stable"
+        # alone is not "rendered": wait until the active page's capture has GROWN past the first one and then held
+        # still (or has held still for 4 captures, i.e. it was already rendered), up to ~90s
+        page = _active_page()
+        if not page:
+            time.sleep(float(_arg("--settle", 20)))
+        else:
+            first = prev = None
+            same = 0
+            for _ in range(18):
+                n = len(base64.b64decode(call(pid, "report.snapshot.capture/v1", {"pageId": page, "scale": 1.0}, wait=120)["payload"]))
+                first = first or n
+                same = same + 1 if prev and abs(n - prev) <= 0.01 * prev else 0
+                if (same >= 1 and n > first * 1.05) or same >= 4:
+                    break
+                prev = n
+                time.sleep(5)
+            print(f"rendered: page {page} capture {first} -> {n} bytes")
     elif cmd == "shot":
         page, out = sys.argv[2], sys.argv[3]
         prev, png = None, b""
