@@ -20,6 +20,30 @@
 
 ---
 
+## Install
+
+**Claude Code** (v2.1.275 or later), in any session:
+
+```text
+/plugin install pbi-html-content-agent --marketplace reuvenkazorer27/pbi-html-content-agent
+```
+
+On older versions, run `/plugin marketplace add reuvenkazorer27/pbi-html-content-agent` and then `/plugin install pbi-html-content-agent@pbi-html-content-agent`.
+
+- **What you get:** the whole kit (instructions, references, the pipeline) and 8 skills. The entry skill, `pbi-html-dashboard`, starts any dashboard request.
+- **Update:** run `/plugin marketplace update pbi-html-content-agent`, then `/plugin update pbi-html-content-agent@pbi-html-content-agent`.
+- **No GitHub SSH key:** set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` before you add the marketplace.
+
+**Cursor, Codex and other agents:** copy the kit into a folder and point the agent at its `AGENTS.md`:
+
+```bash
+npx degit reuvenkazorer27/pbi-html-content-agent pbi-kit
+```
+
+`git clone` works the same way.
+
+**Then ask in plain language**, from the folder that holds your `.pbip`. For example: *"Set up the kit next to Sales.pbip and build an executive page with a KPI row, a filter panel and a regional breakdown, in our brand blue #0E7490."* The agent copies the pipeline next to your report, asks for what only you know (which table, which page, brand colors), and runs the gates before it writes anything.
+
 ## What it is
 
 The kit is a set of instructions, tools and gates. It is not a template. An agent (Claude Code, Cursor, ...) reads [`AGENTS.md`](AGENTS.md) and then builds a dashboard for **your** model: it asks what only you know (tables, the questions the page must answer, brand colors, light or dark) and builds from gated card builders. Nothing is written into the report until the gates pass on your live data.
@@ -87,8 +111,8 @@ Two traps were measured in Desktop. With Windows *Animation effects* turned off,
 
 ## Quick start
 
-1. Copy this folder next to your PBIP, or anywhere your agent can read it.
-2. Tell your agent to read `AGENTS.md` first.
+1. Install the kit (see [Install](#install)), or copy this folder anywhere your agent can read it.
+2. In Claude Code the `pbi-html-dashboard` skill starts on its own. Other agents: tell them to read `AGENTS.md` first.
 3. Ask in plain language, for example: *"Build an RTL portfolio dashboard on table X with a KPI row, a right filter panel and a timeline, in our brand blue."*
 
 To drive the pipeline yourself:
@@ -118,7 +142,8 @@ Requirements: **Windows** with Power BI Desktop (PBIP enabled), Python 3, Node 2
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | The agent's brief: what it is built on, the contract, the honesty rules, the working method |
 | [`reference/`](reference/) | `design-system.md` (measured rules), `build-workflow.md` (Desktop, gates, git), `capabilities.md`, `canvas-and-layout.md`, `pbir-visual-json.md` |
-| [`skills/`](skills/) | composite-dashboard, dashboard-shell, html-slicers-filters, navigation-header-menu, rtl-hebrew, colorful-styles, motion |
+| [`skills/`](skills/) | pbi-html-dashboard (start here), composite-dashboard, dashboard-shell, html-slicers-filters, navigation-header-menu, rtl-hebrew, colorful-styles, motion |
+| [`.claude-plugin/`](.claude-plugin/) | Claude Code plugin + marketplace manifests |
 | [`tools/pbip-html-pipeline/`](tools/pbip-html-pipeline/) | Build, gate, version and write: builders, styles, gates, writer, two worked examples |
 | [`tools/motion-bake/`](tools/motion-bake/) | Experimental motion2code → CSS keyframes |
 | [`library/`](library/README.md) | Static components (`.dax`), icons (Kubai, MIT), fullscreen shell |

@@ -1,0 +1,12 @@
+{
+  "name": "pbi-html-content-agent",
+  "owner": { "name": "Reuven Kazorer", "url": "https://github.com/reuvenkazorer27" },
+  "description": "The PBI HTML Content Agent plugin for Claude Code.",
+  "plugins": [
+    {
+      "name": "pbi-html-content-agent",
+      "source": ".",
+      "description": "Build pixel-exact Power BI dashboards on the HTML Content visual, fitted to your data and brand."
+    }
+  ]
+}

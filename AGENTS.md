@@ -9,7 +9,7 @@ Read this file, then **`reference/design-system.md`** (measured rules: fit, type
 | HTML Content facts (editions, GUIDs, data roles, DOM), the interactivity map | `reference/capabilities.md` |
 | Canvas sizes, grid, layout and density rules, backgrounds | `reference/canvas-and-layout.md` |
 | PBIR `visual.json` | `reference/pbir-visual-json.md` |
-| Skills | `skills/`: composite-dashboard, dashboard-shell, html-slicers-filters, navigation-header-menu, rtl-hebrew, colorful-styles, motion |
+| Skills | `skills/`: pbi-html-dashboard (entry), composite-dashboard, dashboard-shell, html-slicers-filters, navigation-header-menu, rtl-hebrew, colorful-styles, motion |
 | Card builders, styles, gates, writer | `tools/pbip-html-pipeline/` (`components.py`, `styles.py`, `fitcheck.mjs`, `stress.py`, `gen_pbip.py`) |
 | Static components, icons, fullscreen shell | `library/` (doc-based unless marked) |
 | What to check in Desktop / Service / export | `checklists/validation.md` |
