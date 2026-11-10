@@ -6,10 +6,12 @@ How to build, test, version and ship a dashboard with this kit without losing wo
 
 - Write the files, then click **Apply external changes** in Desktop's banner. Do not close Desktop between iterations. The banner can be hidden behind the canvas until the window repaints - take a screenshot to find it.
 - After Apply the **model** is updated, but visuals keep **cached query results**: click Home → **Refresh** (or switch page) before judging the render. To check whether the model has the new version, evaluate the measure text (e.g. DAX `SEARCH` for a new string).
+- Save in Desktop **before** you write files; after writing, do **not** save from Desktop until you have applied the external changes - a save writes Desktop's in-memory state over your files.
 - If Desktop must be closed, close it **before** writing - it saves on close and can overwrite your files.
 - One Desktop window per project. Two windows on the same PBIP each save their own state and overwrite each other.
 - A project whose folder was moved fails Apply with `ArtifactShortcut: Required artifact is missing`: the open window still points to the old path - reopen the `.pbip` from its new location.
-- An invisible dialog (one that opens without rendering) blocks every click. Find it in the window's accessibility tree (`FloatingDialog`) and answer it; do not kill the app.
+- An invisible dialog (one that opens without rendering) blocks every click. Find it in the window's accessibility tree (`FloatingDialog`, `desktopDialogHost`) and answer it; do not kill the app. The usual one after Apply is **"Overwrite your unsaved edits"** - an Apply that seems to do nothing is waiting on it. It discards the user's unsaved work in Desktop, so ask the user before confirming.
+- If the agent cannot click in Desktop itself, ask the user to Apply external changes → Refresh and to send a screenshot of **every** page that changed - never infer one page's render from another's.
 - Never force-kill Desktop or stop a Power BI process you did not start - a windowless one may be the user's own reopen in progress. Ask first.
 
 ## 1b. With Power BI's own tools (optional, measured 10 Nov 2026)
@@ -25,11 +27,19 @@ When they are available the loop needs no clicks and no manual screenshots. Each
 | Screenshot | `bridge.py shot <page-id>` (`report.snapshot.capture/v1`) | real Desktop render as PNG, ~8s | right after a reload the HTML visuals are still empty - wait (`--settle`, default 15s) |
 | Gate the HTML | `runq.ps1` → preview → `fitcheck.mjs` (unchanged) | evaluates every card to files | keep it: the MCP's DAX results come back inline, and HTML cards are kilobytes each |
 
+Safety with the Modeling MCP:
+- Commit the TMDL (git) before the first MCP edit - the MCP changes the live model, and the commit is your way back.
+- Never run it with `--skipconfirmation`; against a published model work in a dedicated development workspace, never in production.
+- A local MCP server runs with all of your permissions. Turn off write tools you do not need, and keep secrets in the client config only as references (`"${TOKEN}"`), never as values.
+
+Reach: besides Desktop, the Modeling MCP connects to a model in the Power BI service / Fabric (`ConnectFabric`) and to TMDL folders on disk; Microsoft also offers a remote authoring MCP endpoint for service models (preview, needs tenant approval).
+
 Costs and limits:
 - The MCP takes every expression inline in the call. A 20-card dashboard is ~27K characters per full push - push only the cards that changed, and keep the TMDL on disk in sync (`gen_pbip.py`) so the PBIP stays the source of truth.
 - Writing TMDL while the live model already has the same measures still raises Desktop's "Apply external changes" banner; `bridge.py reload` clears it once disk and model agree.
 - The bridge needs Options › Preview features › *external tool access*. `bridge.py` is plain Python (no Node). The `powerbi-desktop open` CLI does not find a Microsoft Store install (`DESKTOP_EXE_NOT_FOUND`) - open the `.pbip` normally and wait for `bridge.py status`.
 - One request per pipe connection; a busy pipe answers "not found" for a moment - retry (bridge.py does).
+- One operation at a time per Desktop window: a reload and a screenshot sent together come back `Cancelled`. Run them in sequence.
 
 ## 2. Writing PBIP files
 
@@ -38,6 +48,8 @@ Costs and limits:
 - DAX `VAR` names must be ASCII identifiers (a Hebrew variable name is a syntax error); non-Latin text is fine in measure, table and column names and in strings.
 - Register the AppSource visual in `report.json` (`publicCustomVisuals`) so Desktop fetches it on open.
 - Write the page canvas (`width`/`height` in `page.json`) with the layout: a new or scaffolded page is 1280×720 and clips a 1920×1080 layout.
+- **Never place a visual on top of another.** `layout_check.py` (run by `gen_pbip.py`, which refuses to write on failure) checks that every visual is on the page, HTML visuals do not overlap (a full-page background layer is the one exception), and each slicer sits inside exactly one HTML panel. Adding a region means re-laying out or a new page, not stacking. Navigation buttons link to the pages' actual names.
+- DAX style: `VAR` for every reused value, `DIVIDE` instead of `/`, a filter argument as `KEEPFILTERS ( col = value )` when the user's selection on that column must still apply (a slicer); `FILTER ( ALL ( ... ) )` / `REMOVEFILTERS` only when you mean to ignore it - they return different numbers under a slicer.
 
 ## 3. Testing before writing
 
@@ -45,6 +57,14 @@ Costs and limits:
 - Gates, in order: `regress.py` (only the intended cards changed), `fitcheck.mjs` (fit + WCAG contrast on the exact-size preview), `stress.py` (filter scenarios). Verify that a scenario really filters - a gate that tests nothing passes everything.
 - Headless browser checks must clean up after themselves. `child.kill()` stops only the browser launcher; Edge's GPU/renderer children outlive it and accumulate into hundreds of processes, which then make later checks fail at random. Wait for real readiness (page and every card rendered) instead of a fixed sleep, close the browser over the DevTools protocol (`Browser.close`), kill anything left on the run's temporary profile, and delete the profile. Check: a process count before and after a run must match.
 - Color changes: a JPEG zoom cannot tell close shades apart. Verify from a PNG of the Desktop window by reading pixels in the element's box.
+
+### The review loop and what "done" means
+
+`edit → gates → write → into Desktop (Apply or bridge) → screenshot every changed page → review against checklists/validation.md → fix → review → report`
+
+- **Fix budget: one round.** The second review only checks and reports what is still broken - it does not start another fix loop.
+- **A page is done only after a screenshot of it was checked.** If Desktop is not available, say the Desktop check was **skipped** - never report it as checked. Report pages by display name.
+- **When a validator and Desktop disagree, Desktop is right.** Fix the source (TMDL, PBIR, theme, measure) - never edit a screenshot or tune to the validator.
 
 ## 4. Versions and revert
 
