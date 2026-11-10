@@ -2,17 +2,18 @@
 
 # PBI HTML Content Agent
 
-**An AI agent kit that builds pixel-exact Power BI dashboards on the HTML Content visual - left-to-right or right-to-left - written straight into PBIP/PBIR, checked automatically, versioned like code.**
+**An AI agent kit that builds pixel-exact Power BI dashboards on the HTML Content visual - left-to-right or right-to-left, with motion when you want it - written straight into PBIP/PBIR, checked automatically, versioned like code.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Power BI](https://img.shields.io/badge/Power%20BI-PBIP%20%2F%20PBIR-F2C811?logo=powerbi&logoColor=black)
 ![HTML Content](https://img.shields.io/badge/HTML%20Content-2.0%20Secure-0F6CBD)
 ![Direction](https://img.shields.io/badge/direction-LTR%20%2B%20RTL-7C3AED)
 ![Gates](https://img.shields.io/badge/gates-fit%20%C2%B7%20WCAG%20%C2%B7%20stress%20%C2%B7%20regression-15803D)
+![Motion](https://img.shields.io/badge/motion-CSS%20keyframes%2C%20Secure--safe-0D9488)
 
-<img src="docs/images/dashboard.png" alt="A project-portfolio dashboard built by the agent in English, left-to-right: KPI row, lifecycle tracker, segmented bar lists by owner and department, timeline, donut and a filter panel (invented sample data)" width="100%">
+<a href="docs/demo/ecommerce-dashboard-demo.mp4"><img src="docs/demo/demo.gif" alt="55-second demo: the agent reads a live Power BI model, lays out an executive page, writes the DAX, runs its gates, and the result in Power BI Desktop - KPI cards whose digits roll in, an exception list that keeps pulsing, every visual updating from a slicer" width="100%"></a>
 
-<sub>English / left-to-right build, palette <code>ocean</code>, rendered by the kit's exact-size preview (headless Edge) from measures evaluated on a live Power BI model; all names, projects and departments are invented sample data. The same measures build the Hebrew right-to-left version with one setting.</sub>
+<sub>From one prompt to a verified page: live model → layout → DAX → gates → Power BI Desktop → motion. Everything except the three slicers is HTML Content (Secure edition); sample data. <a href="docs/demo/ecommerce-dashboard-demo.mp4"><b>▶ Full-quality video (MP4, 55 s)</b></a></sub>
 
 </div>
 
@@ -30,6 +31,7 @@ Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar 
 | Colors that fail contrast on soft fills | **Palette tokens** with separate text-safe colors, and a **WCAG contrast gate** |
 | "Looks fine" until a filter empties a list | **Stress scenarios** re-render every card under several filter states, including an empty selection |
 | A change that breaks something unnoticed | A **byte-level regression gate** + **versions with revert**, committed and tagged in git |
+| "The animation doesn't run" - in Desktop, for some users only | CSS-only **motion** in the measure, a fit gate that measures the resting layout, and a check that records Desktop itself - see [Motion](#motion) |
 
 ## Features
 
@@ -44,6 +46,22 @@ Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar 
 - **Palettes** - `ocean` (light), `midnight` (dark), `berry` and `vivid` (colorful: gradient page + filled KPI cards), the catalog presets `exec`, `trend`, `mono`, `night`, `warm`, `forest` (each with a six-color categorical set, `cat1`..`cat6`, plus text-safe `*_soft`/`*_text` pairs), or **your brand**: `DASH_PRIMARY=#hex [DASH_ACCENT=#hex] [DASH_DARK=1]` derives a full palette whose text colors are pushed until they pass WCAG 4.5:1. Export any palette as a Power BI report theme so native visuals match.
 - **Direct PBIR authoring** - TMDL measures and `visual.json` files written by script; Desktop picks them up with *Apply external changes*.
 - **Honest by design** - no fake buttons, no promises the Secure sandbox cannot keep, and every claim labeled as measured or doc-based.
+
+## Motion
+
+Dashboards built by the agent can move - inside HTML Content, with no script, so it also runs in the certified **Secure** edition and in the Power BI Service. Two kinds, each with a ready component:
+
+| Kind | When it plays | Example | Component |
+| --- | --- | --- | --- |
+| **Entrance** | every render: page open, slicer or filter change, Refresh | KPI digits roll to the value, sparkline bars grow, the line draws in, the status badge pops | [`kpi-card-motion.dax`](library/components/kpi-card-motion.dax) |
+| **Ambient loop** | all the time, for every viewer, no interaction | rows below target pulse a soft ring, a sheen sweeps the bars, a "live" dot breathes | [`watch-list-motion.dax`](library/components/watch-list-motion.dax) |
+
+How the agent uses it - [`skills/motion/SKILL.md`](skills/motion/SKILL.md):
+
+- **CSS `@keyframes` in an inline `<style>` inside the measure.** Motion only where it carries meaning (what changed, what needs attention), short entrances (~1.2 s), gentle 2-3 s loops, no flashes.
+- **Gates that understand motion.** The fit check settles every animation first (entrances finished, loops parked at the start) and skips parts clipped on purpose (`fit-clip`); `motion_frames.mjs` freezes every animation at exact times for a deterministic look; `burst.ps1` records Power BI Desktop itself to prove the motion runs there.
+- **Two traps measured in Desktop:** with Windows *Animation effects* turned off, Desktop reports `prefers-reduced-motion: reduce`, so a reduced-motion rule hides all motion on that machine (the components ship without it; add it when accessibility comes first). And after *Apply external changes* the visuals keep their old HTML until **Refresh**.
+- **Brand loops from a video (experimental).** [`tools/motion-bake/`](tools/motion-bake/) bakes a [motion2code](https://github.com/lovisdotio/motion2code) SVG + GSAP loop into CSS keyframes with a fidelity gate against the original - headless-verified, not yet run in Power BI.
 
 ## What the agent will not do (and will not pretend to do)
 
@@ -77,15 +95,10 @@ Then in Desktop: **Apply external changes → Home ▸ Refresh**. Requirements: 
 
 The kit does not depend on any Microsoft tool, but uses them when they are there: the **Power BI Modeling MCP** puts measures into the open model live (no Apply, no Refresh, atomic batches), the **Desktop Bridge** (`tools/pbip-html-pipeline/bridge.py`, plain Python) reloads the report files and takes real Desktop screenshots, and the **report-authoring CLI** validates the PBIR. Measured on a new project built end to end with them (10 Nov 2026) - what each one does better, and what it does not do (the bridge does not reload the model), is in [`reference/build-workflow.md`](reference/build-workflow.md) §1b. Without them the loop above is unchanged.
 
-<img src="docs/images/sales-desktop.png" alt="A sales overview dashboard rendered in Power BI Desktop: gradient page, HTML filter panel over native slicers, four filled KPI cards with icons, revenue treemap, region by category heat matrix, orders by region small multiples, a sales reps table with in-cell bars and a totals row, and a returns lift chart (invented sample data)" width="100%">
-
-<sub>Example 2 (<code>measures_example_sales.py</code>), captured from Power BI Desktop through the bridge. Everything except the three slicers is HTML Content; all data is invented.</sub>
 
 ### Card builders
 
-<img src="docs/images/components.png" alt="Nine card builders rendered in English, left-to-right, palette vivid with one color per category: waterfall, heat matrix, lift bars, small multiples, scatter, treemap, decomposition tree, a workload table with in-cell bars and a totals row, and a due-date table with colored type and status pills (invented sample data)" width="100%">
-
-<sub>Every builder bound to a live model and rendered at card size (608×328), palette <code>vivid</code>, <code>LAB_COLORS=category</code>; names are invented sample data.</sub>
+Nine gated builders in [`tools/pbip-html-pipeline/components.py`](tools/pbip-html-pipeline/components.py) - waterfall, heat matrix, lift bars, small multiples, scatter, treemap, decomposition tree and data tables - each bound to a live model and rendered at card size before it is written (`component_lab_example.py`).
 
 ## Repository map
 
@@ -166,6 +179,7 @@ Every library component is marked with the edition it suits. The agent's default
 
 - **Measured in Power BI Desktop (Oct 2026 release, 9 Nov 2026):** the fit-to-canvas contract, the pipeline (`tools/pbip-html-pipeline/`) and the rules in `reference/design-system.md` and `reference/build-workflow.md`, on a real 1920×1080 Hebrew RTL dashboard with the Secure edition - including padding 0, RTL alignment, the type scale, palette-driven slicers, the gradient background layer and filled KPI cards.
 - **Measured in Power BI Desktop (10 Nov 2026):** the LTR/English build and the builders used by example 2 (`kpi_card`, `treemap_rows`, `heat_matrix`, `small_multiples`, `data_table`, `lift_bars`), and the tools route (Modeling MCP, Desktop Bridge, report-authoring CLI).
+- **Measured in Power BI Desktop (10 Nov 2026), motion:** the two motion components (Secure edition) - the KPI entrance seen frame by frame after Refresh, the watch-list loop changing on 39 of 39 frames of a 3.5 s recording with no interaction (largest frame-to-frame change 0.16/255, no flash). `tools/motion-bake/` is headless-verified only.
 - **Gated, not yet confirmed in Desktop:** `waterfall`, `scatter`, `decomp_static` - DAX evaluated on a live model, passed the headless fit, contrast and stress gates.
 - **Documentation-based, not yet run in Desktop:** the components in `library/components/` and the example in `examples/` (written from the HTML Content 2.0 docs, the PBIR Implementation Guide and Microsoft Learn, 9 Nov 2026), and the items marked 📋 in `ROADMAP.md`. Before production use, run `checklists/validation.md`. Every component that needs checking is marked `not run in Power BI`.
 
