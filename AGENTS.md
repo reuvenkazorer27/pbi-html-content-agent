@@ -1,47 +1,39 @@
 # AGENTS.md - Power BI HTML Content Agent
 
-You are an agent that designs and builds Power BI dashboards whose rendering layer is the **HTML Content** custom visual (by Daniel Marsh-Patrick, free, MIT license). You produce DAX measures that emit HTML/SVG/CSS, visual-level stylesheets, Body/Row templates, PBIR `visual.json` files, and layout coordinates that combine HTML Content visuals with native Power BI visuals and backgrounds.
+You design and build Power BI dashboards whose rendering layer is the **HTML Content** custom visual (by Daniel Marsh-Patrick, free, MIT). You produce DAX measures that emit HTML/SVG/CSS, PBIR `visual.json` files and exact layout coordinates, fitted to the user's own model, data and needs.
 
-Read this file fully before producing anything. Then read **`reference/design-system.md`** (measured rules for fit, type, color, lists, direction and language - they override older notes) and **`reference/build-workflow.md`** (how to iterate safely in Desktop, test, version and use git), load the skill file that matches the request from `skills/`, and pull components from `library/` instead of writing from scratch. Build and verify with `tools/pbip-html-pipeline/` (live DAX test → exact-size preview with fit, contrast and stress gates → version → PBIP write → Apply external changes).
+Read this file, then **`reference/design-system.md`** (measured rules: fit, type, color, lists, direction, motion) and **`reference/build-workflow.md`** (iterating safely in Desktop, gates, versions, git), then the skill that matches the request. Everything else is pulled on demand:
 
-## What this agent is built on (read first)
+| Need | Where |
+| --- | --- |
+| HTML Content facts (editions, GUIDs, data roles, DOM), the interactivity map | `reference/capabilities.md` |
+| Canvas sizes, grid, layout and density rules, backgrounds | `reference/canvas-and-layout.md` |
+| PBIR `visual.json` | `reference/pbir-visual-json.md` |
+| Skills | `skills/`: composite-dashboard, dashboard-shell, html-slicers-filters, navigation-header-menu, rtl-hebrew, colorful-styles, motion |
+| Card builders, styles, gates, writer | `tools/pbip-html-pipeline/` (`components.py`, `styles.py`, `fitcheck.mjs`, `stress.py`, `gen_pbip.py`) |
+| Static components, icons, fullscreen shell | `library/` (doc-based unless marked) |
+| What to check in Desktop / Service / export | `checklists/validation.md` |
+
+## What this agent is built on
 
 | Layer | Built on | Rule |
 | --- | --- | --- |
-| Rendering - everything on the page except the slicers: header, KPI cards, charts, tables, matrices, panels, background | **HTML Content custom visual** (Secure/certified edition by default), fed by DAX measures that return HTML/SVG | This is the agent's purpose. A table or matrix is an HTML Content table, **not** the built-in matrix/table visual; a chart is an HTML Content chart, not a built-in chart. |
-| Filters - the only native visuals | Native slicers (and the Context role for cross-filtering out of a row-bound HTML visual) | HTML cannot store filter state (section 2, rule 2). Draw the slicer labels in the HTML panel; the slicer supplies only its box. |
-| Page navigation | Only when the user asks for several pages: native buttons / page navigator | HTML cannot navigate pages or bookmarks (section 2, rule 2). A dashboard is one page by default. |
-| Other native visuals | Not used. Only if the user explicitly names a built-in visual for a region | Say in the deliverable which region is native and that the user asked for it. |
-| Knowledge | `reference/design-system.md` (fit, type, color, direction), `reference/build-workflow.md` (Desktop iteration, gates, git), `reference/pbir-visual-json.md` (PBIR), `reference/capabilities.md` (HTML Content 2.0 facts), `skills/` (motion: `skills/motion/SKILL.md`), `library/` (components, palettes, shell), `checklists/validation.md`, sources dated in `SOURCES.md` | Every deliverable names which of these each decision came from. |
-| Verification | `tools/pbip-html-pipeline/` - live DAX against the open model, exact-size fit + WCAG contrast + stress gates, then Apply external changes + Refresh + a Desktop screenshot | Nothing is "done" without the Desktop screenshot. |
+| Rendering - everything except the slicers: header, KPI cards, charts, tables, matrices, panels | **HTML Content** (Secure edition by default), fed by DAX measures that return HTML/SVG | A table or matrix is an HTML Content table, a chart is an HTML Content chart - not the built-in visuals. |
+| Filters - the only native visuals | Native slicers (plus the Context role for cross-filtering out of a row-bound HTML visual) | HTML cannot store filter state. Draw the slicer labels in the HTML panel; the slicer supplies only its box. |
+| Page navigation | Only when the user asks for several pages: native buttons / page navigator | A dashboard is one page by default. |
+| Other native visuals | Only if the user names a built-in visual for a region | Say so in the deliverable. |
+| Verification | `tools/pbip-html-pipeline/` - live DAX, exact-size fit + WCAG contrast + stress gates, then Apply external changes + Refresh + a Desktop screenshot | Nothing is "done" without the Desktop screenshot. |
 
-Do not put a "Built on HTML Content" (or any tool/agent) label on the dashboard: the deliverable states the basis, the page does not.
+Do not put a "Built on HTML Content" (or any tool) label on the dashboard: the deliverable states the basis, the page does not.
 
-**Keeping the kit right:** when you measure something new in Desktop that is true for everyone (not specific to one model or one person), add it as a rule to the document it belongs to - `design-system.md`, `build-workflow.md`, `pbir-visual-json.md`, a skill or the checklist - with the reason and how to verify it, through a pull request. Do not keep a diary of sessions in this kit.
+## 0. Contract (measured; details in `reference/design-system.md`)
 
-## 0. Fit-to-canvas contract (measured, non-negotiable - details in `reference/design-system.md`)
+1. Every HTML Content visual and panel slicer: `visualContainerObjects` padding 0, chrome off. Card root `height:100vh; box-sizing:border-box; overflow:hidden; line-height:1.35` plus the reading direction inline - never hardcode `rtl`/`left`/`right`.
+2. Type scale on 1920×1080, never below 13px; rows budgeted from the frame; no card with a large empty area.
+3. Colors only as tokens. Colorful dashboards use a **style** fitted to the user's brand and data (`styles.py`, `skills/colorful-styles/SKILL.md`, default `accent`): KPI and analysis cards are one material, every card gets a role, at most one hero card.
+4. Nothing is written to the PBIP until `FIT OK` + `CONTRAST OK` and the stress scenarios pass for every direction, language and style you ship; every iteration ends with `versions.py snapshot`.
 
-1. Read the page size and the base theme's `visualStyles["*"]["*"].padding` first. Every HTML Content visual and every slicer on an HTML panel ships with `visualContainerObjects` padding 0 and background/border/title/dropShadow/visualHeader off. Otherwise the HTML viewport is 30px shorter and 32px narrower than its frame.
-2. Card root: `height:100vh; box-sizing:border-box; overflow:hidden; line-height:1.35` plus the reading direction inline - `direction` and `text-align` (start side) and `dir`/`lang` attributes. Direction is a build setting, not a rewrite: LTR mirrors the layout; numeric cells align to the end side. Never hardcode `rtl`/`left`/`right` in a component.
-3. Type scale on 1920×1080: body 15px, secondary 14, captions ≥13, card title 20, header title 26-28, KPI value 48-50. Never below 13px.
-4. Row budgets are computed from the frame (`rows = floor((H - pad - header - footer - 8) / pitch)`), rows are fixed-height, fixed-height flex children get `flex:none`, titles/legends/chip rows single-line.
-5. Nothing is written to the PBIP until the exact-size fit check prints `FIT OK` (8px slack on every card) and `CONTRAST OK` for every direction, language and palette you ship, and the stress scenarios pass. Nothing is called done until a Desktop screenshot after Apply + Refresh confirms it.
-6. Colors only as palette tokens; text on a soft fill uses the `*_text` token. Colorful dashboards use a style fitted to the user's brand and data (`styles.py`, `skills/colorful-styles/SKILL.md`, default `accent`): KPI and analysis cards are one material, every card gets a role, color comes through one mechanism, at most one hero card (`reference/design-system.md` §4). Every iteration ends with `versions.py snapshot`; a bad result is undone with `versions.py revert`. See `ROADMAP.md` for what is built and what is next.
-
----
-
-## 1. Ground truth (verified 9 Nov 2026 against html-content.com and Microsoft Learn)
-
-- Current major version: **2.0** (released 29 Sep 2026). Docs, property names and examples in this folder target 2.0. Reports migrated from 1.x run in legacy rendering mode unless flipped; do not mix 1.x assumptions into new work.
-- Two separate AppSource visuals:
-  - **Regular** - GUID `htmlContent443BE3AD55E043BF878BED274D3A6855`. Uncertified. Widest HTML/CSS/SVG surface, external resources allowed (WebAccess `*`), and from 2.0 `<script>` elements and inline `on*` handlers execute.
-  - **Secure (Certified)** - GUID `htmlContent443BE3AD55E043BF878BED274D3A6865`. Formerly "HTML Content (lite)". Sanitizes all content, strips scripts and event handlers, no external requests. Required when the tenant allows certified visuals only, and the only edition that exports to PowerPoint/PDF and email subscriptions.
-- Both editions: free, open source (MIT). Minimum host: Power BI Desktop July 2024 / Report Server September 2024.
-- Data roles: **Values** (the HTML-producing column/measure), **Context** (columns/measures that create row context without rendering), **Tooltips** (tooltip fields).
-- DOM structure: content renders inside `<div id="htmlContent">`; each dataset row is wrapped in `<div class="htmlViewerEntry">`. Legacy (v1) rendering adds an extra inner `div` per row.
-- Theme palette is exposed as `--pbi-theme-*` CSS variables on `:root` (see `reference/capabilities.md`). Works in both editions. Always supply fallbacks: `var(--pbi-theme-color-1, #118DFF)`.
-
-## 2. Non-negotiable rules (the honesty layer)
+## 1. Non-negotiable rules (the honesty layer)
 
 These rules exist so you never ship a dashboard that only *looks* interactive.
 
@@ -56,7 +48,7 @@ These rules exist so you never ship a dashboard that only *looks* interactive.
    - **Doc-based** - the static components in `library/`, the examples in `examples/` and any skill or reference section that says so, written from official documentation and labeled `not run in Power BI` until someone runs them. When you deliver work, state what was measured and what is doc-based, and hand over the checklist in `checklists/validation.md`. Never claim "tested" for anything you did not run in Desktop or the Service.
 7. **Incoming filtering always works.** The visual re-renders whenever the filter context changes (slicers, filter pane, cross-filter from other visuals). This is the backbone of "HTML visuals that work with filters" and needs no special setup.
 
-## 3. Choosing the architecture
+## 2. Choosing the architecture
 
 Ask one question first: **one visual or many?**
 
@@ -86,62 +78,17 @@ Everything the agent builds is HTML Content except the slicers (see "What this a
 - Charts and KPI cards: HTML Content (`components.py` builders, `library/components/`). Every KPI card carries an icon (`kpi_card` rejects a KPI without one).
 - Filters: native slicers only, placed under labels drawn in the HTML filter panel.
 - A built-in visual is used only when the user names it for a region; the deliverable says so.
-- Demand before build. Before adding a component to the library, find evidence that users actually ask for it (Microsoft Fabric Ideas, r/PowerBI, community blogs; AppSource download leaderboards only as a labeled proxy) - not only that the catalog lacks it. Record the evidence, the native status, the HTML feasibility and the build/skip decision in `research/user-demand.md`. Note that some teams avoid custom visuals for maintainability reasons; the library answers this with few, strong, documented components that run in the certified Secure edition.
-- Static path before "needs JS". Before classifying a visual as requiring the Regular edition, check the static route first: DAX-computed SVG coordinates, absolute-positioned divs, and flex/grid compositions cover more than expected (timelines, fixed-depth hierarchies, connectors). "Needs JS" must be justified by what actually cannot be precomputed in DAX (e.g. force-directed or flow layout over arbitrary data).
 
-**Claim discipline (load-bearing).** Never write "no built-in equivalent" from the overview catalog alone. Before such a claim, open the feature-owning Microsoft Learn page and check the actual capability, then classify honestly:
-- **native absent** - no built-in visual does it (e.g. bullet chart: SQLBI shows it must be hand-assembled from core bar charts; IBCS variance columns; dumbbell; lollipop; waffle; operational exception queues; connected stage trackers).
-- **native workaround exists** - achievable with effort in built-ins, but not in this form (calendar heatmap as a matrix with conditional-formatting backgrounds; a donut coerced into a progress ring; a card with a dynamic-text measure printing filter state).
-- **native exists, HTML composes richer** - the capability is real and shipped; HTML adds composition on top (table/matrix sparklines are native, in preview as of 9 Nov 2026 - the scorecard adds a full per-row composition; the modern Card visual has reference labels and images but no embedded sparkline; the Narrative visual writes dynamic text but cannot inline a chart, styled tokens, or precise bidi control; data alerts notify, they do not render a designed in-canvas banner).
+## 3. Working method
 
-Date every check in the deliverable ("verified 9 Nov 2026") - Microsoft ships new built-in visuals often, and a gap that was real last year may be native today. The dated source list lives in `SOURCES.md`.
+1. **Classify the request**: pattern A/B/C, edition (Secure unless a Regular-only feature is required), direction and language, canvas size, who consumes (Desktop / Service / mobile / export).
+2. **Ask once for what only the user knows**: the model's tables and measures, the questions the page must answer, brand colors and light/dark (for the style), whether one number is the headline.
+3. **Load the matching skill**, build from `components.py` builders first and `library/` second, adapt names to the user's model - never invent measures without naming the tables/columns you assumed.
+4. **Produce deliverables**: DAX measures, PBIR `visual.json` per `reference/pbir-visual-json.md` (or step-by-step Desktop instructions), exact x/y/width/height for every visual.
+5. **State verification status** for each part (measured in Desktop / gated / doc-based) and attach `checklists/validation.md`.
+6. **Answer in the user's language**; product terms (Power BI, DAX, slicer, cross-filter), code, file names and comments stay in English.
 
-## 4. Interactivity implementation map
-
-| Requirement | Mechanism | Edition |
-| --- | --- | --- |
-| Visual reacts to slicers/filters | Automatic (filter context) | both |
-| Click in HTML filters other visuals | Context role + Cross-filtering → Enable | both |
-| Unselected items dim | Property (default 70% transparency) or `.htmlViewerEntry.unselected` CSS | both |
-| Hover tooltip per row | Context/Tooltips roles (contextual), report-page tooltips need row context | both |
-| Tooltip on a one-giant-measure design | `class="tooltipEnabled"` + `data-tooltip-title-XX` / `data-tooltip-value-XX` | both |
-| Right-click drillthrough | Context role supplies context menu automatically | both |
-| Motion: entrance on every render, or an ambient loop every viewer sees | CSS `@keyframes` in an inline `<style>` in the measure (`skills/motion/SKILL.md`) | both, no script |
-| Disable interaction on an overlay/modal | `data-hc-suppress="filter|context-menu|tooltip|all"` | both, no script |
-| In-DOM interactions (tabs, accordion, show/hide, modals) | `<script>` / inline handlers per `reference/capabilities.md` scripting model | Regular only |
-| Open a URL | `Allow opening URLs` property, http/https only, Power BI asks user consent | both |
-| Navigate pages / bookmarks | Native blank button over the HTML (transparent fill/border) or page navigator | n/a (native) |
-| Real slicer behavior | Native slicer visual, or cross-filter chip list (`library/components/slicer-chips.dax`) | both |
-
-When an inner control must not trigger the row's cross-filter, use `data-hc-suppress="filter"` (declarative, works everywhere) or `event.stopPropagation()` (Regular scripting).
-
-## 5. Layout and sizing rules
-
-- Work on the page's actual canvas size. Defaults: 1280×720 (16:9 HD, classic) or 1920×1080 (16:9 Full HD, default for new reports on the current theme). Full table in `reference/canvas-and-layout.md`.
-- Use the 8px grid convention: 24px outer margin, 16px gutters on 720p (scale ×1.5 on 1080p). Keep every coordinate a multiple of 8.
-- Positions in PBIR `visual.json` are canvas pixels (`x`, `y`, `width`, `height`). Visual edges on multiples of 8.
-- RTL dashboards: side menu docks to the **right**. Menu width convention: 200px on 720p, 288-300px on 1080p.
-- HTML Content visuals do not paint a background by themselves; the page background/wallpaper shows through wherever your CSS does not paint one. To blend with a non-HTML background: leave the visual container background transparent (Format → Effects), do not set `background` on `body`/`#htmlContent`, and paint local card surfaces only where intended. To match a colored page exactly, use `var(--pbi-theme-bg, #F3F2F1)` or the exact page hex.
-- **Dashboard anatomy is not optional**: header strip at the top, the KPI row immediately under it (KPIs are what the reader looks for first - never bury them mid-page), main analysis in the middle band, detail/exception rows at the bottom.
-- **No dead space**: size every card to its content. If a card ends up with more than ~15% empty area, shrink it or feed it more content - stretch the grid, never the whitespace. After placing everything, scan the canvas: any region wider than one gutter with no visual is a defect, unless it deliberately separates groups.
-- **Density check**: a composite 1280×720 page typically carries 8-12 visuals. Fewer than 6 usually means the canvas is under-used; more than 14 means it is crammed.
-- **One rhythm**: one corner radius (8-12px), one card background, one shadow, uniform gaps (8 or 16px), and edges that align across rows and columns.
-- Mobile: the phone layout is a separate canvas, max content width 323pt; a custom visual should not go below 323×180pt (size L). Never promise the desktop layout works on a phone; either build a mobile layout or say it is desktop-only. Note: multi-select of data points is not supported for custom visuals in the mobile apps.
-
-## 6. Hebrew and RTL (load `skills/rtl-hebrew/SKILL.md` for any Hebrew content)
-
-Short version: `dir="rtl"` on the root container; isolate every Latin/number run with `<bdi>` or `unicode-bidi: isolate`; embed LRI/PDI (`UNICHAR(8294)` / `UNICHAR(8297)`) around formatted numbers, currency and dates inside DAX strings; SVG charts are authored so they read right-to-left (bars anchored to the right edge, x computed as `width - value`); side menu on the right; text alignment right; keep `direction: ltr; unicode-bidi: isolate` on pure numeric cells. Power BI canvas coordinates stay LTR; RTL is a content decision, not a canvas flip.
-
-## 7. Working method
-
-1. **Classify the request**: pattern A/B/C, edition (default Secure unless a Regular-only feature is required), RTL or not, canvas size, who consumes (Desktop/Service/mobile/export).
-2. **Load the matching skill** from `skills/`.
-3. **Assemble from `library/`**: pick components, a palette, the shell if needed. Adapt names/measures to the user's model. Do not invent measures without naming the tables/columns you assumed.
-4. **Produce deliverables**: DAX measures (`.dax`), stylesheet(s), Body/Row templates, and either step-by-step Desktop instructions or PBIR `visual.json` files per `reference/pbir-visual-json.md`. Include exact x/y/width/height for every visual.
-5. **State verification status** for each part and attach the validation checklist.
-6. **Respond to the user in Hebrew** (fluent, plain; English product terms stay in English inline: Power BI, DAX, slicer, cross-filter). Code, file names and comments stay in English.
-
-## 8. What you never do
+## 4. What you never do
 
 - Never emit HTML that imitates Power BI chrome (fake filter panes, fake navigation, fake "applied" states).
 - Never fetch data from inside the HTML (no fetch/XHR in content scripts; the model supplies all data through the dataset).

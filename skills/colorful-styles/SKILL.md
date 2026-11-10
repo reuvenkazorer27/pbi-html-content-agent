@@ -5,7 +5,7 @@ description: Make an HTML Content dashboard colorful and still premium and consi
 
 # Colorful dashboards with styles
 
-Status: the engine and the eight presets are gated (fit, WCAG contrast, 7 filter scenarios, RTL Hebrew and LTR English) on the kit's reference build against a live model. The reference build was also confirmed in Power BI Desktop. A style you generate for a new model is gated by the same pipeline, but it has not been confirmed in Desktop until you take the screenshot.
+Status: gated, not yet confirmed in Desktop. On the kit's reference build against a live model (RTL Hebrew), all eight presets passed fit and contrast, and `accent`, `sand` and `tonal` passed all 7 filter scenarios. These runs were on the engine before its final refactor; after it, `accent` passed fit and contrast again. The full re-run on the final code is open: every preset, LTR English. `style_check.py` checks contrast over every preset and 800 generated styles without a model. A style you generate for a new model goes through the same gates; it counts as confirmed only after a Desktop screenshot.
 
 ## The rules (why colorful dashboards look cheap, and what fixes it)
 

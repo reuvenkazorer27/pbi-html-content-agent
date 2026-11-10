@@ -88,3 +88,33 @@ Blocked by the Power BI custom-visual sandbox, not by the visual: some hyperlink
 - **Mobile apps**: AppSource custom visuals do render, with caveats (for example multi-select of data points is not supported for custom visuals). The mobile layout is a separate canvas (see `canvas-and-layout.md`). Validate on a real device before promising mobile behavior.
 - **Export/subscriptions**: certified edition only.
 - **Publish to web / sovereign clouds / Report Server**: check the environment before committing; uncertified visuals can be blocked by tenant policy ("Add and use certified visuals only"), which the admin can also bypass via the organizational store.
+
+## Ground truth (verified 9 Nov 2026 against html-content.com and Microsoft Learn)
+
+- Current major version: **2.0** (released 29 Sep 2026). Docs, property names and examples in this folder target 2.0. Reports migrated from 1.x run in legacy rendering mode unless flipped; do not mix 1.x assumptions into new work.
+- Two separate AppSource visuals:
+  - **Regular** - GUID `htmlContent443BE3AD55E043BF878BED274D3A6855`. Uncertified. Widest HTML/CSS/SVG surface, external resources allowed (WebAccess `*`), and from 2.0 `<script>` elements and inline `on*` handlers execute.
+  - **Secure (Certified)** - GUID `htmlContent443BE3AD55E043BF878BED274D3A6865`. Formerly "HTML Content (lite)". Sanitizes all content, strips scripts and event handlers, no external requests. Required when the tenant allows certified visuals only, and the only edition that exports to PowerPoint/PDF and email subscriptions.
+- Both editions: free, open source (MIT). Minimum host: Power BI Desktop July 2024 / Report Server September 2024.
+- Data roles: **Values** (the HTML-producing column/measure), **Context** (columns/measures that create row context without rendering), **Tooltips** (tooltip fields).
+- DOM structure: content renders inside `<div id="htmlContent">`; each dataset row is wrapped in `<div class="htmlViewerEntry">`. Legacy (v1) rendering adds an extra inner `div` per row.
+- Theme palette is exposed as `--pbi-theme-*` CSS variables on `:root` (see `reference/capabilities.md`). Works in both editions. Always supply fallbacks: `var(--pbi-theme-color-1, #118DFF)`.
+
+## Interactivity implementation map
+
+| Requirement | Mechanism | Edition |
+| --- | --- | --- |
+| Visual reacts to slicers/filters | Automatic (filter context) | both |
+| Click in HTML filters other visuals | Context role + Cross-filtering → Enable | both |
+| Unselected items dim | Property (default 70% transparency) or `.htmlViewerEntry.unselected` CSS | both |
+| Hover tooltip per row | Context/Tooltips roles (contextual), report-page tooltips need row context | both |
+| Tooltip on a one-giant-measure design | `class="tooltipEnabled"` + `data-tooltip-title-XX` / `data-tooltip-value-XX` | both |
+| Right-click drillthrough | Context role supplies context menu automatically | both |
+| Motion: entrance on every render, or an ambient loop every viewer sees | CSS `@keyframes` in an inline `<style>` in the measure (`skills/motion/SKILL.md`) | both, no script |
+| Disable interaction on an overlay/modal | `data-hc-suppress="filter|context-menu|tooltip|all"` | both, no script |
+| In-DOM interactions (tabs, accordion, show/hide, modals) | `<script>` / inline handlers per `reference/capabilities.md` scripting model | Regular only |
+| Open a URL | `Allow opening URLs` property, http/https only, Power BI asks user consent | both |
+| Navigate pages / bookmarks | Native blank button over the HTML (transparent fill/border) or page navigator | n/a (native) |
+| Real slicer behavior | Native slicer visual, or cross-filter chip list (`library/components/slicer-chips.dax`) | both |
+
+When an inner control must not trigger the row's cross-filter, use `data-hc-suppress="filter"` (declarative, works everywhere) or `event.stopPropagation()` (Regular scripting).

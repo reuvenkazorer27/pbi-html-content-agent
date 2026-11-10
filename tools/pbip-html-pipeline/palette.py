@@ -229,6 +229,8 @@ if __name__ == "__main__":      # python -I palette.py theme out.json  -> write 
 
 
 def resolve(text, palette=None):
+    if "@@c_" in text and _styles.ACTIVE:   # a card nobody gave a role (builder used outside add()): neutral
+        text = _styles.apply(text, "neutral")
     pal = PALETTES[palette] if palette else P
     for k, v in pal.items():
         text = text.replace(f"@@{k}@@", v)

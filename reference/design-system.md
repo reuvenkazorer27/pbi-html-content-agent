@@ -39,7 +39,7 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 
 ## 4. Color and contrast
 
-- **Must:** colors only as palette tokens - no hex literals inside measures. A palette defines every token; the page background, slicer colors and preview follow it. Palettes in the pipeline: `ocean` (light), `midnight` (dark), `berry` and `vivid` (colorful).
+- **Must:** colors only as palette tokens - no hex literals inside measures. A palette defines every token; the page background, slicer colors and preview follow it. Colors come from the active style (`styles.py`, default `accent`, see §4) or, with `DASH_PALETTE`, from the legacy palettes in `palette.py`.
 - **Must:** WCAG contrast on every text element: 4.5:1 for body text, 3:1 for large text (≥24px, or ≥18.7px bold). The pipeline checks the rendered page, not the palette table.
 - A fill color is not a text color. Each status needs a fill token (bars, borders, dots) and a darker `*_text` token for text on its soft background (a typical teal on its pale fill measured 2.73:1). Dark palettes need lighter `*_text` variants.
 - A fill that carries white text needs its own token (`strong`): a palette's primary can be too light for white text (a dark palette's light blue measured 2.68:1). Use `*_soft` + `*_text` pairs for tiles and pills, and `strong` + `on_accent` for filled highlights.
@@ -95,12 +95,6 @@ Legacy palettes (`DASH_PALETTE=ocean|midnight|berry|vivid|...`) still build; an 
 - **UI language:** some words are both labels and data values (a status shown in a pill is also a filter literal). Never translate data literals or model names: translate display strings only, give data values an explicit display-name map, and fail the build if any source-language text is left. Translated text is usually longer - the fit gate will catch it; shorten the wording, keep the layout.
 - **Stress every language and direction** with slicer-like filters (one column at a time), an empty selection, and one scenario that marks every column filtered (the worst case for header filter chips).
 
-## 7. Motion (measured 10 Nov 2026 - details and patterns in `skills/motion/SKILL.md`)
+## 7. Motion (measured 10 Nov 2026)
 
-- **CSS `@keyframes` in an inline `<style>` inside the measure** - the only motion that runs in the Secure edition. No script, no external file. Each visual is its own document, so each measure carries its own `<style>`.
-- **Builders:** every builder in `components.py` takes `motion=True` and `alert="<DAX condition>"` (default off, byte-identical); `kpi_card` takes `prev=`, `updated=`, `stale_after=`. Shared `MOTION_CSS` + `ALERT_CSS` animate the individual `scale` / `translate` properties, so inline transforms keep working. Palettes carry a semantic `warn` / `warn_text` / `warn_soft` (stale, under target).
-- **What earns motion** (sources in the skill): the change from the previous value, an alert on what breaks a threshold, data freshness, and a short entrance when the view changes. Not decoration (sheens, breathing, grow-in for its own sake), not overshoot on data, not endless loops: anything that starts by itself and runs over 5 s needs a pause control (WCAG 2.2.2), which HTML Content cannot offer - alerts pulse twice and stop.
-- **Windows "Animation effects" off makes Power BI Desktop report `prefers-reduced-motion: reduce`.** A reduced-motion media query then hides all motion on that machine. The library components ship without it (motion always plays, short and flash-free); add it when accessibility comes first and say which in the deliverable.
-- **No flashes:** gradual opacity, shadow and transform only. A Desktop burst must show no frame-to-frame change near 10/255 (measured loop: 0.16/255).
-- **Clipped on purpose = class `fit-clip`.** The fit gate skips those elements and settles animations first (entrances finished, loops parked at 0), so it measures the resting layout.
-- **Static outputs** (PDF/PowerPoint export, subscriptions) show one still moment: entrances show their end state; every moment of a loop must read well.
+Only when the user asks for motion: load `skills/motion/SKILL.md` - it holds the rules (CSS `@keyframes` inline, what earns motion, alerts that stop within 5 s, the `prefers-reduced-motion` trap in Desktop, `fit-clip`, static exports). Every builder takes `motion=` / `alert=`; off is byte-identical.
