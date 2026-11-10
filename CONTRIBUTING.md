@@ -2,6 +2,12 @@
 
 Work happens through pull requests: one branch per change, a review on the PR, merge through the PR - never directly to `main`. Every change to the pipeline or an example must pass `regress.py`, `fitcheck.mjs` and `stress.py` (and `style_check.py` for color changes). Never commit keys, env files, pulled data or `.pbi` caches (see `.gitignore` and `reference/build-workflow.md`).
 
+## Releasing
+
+Users get a change only when the version changes, so bump `version` in both `package.json` and `.claude-plugin/plugin.json` (same number) after a change is merged.
+- Claude Code users pick it up through `/plugin update`.
+- For npm, run `npm publish` from `main`. Check the package first with `npm pack --dry-run`: no `__pycache__`, no video, about 200 KB.
+
 ## Keeping the kit right
 
 When you measure something new in Desktop that is true for everyone (not specific to one model or one person), add it as a rule to the document it belongs to - `reference/design-system.md`, `reference/build-workflow.md`, `reference/pbir-visual-json.md`, a skill or the checklist - with the reason and how to verify it. One rule lives in one place; other files link to it. Do not keep a diary of sessions, names or chat quotes in this kit.
