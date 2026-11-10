@@ -42,7 +42,7 @@ RETURN
     "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 20px;display:flex;flex-direction:column;gap:10px'>"
         & {_head(title, subtitle)}
         & IF ( {is_empty},
-            "<div style='flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:{FG2}'>{empty_text}</div>",
+            "<div data-fill='free' style='flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:{FG2}'>{empty_text}</div>",
             {body} )
     & "</div>\""""
 
@@ -149,8 +149,8 @@ VAR _hdr =
 VAR _grid =
     CONCATENATEX ( _rows,
         VAR _r = {table}[{row_col}]
-        RETURN "<div style='display:flex;gap:3px;height:26px;flex:none'>"
-            & "<div style='width:120px;flex:none;font-size:12px;line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat("_r", blank_label)} & "</div>"
+        RETURN "<div style='display:flex;gap:3px;flex:1 1 0;min-height:26px;max-height:64px'>"
+            & "<div style='width:120px;flex:none;align-self:center;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat("_r", blank_label)} & "</div>"
             & CONCATENATEX ( _cols,
                 VAR _c = {table}[{col_col}]
                 VAR _v = CALCULATE ( {value}, {table}[{row_col}] = _r, {table}[{col_col}] = _c ) + 0
@@ -161,7 +161,7 @@ VAR _grid =
                 "", [@t], DESC )
             & "</div>",
         "", [@t], DESC )
-""" + _wrap(title, subtitle, "\"<div style='display:flex;flex-direction:column;gap:3px'>\" & _hdr & _grid & \"</div>\"", empty_text)
+""" + _wrap(title, subtitle, "\"<div style='flex:1;min-height:0;display:flex;flex-direction:column;gap:3px'>\" & _hdr & _grid & \"</div>\"", empty_text)
 
 
 # 3 --------------------------------------------------------------- lift bars (key influencers, static)
@@ -212,17 +212,17 @@ VAR _max = MAX ( MAXX ( _vals, [@v] ), 1 )
 VAR _panels =
     CONCATENATEX ( _cats,
         VAR _c = {table}[{category}]
-        RETURN "<div style='box-sizing:border-box;border:1px solid @@border@@;border-radius:8px;padding:5px 8px;display:flex;flex-direction:column;gap:2px;min-width:0'>"
+        RETURN "<div style='box-sizing:border-box;border:1px solid @@border@@;border-radius:8px;padding:5px 8px;display:flex;flex-direction:column;gap:2px;min-width:0;min-height:0;flex:1 1 calc(100% / {cols} - 8px)'>"
             & "<div style='display:flex;justify-content:space-between;gap:6px;font-size:12px'><span style='white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & _c & "</span>"
             & "<b style='direction:ltr;unicode-bidi:isolate'>" & [@t] & "</b></div>"
-            & "<div style='display:flex;align-items:flex-end;gap:3px;height:34px;direction:ltr'>"
+            & "<div style='display:flex;align-items:flex-end;gap:3px;flex:1;min-height:34px;direction:ltr'>"
             & CONCATENATEX ( FILTER ( _vals, [cat] = _c ),
-                "<div style='flex:1 1 0;border-radius:2px 2px 0 0;background:" & {"\"@@primary@@\"" if not _mode(colors, "single") else _catcolor(table, category, "_c")} & ";height:" & FORMAT ( MAX ( DIVIDE ( [@v], _max ) * 34, 2 ), "0" ) & "px;opacity:" & IF ( [@v] = 0, "0.25", "1" ) & "'></div>",
+                "<div style='flex:1 1 0;border-radius:2px 2px 0 0;background:" & {"\"@@primary@@\"" if not _mode(colors, "single") else _catcolor(table, category, "_c")} & ";height:" & FORMAT ( MAX ( DIVIDE ( [@v], _max ) * 100, 5 ), "0" ) & "%;opacity:" & IF ( [@v] = 0, "0.25", "1" ) & "'></div>",
                 "", [Value], DESC )
             & "</div></div>",
         "", [@t], DESC )
 """ + _wrap(title, subtitle,
-            f"\"<div style='display:grid;grid-template-columns:repeat({cols},1fr);gap:8px'>\" & _panels & \"</div><div style='font-size:12px;color:{FG2}'>\" & FORMAT ( EOMONTH ( _endM, -{months} ) + 1, \"MMM yyyy\", \"@@locale@@\" ) & \" - \" & FORMAT ( _endM, \"MMM yyyy\", \"@@locale@@\" ) & \"</div>\"",
+            f"\"<div style='flex:1;min-height:0;display:flex;flex-wrap:wrap;align-content:stretch;gap:8px'>\" & _panels & \"</div><div style='font-size:12px;color:{FG2}'>\" & FORMAT ( EOMONTH ( _endM, -{months} ) + 1, \"MMM yyyy\", \"@@locale@@\" ) & \" - \" & FORMAT ( _endM, \"MMM yyyy\", \"@@locale@@\" ) & \"</div>\"",
             empty_text)
 
 

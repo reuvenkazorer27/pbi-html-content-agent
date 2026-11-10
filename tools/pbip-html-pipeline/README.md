@@ -15,7 +15,7 @@ python -I gen_query.py q_all.dax                         # 1. DEFINE every measu
 powershell -File runq.ps1 -QueryFile q_all.dax -OutFile r_all.json   # 2. run it on the open Desktop model (port auto)
 python -I regress.py r_all.json                          # 3. which cards changed vs the last version (byte compare)
 python -I gen_preview.py r_all.json preview.html         # 4. exact-size preview of every card
-node fitcheck.mjs preview.html --shot full.png           # 5. GATE: FIT OK + CONTRAST OK (headless Edge, no npm)
+node fitcheck.mjs preview.html --shot full.png           # 5. GATE: FIT OK (no clipping, no empty band) + CONTRAST OK (headless Edge, no npm)
 python -I stress.py                                      # 6. GATE: 6 filter scenarios (all, one status, one owner, blanks, empty)
 python -I versions.py snapshot "what changed" --fit "FIT OK" --results r_all.json --shot full.png   # 7. version
 python -I gen_pbip.py                                    # 8. write TMDL + visual.json (padding 0, palette slicers)
@@ -54,7 +54,7 @@ Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_PALETTE=ocean` and `DAS
 | `measures_example_sales.py` + `make_sales_data.py` | Example 2: an English LTR sales dashboard on invented data, built only from the builders (icon KPIs, treemap, heat matrix, small multiples, table, lift bars) + HTML filter panel over native slicers. |
 | `components.py` | Parameterized card builders: `kpi_card` (icon required),  `waterfall`, `heat_matrix`, `lift_bars`, `small_multiples`, `scatter`, `treemap_rows`, `decomp_static`, `data_table` (column kinds text / number / percent / date / bar / pill, totals row, "and N more" tooltip). Charts take `colors="category"` (stable color per category value: alphabetical rank → `cat1..cat6`); `accent(expr, "cat2")` adds a colored top band. Each returns a DAX expression for `add(...)`; titles, empty text and `blank_label` are arguments, so they work in any language. Designed and gated at 520-640 × 320-400. |
 | `component_lab_example.py` | Binds every builder to a model, evaluates them on the open Desktop model and renders a gate page (`node fitcheck.mjs lab.html`). Optional DAX filter argument for empty/filtered states; `LAB_COLORS=category` colors every chart per category; `LAB_FROM=results.json` renders saved (e.g. anonymized) results without querying. |
-| `fitjs.py` | The shared `fitCheck()` script injected into preview and lab pages. |
+| `fitjs.py` | The shared `fitCheck()` script injected into preview and lab pages: nothing past the 8px safe edge (`data-bleed` bands excepted) and **no empty band** at the bottom of a card larger than max(40px, 15% of its height) (`data-fill='free'` excepted). |
 | `labels.py` | UI string translation (Hebrew authored → English) with masking of DAX data literals and model references; status display names. |
 | `palette.py` (brand + theme) | `DASH_PRIMARY` / `DASH_ACCENT` / `DASH_DARK` derive a palette named `brand` (text tokens pushed to WCAG 4.5:1, `strong` fill safe for white text). `python -I palette.py theme out.json` writes the active palette as a report theme (View → Themes → Browse). |
 | `palette.py` | Color tokens for `ocean` (light), `midnight` (dark), `berry` (colorful). Every palette defines every token, including `*_text` variants chosen for WCAG 4.5:1 on their soft backgrounds. Switch: `DASH_PALETTE=midnight`. Page background, preview and slicer colors follow the palette. |

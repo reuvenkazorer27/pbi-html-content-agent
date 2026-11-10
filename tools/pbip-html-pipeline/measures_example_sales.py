@@ -79,12 +79,34 @@ kpi("HTML KPI Returns", "Return rate", "[Return rate]", "0.0%", "return", "cat4"
 
 # ---------------------------------------------------------------- filter panel (labels only; native slicers sit under them)
 FILTERS = ["Region", "Category", "Channel"]
-slots = "".join(f"<div style='height:80px;box-sizing:border-box'><div style='height:24px;font-size:13px;font-weight:600'>{f}</div></div>" for f in FILTERS)
+slots = "".join(f"<div style='height:80px;flex:none;box-sizing:border-box'><div style='height:24px;font-size:13px;font-weight:600'>{f}</div></div>" for f in FILTERS)
+
+
+def _mix(col, title):
+    """share of orders per value of `col` in the current selection: label, share bar, %; rows stretch to fill"""
+    color = K._catcolor(T, col, C(col))
+    return (f'"<div style=\'flex:1;min-height:0;display:flex;flex-direction:column;gap:4px\'>'
+            f'<div style=\'flex:none;font-size:13px;font-weight:700;margin-top:6px\'>{title}</div>" & '
+            f'CONCATENATEX ( VALUES ( {C(col)} ), VAR _s = DIVIDE ( [Orders], CALCULATE ( [Orders], ALLSELECTED ( {C(col)} ) ) ) RETURN '
+            f'"<div style=\'flex:1 1 0;min-height:24px;max-height:52px;display:flex;align-items:center;gap:8px\'>'
+            f'<div style=\'width:92px;flex:none;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis\'>" & {C(col)} & "</div>'
+            f'<div style=\'flex:1;height:10px;border-radius:5px;background:@@track@@;overflow:hidden;display:flex\'>'
+            f'<div style=\'flex:none;width:" & FORMAT ( _s * 100, "0.0" ) & "%;background:" & {color} & "\'></div></div>'
+            f'<div style=\'width:44px;flex:none;font-size:12px;font-weight:700;text-align:@@end@@;direction:ltr;unicode-bidi:isolate\'>" & FORMAT ( _s, "0%" ) & "</div></div>", '
+            f'"", [Orders], DESC, {C(col)}, ASC ) & "</div>"')
+
+
+# below the slicers the panel shows what the selection is made of, so the tall panel is not an empty column
 add("HTML Filter Panel", f"""
 "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px;display:flex;flex-direction:column'>"
     & "<div style='height:64px;flex:none'><div style='font-size:16px;font-weight:700'>Filters</div>"
     & "<div style='font-size:12px;color:{FG2}'>Every selection filters the page</div></div>"
     & "{slots}"
+    & "<div style='flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;border-top:1px solid @@border@@;padding-top:8px'>"
+        & "<div style='flex:none;font-size:14px;font-weight:700'>In this selection</div>"
+        & {_mix("Status", "Order status")}
+        & {_mix("Channel", "Channel")}
+    & "</div>"
 & "</div>\"""", "HTML")
 
 # ---------------------------------------------------------------- charts and table from the kit's builders
