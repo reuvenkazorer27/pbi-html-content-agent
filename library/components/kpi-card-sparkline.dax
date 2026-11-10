@@ -1,6 +1,6 @@
 -- =============================================================
 -- COMPONENT: KPI Card with sparkline (RTL Hebrew)
--- Layer:     foundation - a built-in alternative exists; prefer the native visual in composite mode, use this in fullscreen shell mode or when its exact styling is the point.
+-- Layer:     foundation - the agent's default for this region (everything except slicers is HTML Content, AGENTS.md 'What this agent is built on').
 -- Binding:   Values = [HTML KPI Spark - Revenue]
 -- Context:   none (single aggregated visual). Incoming filters apply.
 -- Edition:   Regular + Secure (pure SVG, no scripts)

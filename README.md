@@ -33,7 +33,7 @@ Native Power BI visuals cannot draw a lifecycle tracker, a segmented status bar 
 
 ## Features
 
-- **Composite or fullscreen dashboards** of HTML Content visuals at exact coordinates, mixed with native slicers and buttons.
+- **HTML Content everywhere except the slicers** - header, KPI cards (each with an icon), charts, tables and matrices are HTML Content visuals at exact coordinates; native slicers are the only native visuals (native buttons only when a report needs several pages).
 - **Gated card builders** (`tools/pbip-html-pipeline/components.py`, headless gates on a live model, not yet confirmed in Desktop) - waterfall, heat matrix, key-influencer lift bars, small multiples, scatter/bubble, treemap, a static decomposition tree and a **data table** (header row, aligned numeric columns, in-cell bars, colored pills, totals row, "and N more" with a hover list). Charts take `colors="category"` for one stable color per category value, and `accent()` gives any card a colored top band. Parameterized by table/column/measure, built on the token, type-scale and direction system, and gated (fit, contrast, empty state) in light, dark and colorful palettes, LTR and RTL.
 - **A component library** (`library/components/`) - bullet, IBCS variance, dumbbell, lollipop, waffle, calendar heatmap, milestone timeline, org strip, KPI cards and more - each a paste-ready DAX measure.
 - **Real interactivity** - cards respond to every slicer and filter; row-bound cards cross-filter other visuals through the Context role; page navigation through native buttons layered over the HTML.
