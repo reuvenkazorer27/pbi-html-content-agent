@@ -1,6 +1,5 @@
 # Kubai Icons - identification, license and fit (checked live 09/11/2026)
 
-User request (10:23): "אולי תטמיע את Kubai icons ליצירת אייקונים מותאמים לkpi או תפריט צד" (maybe embed Kubai icons to create custom icons for KPIs or a side menu).
 
 ## Identification (not guessed - verified)
 - The repo: https://github.com/kubai087/kubai-icons (created 03/11/2026). The site: https://icons.kubai.design/

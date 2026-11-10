@@ -1,6 +1,5 @@
 # Supplementary research: small features and everyday frustrations (pulled live 09/11/2026)
 
-User request (10:18): "תבדוק עוד דברים אפילו אם זה פיצ׳רים קטנים.. מחקר עוד יותר מעמיק" (check more things even if they're small features.. even deeper research).
 Method: locate frustration/request threads, pull the full content, extract concrete requests with quote, date and audience score (points), and check status: what the native status is (if verified against Microsoft documentation - noted; otherwise "per user reports, not verified in the docs"), and whether HTML Content solves it (Secure static / Regular JS / no).
 
 ## Sources (exact URLs pulled)

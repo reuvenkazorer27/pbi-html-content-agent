@@ -38,6 +38,7 @@ EN = {
     "מחזור חיי הפרויקט": "Project lifecycle",
     "כמה פרויקטים נמצאים בכל שלב, מאפיון ועד סיום": "How many projects are at each stage, from design to done",
     "תובנות": "Insights",
+    "תמהיל הסטטוסים בבחירה": "Status mix in the selection",
     " מוביל/ה ": " leads ",
     "אין בעלים בבחירה": "No owner in the selection",
     " פעילים או באפיון כבר עברו את מועד היעד": " past due (active or in design)",

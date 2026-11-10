@@ -5,5 +5,6 @@
   "page_display_name": "Project Portfolio",
   "backup_dir": "../MyReport_backup",
   "partition_m": null,
-  "lineage_namespace": "pbi-html-dashboard"
+  "lineage_namespace": "pbi-html-dashboard",
+  "style": "accent"
 }

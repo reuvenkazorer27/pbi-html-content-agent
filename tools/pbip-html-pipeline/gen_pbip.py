@@ -91,6 +91,15 @@ def write_visual(name, body):
     json.dump(body, open(os.path.join(d, "visual.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
 
+# generated visuals (hc*/sl*) that the current layout no longer has would point at a removed measure
+import shutil
+_keep = {n for n, *_ in LAYOUT} | {n for n, *_ in SLICERS}
+_vdir = os.path.join(PAGE_DIR, "visuals")
+for _d in sorted(os.listdir(_vdir)) if os.path.isdir(_vdir) else []:
+    if _d[:2] in ("hc", "sl") and _d not in _keep:
+        shutil.rmtree(os.path.join(_vdir, _d))
+        print("removed stale generated visual:", _d)
+
 z = 1000
 for i, (name, meas, x, y, w, h) in enumerate(LAYOUT):
     write_visual(name, {

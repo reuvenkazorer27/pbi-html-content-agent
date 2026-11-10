@@ -18,7 +18,7 @@ Everything on the page is HTML Content except the slicers (AGENTS.md, "What this
 
 - Rows are fixed-height; the number of rows comes from the frame, not from the data: `rows = floor((H - padding - header - footer - 8) / rowPitch)`.
 - **Must:** every card keeps 8px of slack at the bottom and sides. The pipeline's exact-size fit check renders each measure in an iframe of the visual's exact size and fails on any element past `edge - 8px` or a root taller than the frame. A full-page screenshot is not enough: cards that look fine overflow by 2-30px.
-- **Must: no card with a large empty area.** Content fills the card: below the lowest text, bar or box, at most max(40px, 15% of the card height) may stay blank. A card that is half empty looks broken. Fix it in this order: (1) let the content stretch - rows `flex:1 1 0` with a min and max height instead of a fixed height, charts sized in % of a `flex:1` area, an svg at `height:100%` with `aspect-ratio`; (2) show more of the data (more rows, a second view); (3) make the card smaller and give the space to a neighbour. A tall panel (e.g. a filter column) gets useful content under its controls - such as what the current selection is made of. A short last row in a grid of panels widens to fill the row (`flex-wrap` with `flex:1 1 calc(100%/cols - gap)`). The fit check enforces the bottom band; the deliberate exceptions are marked `data-fill='free'` (the background layer, an empty-state message).
+- **Must: no card with a large empty area.** Content fills the card: below the lowest text, bar or box, at most max(40px, 15% of the card height) may stay blank. A card that is half empty looks broken. Fix it in this order: (1) let the content stretch - rows `flex:1 1 0` with a min and max height instead of a fixed height, charts sized in % of a `flex:1` area, an svg at `height:100%` with `aspect-ratio`; (2) show more of the data (more rows, a second view); (3) make the card smaller and give the space to a neighbour. A tall panel (e.g. a filter column) gets useful content under its controls - such as what the current selection is made of. Filter states shrink lists: one-column list rows stretch (`flex:1 1 0`, min 28px, max 40px), a two-column grid gets as many rows as items, and when a list is short (≤4 rows; ≤8 items in two columns; ≤4 dated rows) a status-mix block of the current selection sits at the bottom of the card (`margin-top:auto`) - real data, not filler. Gate it with `stress.py`, not only the unfiltered page. A short last row in a grid of panels widens to fill the row (`flex-wrap` with `flex:1 1 calc(100%/cols - gap)`). The fit check enforces the bottom band; the deliberate exceptions are marked `data-fill='free'` (the background layer, an empty-state message).
 - Gate every combination you ship (direction × language × palette), and every filter state (see §6).
 
 ## 3. Type scale
@@ -39,7 +39,7 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 
 ## 4. Color and contrast
 
-- **Must:** colors only as palette tokens - no hex literals inside measures. A palette defines every token; the page background, slicer colors and preview follow it. Palettes in the pipeline: `ocean` (light), `midnight` (dark), `berry` and `vivid` (colorful).
+- **Must:** colors only as palette tokens - no hex literals inside measures. A palette defines every token; the page background, slicer colors and preview follow it. Colors come from the active style (`styles.py`, default `accent`, see §4) or, with `DASH_PALETTE`, from the legacy palettes in `palette.py`.
 - **Must:** WCAG contrast on every text element: 4.5:1 for body text, 3:1 for large text (≥24px, or ≥18.7px bold). The pipeline checks the rendered page, not the palette table.
 - A fill color is not a text color. Each status needs a fill token (bars, borders, dots) and a darker `*_text` token for text on its soft background (a typical teal on its pale fill measured 2.73:1). Dark palettes need lighter `*_text` variants.
 - A fill that carries white text needs its own token (`strong`): a palette's primary can be too light for white text (a dark palette's light blue measured 2.68:1). Use `*_soft` + `*_text` pairs for tiles and pills, and `strong` + `on_accent` for filled highlights.
@@ -48,11 +48,31 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 - Six hues are the limit a reader can tell apart; beyond six, colors repeat - put the label on the mark, not only in a legend.
 - Native slicers default to a white dropdown: set `items.fontColor` / `items.background` from the palette, or a dark page gets white boxes.
 
-### Colorful dashboards
+### Colorful dashboards - one card material, one color mechanism
 
-- **Gradient page without an image:** one full-page HTML Content visual (0,0,page width,page height), first in the layout so it gets the lowest z, padding 0, chrome off, content `<div style='height:100vh;background:linear-gradient(135deg,from,mid 55%,to)'>`. Works in the Secure edition. Keep cards on a light `surface` so text stays readable.
-- **Filled KPI cards:** `background:linear-gradient(160deg,rgba(0,0,0,0),rgba(0,0,0,.24)),<accent>` - the overlay only darkens, so white-text contrast only improves; swap icon roles (white glyph, accent details); progress track `rgba(255,255,255,.30)` with a white fill. White text needs deep accents (blue `#1D4ED8`, violet `#7C3AED`, teal `#0F766E`, green `#15803D`, red `#C81E1E`; `#DC2626` fails as text on a pale inset).
-- Switch looks with palette flags (`kpi_filled`, `bg_layer`) that exist in every palette, so a light build stays byte-identical while a colorful one is added.
+Measured on the reference build (1920x1080, RTL Hebrew and LTR English, live model, all filter states). Two earlier colorful attempts were rejected by the owner as cheap: (a) a saturated gradient page with five KPI cards in five solid colors next to white chart cards, and (b) chart cards tinted from the page with a gradient title band while the KPIs stayed solid. Both mixed two card families and spread saturation over large surfaces. What works, consistent with Radix Colors, Tremor, shadcn/ui, Carbon and Refactoring UI:
+
+- **Must: KPI cards and analysis cards are one material** - same surface, border, radius, padding, title style and icon chip. Color reaches every card through **one repeated mechanism** per style (a tint, a top/start accent bar, or the icon chip), never a mix.
+- **Saturation goes on small areas:** data marks, icons, the accent bar, and **at most one hero card** (a solid fill with white text). Five solid KPI fills side by side is the "Christmas tree" failure.
+- **Tinted cards use a scale, not one color** (Radix steps): card background step 2-3, chip/track step 5, border step 6, solid marks step 9, secondary text step 11, primary text step 12 - all of the **card's own hue**. Gray text on a tinted card looks washed out.
+- **Page:** flat; gradients on surfaces and colored glows are out. Separate cards from the page by a step and a 1px border, not a heavy shadow.
+- **Data colors** keep their meaning (status = status), are pushed to 3:1 against the card they sit on, and text colors to 4.5:1 - computed per style, not hand-picked.
+- **Few hues:** each card gets a role (`neutral`, `brand`, the status hues for the KPIs, `a1`..`a5` for analysis cards); a style maps roles to hues. Up to ~6 hues on a page; a duotone style uses one family plus one attention color.
+
+The pipeline ships this as a tool, not a theme: `tools/pbip-html-pipeline/styles.py` builds a style from design inputs (`make_style(brand, accent, mode, mechanism, hero, ...)`), gives every card its tokens from a **role** (`neutral`, `hero`, `brand`, `good`/`bad`/`warn`, `c1`..`c6`), and computes every in-card color for contrast - verified over 800 generated styles (40 brand colors × light/dark × 5 mechanisms × hero on/off). Workflow and role mapping: `skills/colorful-styles/SKILL.md`. Default: `accent`; the project default goes in `pipeline.json` (`"style"`: a preset name or a `make_style()` dict). The presets below are worked examples of the inputs:
+
+| Style | Page | Card | Color mechanism | Hero |
+| --- | --- | --- | --- | --- |
+| `accent` (default) | light gray | white, 1px border | 4px top bar in the card's hue + tinted chip | yes (total) |
+| `tonal` | light gray | tinted in its own hue (step 3), border step 6 | the tint; text in the card's hue | no |
+| `midnight` | near-black | dark gray | 3px top bar, luminous data | no |
+| `sand` | linen | warm off-white | 3px top bar, earthy hues | yes (rust) |
+| `ocean` | deep navy | navy | 3px top bar, aqua / sky / coral | no |
+| `duotone` | light lavender-gray | white | indigo chip only; amber = attention | yes (indigo) |
+| `sunset` | warm cream | white | 6px start-side bar (mirrors with direction), warm hues | no |
+| `mint` | pale green-gray | strong tint, no border, radius 18 | the tint | no |
+
+Legacy palettes (`DASH_PALETTE=ocean|midnight|berry|vivid|...`) still build; an explicit `DASH_PALETTE` selects them. Every `components.py` builder takes the style's card material when a style is active. The sales example is not ported to roles yet and builds with the legacy palettes.
 
 ## 5. Lists, slicers and interactivity
 
@@ -74,3 +94,7 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 - **RTL text:** isolate every number, currency, date and Latin run (LRI/PDI in DAX strings, `<bdi>` in static markup) - see `skills/rtl-hebrew/SKILL.md`.
 - **UI language:** some words are both labels and data values (a status shown in a pill is also a filter literal). Never translate data literals or model names: translate display strings only, give data values an explicit display-name map, and fail the build if any source-language text is left. Translated text is usually longer - the fit gate will catch it; shorten the wording, keep the layout.
 - **Stress every language and direction** with slicer-like filters (one column at a time), an empty selection, and one scenario that marks every column filtered (the worst case for header filter chips).
+
+## 7. Motion (measured 10 Nov 2026)
+
+Only when the user asks for motion: load `skills/motion/SKILL.md` - it holds the rules (CSS `@keyframes` inline, what earns motion, alerts that stop within 5 s, the `prefers-reduced-motion` trap in Desktop, `fit-clip`, static exports). Every builder takes `motion=` / `alert=`; off is byte-identical.

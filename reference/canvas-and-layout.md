@@ -58,3 +58,16 @@ Keep every x, y, width, height a multiple of 8. Ship layouts as a table the user
 - HTML Content paints no background of its own: wherever your CSS does not set a background, the page background shows through. For blending HTML visuals into a designed (non-HTML) background: transparent container (default), no `background` on `body`/`#htmlContent`, card surfaces painted locally.
 - To match the page color exactly inside HTML: `background: var(--pbi-theme-bg, #F3F2F1)` or the exact hex from the page background setting.
 - If the page background is an image, align HTML "holes" (transparent regions) to the image's shapes using the pixel-math table; gradients rarely survive scaling, so prefer flat regions or soft borders where HTML meets the image.
+
+## Layout and sizing rules
+
+- Work on the page's actual canvas size. Defaults: 1280×720 (16:9 HD, classic) or 1920×1080 (16:9 Full HD, default for new reports on the current theme). Full table in `reference/canvas-and-layout.md`.
+- Use the 8px grid convention: 24px outer margin, 16px gutters on 720p (scale ×1.5 on 1080p). Keep every coordinate a multiple of 8.
+- Positions in PBIR `visual.json` are canvas pixels (`x`, `y`, `width`, `height`). Visual edges on multiples of 8.
+- RTL dashboards: side menu docks to the **right**. Menu width convention: 200px on 720p, 288-300px on 1080p.
+- HTML Content visuals do not paint a background by themselves; the page background/wallpaper shows through wherever your CSS does not paint one. To blend with a non-HTML background: leave the visual container background transparent (Format → Effects), do not set `background` on `body`/`#htmlContent`, and paint local card surfaces only where intended. To match a colored page exactly, use `var(--pbi-theme-bg, #F3F2F1)` or the exact page hex.
+- **Dashboard anatomy is not optional**: header strip at the top, the KPI row immediately under it (KPIs are what the reader looks for first - never bury them mid-page), main analysis in the middle band, detail/exception rows at the bottom.
+- **No dead space**: size every card to its content. If a card ends up with more than ~15% empty area, shrink it or feed it more content - stretch the grid, never the whitespace. After placing everything, scan the canvas: any region wider than one gutter with no visual is a defect, unless it deliberately separates groups.
+- **Density check**: a composite page (1280×720 or 1920×1080) typically carries 8-14 visuals. Fewer than 6 usually means the canvas is under-used; more than 16 means it is crammed.
+- **One rhythm**: one corner radius per dashboard (the style sets it, 8-18px), one card material, one shadow, uniform gaps (8 or 16px), and edges that align across rows and columns.
+- Mobile: the phone layout is a separate canvas, max content width 323pt; a custom visual should not go below 323×180pt (size L). Never promise the desktop layout works on a phone; either build a mobile layout or say it is desktop-only. Note: multi-select of data points is not supported for custom visuals in the mobile apps.

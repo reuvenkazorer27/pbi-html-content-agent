@@ -7,6 +7,7 @@ Run this in the real target environment. Mark each item Pass / Fail / N/A. Until
 - [ ] Base theme padding read; every HTML visual and panel slicer has padding 0 + chrome off in `visual.json`.
 - [ ] Exact-size preview fit check prints `FIT OK` (8px slack on every card, no large empty band).
 - [ ] No card has a large empty area: the fit check passes its empty-band test, and in the Desktop screenshot every card is filled to its bottom (rows stretch, charts grow, tall panels carry useful content).
+- [ ] Colorful builds: KPI and analysis cards share one material (surface, border, radius, title, chip); color comes through one mechanism; at most one solid hero card; no gradient surfaces or glows.
 - [ ] Font sizes meet the 1080p scale (body ≥15px, captions ≥13px) - or the 720p equivalent.
 - [ ] After Apply external changes + Home → Refresh: screenshot; no card clipped, every title on one line, Hebrew right-aligned in every card.
 - [ ] "ועוד N" ("and N more") lines carry a hover tooltip with the hidden items.

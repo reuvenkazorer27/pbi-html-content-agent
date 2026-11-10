@@ -1,0 +1,19 @@
+# Contributing to the kit
+
+Work happens through pull requests: one branch per change, a review on the PR, merge through the PR - never directly to `main`. Every change to the pipeline or an example must pass `regress.py`, `fitcheck.mjs` and `stress.py` (and `style_check.py` for color changes). Never commit keys, env files, pulled data or `.pbi` caches (see `.gitignore` and `reference/build-workflow.md`).
+
+## Keeping the kit right
+
+When you measure something new in Desktop that is true for everyone (not specific to one model or one person), add it as a rule to the document it belongs to - `reference/design-system.md`, `reference/build-workflow.md`, `reference/pbir-visual-json.md`, a skill or the checklist - with the reason and how to verify it. One rule lives in one place; other files link to it. Do not keep a diary of sessions, names or chat quotes in this kit.
+
+## Adding a component
+
+- Demand before build. Before adding a component to the library, find evidence that users actually ask for it (Microsoft Fabric Ideas, r/PowerBI, community blogs; AppSource download leaderboards only as a labeled proxy) - not only that the catalog lacks it. Record the evidence, the native status, the HTML feasibility and the build/skip decision in `research/user-demand.md`. Note that some teams avoid custom visuals for maintainability reasons; the library answers this with few, strong, documented components that run in the certified Secure edition.
+- Static path before "needs JS". Before classifying a visual as requiring the Regular edition, check the static route first: DAX-computed SVG coordinates, absolute-positioned divs, and flex/grid compositions cover more than expected (timelines, fixed-depth hierarchies, connectors). "Needs JS" must be justified by what actually cannot be precomputed in DAX (e.g. force-directed or flow layout over arbitrary data).
+
+**Claim discipline (load-bearing).** Never write "no built-in equivalent" from the overview catalog alone. Before such a claim, open the feature-owning Microsoft Learn page and check the actual capability, then classify honestly:
+- **native absent** - no built-in visual does it (e.g. bullet chart: SQLBI shows it must be hand-assembled from core bar charts; IBCS variance columns; dumbbell; lollipop; waffle; operational exception queues; connected stage trackers).
+- **native workaround exists** - achievable with effort in built-ins, but not in this form (calendar heatmap as a matrix with conditional-formatting backgrounds; a donut coerced into a progress ring; a card with a dynamic-text measure printing filter state).
+- **native exists, HTML composes richer** - the capability is real and shipped; HTML adds composition on top (table/matrix sparklines are native, in preview as of 9 Nov 2026 - the scorecard adds a full per-row composition; the modern Card visual has reference labels and images but no embedded sparkline; the Narrative visual writes dynamic text but cannot inline a chart, styled tokens, or precise bidi control; data alerts notify, they do not render a designed in-canvas banner).
+
+Date every check in the deliverable ("verified 9 Nov 2026") - Microsoft ships new built-in visuals often, and a gap that was real last year may be native today. The dated source list lives in `SOURCES.md`.

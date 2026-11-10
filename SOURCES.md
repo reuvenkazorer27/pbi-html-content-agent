@@ -64,3 +64,8 @@ Basis for the build/skip decisions in `research/user-demand.md`. Rule: a compone
 ## Third-party (flagged; conventions, not Microsoft specs)
 
 - VizForge, "Power BI Page Size & Canvas Presets in Pixels" (4 Nov 2026): pixel values for 4:3 (960×720) and Letter (816×1056), the note that new Fluent 2 reports default to 1920×1080, and the 24px-margin/16px-gutter pixel-math convention used in `reference/canvas-and-layout.md`: https://vizforge.ai/blog/power-bi-page-size-canvas
+
+## Motion (checked 10 Nov 2026)
+
+- motion2code (lovisdotio, MIT), skills that rebuild a motion-design video as SVG + one GSAP timeline with a seekable page contract (`window.anim.seek(t)`, `data-ready`) - the input format of `tools/motion-bake/`. Reviewed at commit `0f00328`: scripts are local only (ffmpeg, Playwright, a local http server), no outbound calls: https://github.com/lovisdotio/motion2code
+- The motion rules in `skills/motion/SKILL.md` and `reference/design-system.md` section 7 were measured in Power BI Desktop (Secure edition) on 10 Nov 2026; Windows `SPI_GETCLIENTAREAANIMATION` was read to explain the reduced-motion behavior.
