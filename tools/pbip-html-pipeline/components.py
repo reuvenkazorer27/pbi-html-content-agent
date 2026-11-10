@@ -51,6 +51,20 @@ def _cat(ref, blank_label):
     return f'IF ( {ref} = "", "{_t(blank_label)}", SUBSTITUTE ( {ref}, "\'", "’" ) )'
 
 
+def _catcolor(table, col, ref, suffix=""):
+    """Stable color per category value: alphabetical rank over ALL values of the column -> cat1..cat6.
+    The same value gets the same color in every card and under any filter. suffix: "", "_soft", "_text"."""
+    opts = ", ".join(f'{i}, "@@cat{i + 1}{suffix}@@"' for i in range(5))
+    return f'SWITCH ( MOD ( RANKX ( ALL ( {table}[{col}] ), {table}[{col}], {ref}, ASC, Dense ) - 1, 6 ), {opts}, "@@cat6{suffix}@@" )'
+
+
+def accent(expr, cat="cat1"):
+    """Give any builder's card a colored top band (cat1..cat6 or any color token name)."""
+    a = f"style='{CARD};padding:16px 20px;"
+    assert expr.count(a) == 1, "accent(): card root not found"
+    return expr.replace(a, f"style='{CARD};border-top:5px solid @@{cat}@@;padding:13px 20px 16px;")
+
+
 def _fmt(expr):
     """compact number: 1.2M / 3.4K / 120, isolated for bidi"""
     return (f"LRI & IF ( ABS ( {expr} ) >= 1000000, FORMAT ( {expr} / 1000000, \"0.0\" ) & \"M\", "
@@ -135,7 +149,8 @@ VAR _grid =
 
 
 # 3 --------------------------------------------------------------- lift bars (key influencers, static)
-def lift_bars(table, category, target_filter, title, subtitle, top=6, min_support=2, empty_text="No data", blank_label="-"):
+def lift_bars(table, category, target_filter, title, subtitle, top=6, min_support=2, empty_text="No data", blank_label="-",
+              colors="single"):
     """For each category: share of rows meeting target_filter vs. the overall share (lift = x times).
     Categories with fewer than min_support rows and blank categories are left out (a 1-row category has a
     meaningless lift)."""
@@ -156,7 +171,7 @@ VAR _body =
         RETURN "<div style='display:flex;align-items:center;gap:10px;height:28px'>"
             & "<div style='width:130px;flex:none;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {table}[{category}] & "</div>"
             & "<div style='flex:1;height:14px;border-radius:7px;background:@@track@@;overflow:hidden;display:flex'>"
-            & "<div style='flex:none;width:" & FORMAT ( DIVIDE ( _l, _maxL ) * 100, "0.0" ) & "%;background:" & IF ( _l >= 1, "@@primary@@", "@@muted@@" ) & "'></div></div>"
+            & "<div style='flex:none;width:" & FORMAT ( DIVIDE ( _l, _maxL ) * 100, "0.0" ) & "%;background:" & {"IF ( _l >= 1, \"@@primary@@\", \"@@muted@@\" )" if colors == "single" else _catcolor(table, category, f"{table}[{category}]")} & "'></div></div>"
             & "<div style='width:64px;flex:none;font-size:13px;font-weight:700;text-align:@@end@@;direction:ltr;unicode-bidi:isolate'>" & FORMAT ( _l, "0.0" ) & "x</div>"
             & "</div>",
         "", [@l], DESC, [@n], DESC )
@@ -167,7 +182,7 @@ VAR _body =
 
 # 4 --------------------------------------------------------------- small multiples
 def small_multiples(table, category, date_col, value, title, subtitle, top=6, months=6, cols=3, empty_text="No data",
-                    blank_label="-"):   # blank categories are skipped here; blank_label kept for a uniform signature
+                    blank_label="-", colors="single"):   # blank categories are skipped here; blank_label kept for a uniform signature
     """One mini column chart per category over the last `months` months (by date_col), shared scale."""
     return ISO + f"""
 VAR _endM = EOMONTH ( MAX ( {table}[{date_col}] ), 0 )
@@ -186,7 +201,7 @@ VAR _panels =
             & "<b style='direction:ltr;unicode-bidi:isolate'>" & [@t] & "</b></div>"
             & "<div style='display:flex;align-items:flex-end;gap:3px;height:34px;direction:ltr'>"
             & CONCATENATEX ( FILTER ( _vals, [cat] = _c ),
-                "<div style='flex:1 1 0;border-radius:2px 2px 0 0;background:@@primary@@;height:" & FORMAT ( MAX ( DIVIDE ( [@v], _max ) * 34, 2 ), "0" ) & "px;opacity:" & IF ( [@v] = 0, "0.25", "1" ) & "'></div>",
+                "<div style='flex:1 1 0;border-radius:2px 2px 0 0;background:" & {"\"@@primary@@\"" if colors == "single" else _catcolor(table, category, "_c")} & ";height:" & FORMAT ( MAX ( DIVIDE ( [@v], _max ) * 34, 2 ), "0" ) & "px;opacity:" & IF ( [@v] = 0, "0.25", "1" ) & "'></div>",
                 "", [Value], DESC )
             & "</div></div>",
         "", [@t], DESC )
@@ -196,7 +211,8 @@ VAR _panels =
 
 
 # 5 --------------------------------------------------------------- scatter / bubble
-def scatter(table, category, x, y, size, title, subtitle, x_label, y_label, top=12, empty_text="No data", blank_label="-"):
+def scatter(table, category, x, y, size, title, subtitle, x_label, y_label, top=12, empty_text="No data", blank_label="-",
+            colors="single"):
     """Bubble per category: position x/y, area by size. x grows left-to-right in both directions (axis)."""
     x_label, y_label = _t(x_label), _t(y_label)
     return ISO + f"""
@@ -213,7 +229,7 @@ VAR _dots =
         VAR _cy = 86 - 74 * DIVIDE ( [@y] - _y0, _yr )
         VAR _rk = RANKX ( _pts, [@s] + DIVIDE ( RANKX ( _pts, {table}[{category}], , DESC ), 1000 ), , DESC )
         VAR _lbl = _rk <= 5
-        RETURN "<div title='" & SUBSTITUTE ( {table}[{category}], "'", "’" ) & "' style='position:absolute;transform:translate(-50%,-50%);border-radius:50%;background:@@primary@@;opacity:.75;"
+        RETURN "<div title='" & SUBSTITUTE ( {table}[{category}], "'", "’" ) & "' style='position:absolute;transform:translate(-50%,-50%);border-radius:50%;opacity:.8;background:" & {"\"@@primary@@\"" if colors == "single" else _catcolor(table, category, f"{table}[{category}]")} & ";"
             & "left:" & FORMAT ( _cx, "0.0" ) & "%;top:" & FORMAT ( _cy, "0.0" ) & "%;width:" & FORMAT ( 2 * _r, "0" ) & "px;height:" & FORMAT ( 2 * _r, "0" ) & "px'></div>"
             & IF ( _lbl, "<div style='position:absolute;font-size:11px;color:{FG2};white-space:nowrap;transform:translate(-50%,0);left:" & FORMAT ( _cx, "0.0" ) & "%;top:calc(" & FORMAT ( _cy, "0.0" ) & "% " & IF ( MOD ( _rk, 2 ) = 0, "- " & FORMAT ( _r + 18, "0" ), "+ " & FORMAT ( _r + 1, "0" ) ) & "px)'>"
             & LEFT ( {_cat(f"{table}[{category}]", blank_label)}, 14 ) & "</div>" ),
@@ -226,7 +242,8 @@ VAR _dots =
 
 
 # 6 --------------------------------------------------------------- treemap (two rows, proportional)
-def treemap_rows(table, category, value, title, subtitle, top=8, empty_text="No data", blank_label="-"):
+def treemap_rows(table, category, value, title, subtitle, top=8, empty_text="No data", blank_label="-", colors="status"):
+    TILE = 'SWITCH ( _i, 0, "background:@@primary_soft@@;color:@@primary_text@@;border-top:3px solid @@primary@@", 1, "background:@@maint_soft@@;color:@@maint_text@@;border-top:3px solid @@maint@@", 2, "background:@@design_soft@@;color:@@design_text@@;border-top:3px solid @@design@@", 3, "background:@@done_soft@@;color:@@done_text@@;border-top:3px solid @@done@@", 4, "background:@@bad_soft@@;color:@@fg@@;border-top:3px solid @@bad@@", "background:@@neutral_soft@@;color:@@fg@@;border-top:3px solid @@muted@@" )'
     """Approximate treemap: largest categories split over two rows, tile width proportional to value."""
     return ISO + f"""
 VAR _c = TOPN ( {top}, FILTER ( ADDCOLUMNS ( VALUES ( {table}[{category}] ), "@v", {value} + 0 ), [@v] > 0 ), [@v], DESC, {table}[{category}], ASC )
@@ -240,13 +257,13 @@ VAR _tiles = ( t ) => BLANK ()
 VAR _r1 = CONCATENATEX ( _row1,
     VAR _i = MOD ( INT ( [@k] ) - 1, 6 )
     RETURN "<div style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
-        & SWITCH ( _i, 0, "background:@@primary_soft@@;color:@@primary_text@@;border-top:3px solid @@primary@@", 1, "background:@@maint_soft@@;color:@@maint_text@@;border-top:3px solid @@maint@@", 2, "background:@@design_soft@@;color:@@design_text@@;border-top:3px solid @@design@@", 3, "background:@@done_soft@@;color:@@done_text@@;border-top:3px solid @@done@@", 4, "background:@@bad_soft@@;color:@@fg@@;border-top:3px solid @@bad@@", "background:@@neutral_soft@@;color:@@fg@@;border-top:3px solid @@muted@@" ) & "'>"
+        & {TILE if colors == "status" else ("\"background:\" & " + _catcolor(table, category, f"{table}[{category}]", "_soft") + " & \";color:\" & " + _catcolor(table, category, f"{table}[{category}]", "_text") + " & \";border-top:3px solid \" & " + _catcolor(table, category, f"{table}[{category}]"))} & "'>"
         & "<div style='font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{table}[{category}]", blank_label)} & "</div>"
         & "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div></div>", "", [@k], ASC )
 VAR _r2 = CONCATENATEX ( _row2,
     VAR _i = MOD ( INT ( [@k] ) - 1, 6 )
     RETURN "<div style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
-        & SWITCH ( _i, 0, "background:@@primary_soft@@;color:@@primary_text@@;border-top:3px solid @@primary@@", 1, "background:@@maint_soft@@;color:@@maint_text@@;border-top:3px solid @@maint@@", 2, "background:@@design_soft@@;color:@@design_text@@;border-top:3px solid @@design@@", 3, "background:@@done_soft@@;color:@@done_text@@;border-top:3px solid @@done@@", 4, "background:@@bad_soft@@;color:@@fg@@;border-top:3px solid @@bad@@", "background:@@neutral_soft@@;color:@@fg@@;border-top:3px solid @@muted@@" ) & "'>"
+        & {TILE if colors == "status" else ("\"background:\" & " + _catcolor(table, category, f"{table}[{category}]", "_soft") + " & \";color:\" & " + _catcolor(table, category, f"{table}[{category}]", "_text") + " & \";border-top:3px solid \" & " + _catcolor(table, category, f"{table}[{category}]"))} & "'>"
         & "<div style='font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{table}[{category}]", blank_label)} & "</div>"
         & "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div></div>", "", [@k], ASC )
 """.replace("VAR _tiles = ( t ) => BLANK ()\n", "") + _wrap(title, subtitle,
@@ -284,3 +301,92 @@ VAR _n = IF ( _tot > 0, 1, 0 )""" + "".join(parts) + "\n" + _wrap(title, subtitl
         f"<div style='font-size:11px'>{total_label}</div><div style='font-size:22px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>\" & {_fmt('_tot')} & \"</div></div>"
         f"<div style='flex:none;align-self:center;color:@@arrow@@'>@@fwd_arrow@@</div>\" & {cols} & \"</div>\"",
         empty_text)
+
+
+# 8 --------------------------------------------------------------- data table
+def data_table(table, key, columns, title, subtitle, sort_by, top=8, key_label=None, totals=None,
+               empty_text="No data", blank_label="-", more_label="and {n} more", header_accent=None, zebra=True, tip_value='FORMAT ( [@s], "#,0" )'):
+    """A real table card (header row, aligned columns, zebra rows, optional totals, "and N more" + tooltip).
+
+    key      column whose values are the rows (shown first unless key_label is None and you list it yourself)
+    columns  list of dicts: {"label", "value" (DAX in the row's context), "kind": text|number|percent|date|bar|pill,
+             "width": CSS grid width (e.g. "1.4fr", "90px"), optional "fmt" (number format), optional "total" (DAX)}
+             pill: colored by value (stable category colors) - pass "pill_col": a column name of `table`
+             optional "blank": label for an empty value in this column (default: blank_label)
+    sort_by  DAX sort expression (DESC), ties broken by the key
+    totals   label for a totals row (each column's "total" DAX, if any), or None
+    header_accent  None (neutral header) or a color token base such as "cat1" (tinted header row)
+    tip_value  DAX text shown next to each hidden row in the "and N more" tooltip (row context of the key; [@s] = sort value)
+    Numbers align to the end side and use tabular figures; text is clipped with an ellipsis, never wrapped."""
+    cols = ([{"label": key_label, "value": f"{table}[{key}]", "kind": "key", "width": "1.6fr"}] if key_label else []) + list(columns)
+    widths = " ".join(c.get("width", "1fr") for c in cols)
+    grid = f"display:grid;grid-template-columns:{widths};column-gap:12px;align-items:center"
+    num_style = "text-align:@@end@@;direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums;white-space:nowrap"
+    clip = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0"
+    hdr_bg = (f"background:@@{header_accent}_soft@@;color:@@{header_accent}_text@@" if header_accent
+              else f"background:@@inset@@;color:{FG2}")
+    bar_vars, cells, tcells = [], [], []
+    for j, c in enumerate(cols):
+        kind, v = c.get("kind", "text"), c["value"]
+        if kind == "bar":
+            bar_vars.append(f"VAR _mx{j} = MAX ( MAXX ( _top, {v} ), 0.000001 )")
+        if kind == "key":
+            cell = f'"<div style=\'{clip};font-weight:600\'>" & {_cat(v, blank_label)} & "</div>"'
+        elif kind == "text":
+            cell = f'"<div style=\'{clip}\'>" & {_cat(v, c.get("blank", blank_label))} & "</div>"'
+        elif kind in ("number", "percent", "date"):
+            fmt = c.get("fmt") or {"number": "#,0", "percent": "0%", "date": "dd/MM/yyyy"}[kind]
+            cell = f'"<div style=\'{num_style}\'>" & IF ( ISBLANK ( {v} ), "-", FORMAT ( {v}, "{fmt}" ) ) & "</div>"'
+        elif kind == "bar":
+            fmt = c.get("fmt") or "#,0"
+            color = f"@@{c.get('color', 'primary')}@@"
+            cell = (f'"<div style=\'display:flex;align-items:center;gap:8px;min-width:0\'><div style=\'flex:1;height:10px;border-radius:5px;background:@@track@@;overflow:hidden;display:flex\'>'
+                    f'<div style=\'flex:none;width:" & FORMAT ( MAX ( DIVIDE ( {v}, _mx{j} ), 0 ) * 100, "0.0" ) & "%;background:{color}\'></div></div>'
+                    f'<div style=\'{num_style};width:44px;flex:none\'>" & FORMAT ( {v}, "{fmt}" ) & "</div></div>"')
+        elif kind == "pill":
+            pc = c["pill_col"]
+            ref = v
+            cell = (f'"<div style=\'min-width:0\'><span style=\'display:inline-block;max-width:100%;padding:1px 10px;border-radius:999px;font-size:11px;{clip};background:" & '
+                    f'{_catcolor(table, pc, ref, "_soft")} & ";color:" & {_catcolor(table, pc, ref, "_text")} & "\'>" & {_cat(ref, c.get("blank", blank_label))} & "</span></div>"')
+        else:
+            raise ValueError(f"unknown column kind {kind}")
+        cells.append(cell)
+        t = c.get("total")
+        if j == 0:
+            tcells.append(f'"<div style=\'{clip};font-weight:700\'>{_t(totals or "")}</div>"')
+        elif t and kind in ("number", "percent", "bar"):
+            fmt = c.get("fmt") or {"number": "#,0", "percent": "0%", "bar": "#,0"}[kind]
+            tcells.append(f'"<div style=\'{num_style};font-weight:700\'>" & FORMAT ( {t}, "{fmt}" ) & "</div>"')
+        else:
+            tcells.append('"<div></div>"')
+    head_cells = " & ".join(
+        f'"<div style=\'{clip};{num_style if c.get("kind") in ("number", "percent", "date", "bar") else ""}\'>{_t(c["label"] or "")}</div>"' for c in cols)
+    row_cells = " & ".join(cells)
+    more = _t(more_label).replace("{n}", '" & LRI & _rest & PDI & "')
+    return ISO + f"""
+VAR _rows = ADDCOLUMNS ( VALUES ( {table}[{key}] ), "@s", {sort_by} + 0 )
+VAR _n = COUNTROWS ( _rows ) + 0
+VAR _top = TOPN ( {top}, _rows, [@s], DESC, {table}[{key}], ASC )
+VAR _rest = _n - COUNTROWS ( _top )
+""" + "\n".join(bar_vars) + f"""
+VAR _restT = TOPN ( 30, EXCEPT ( _rows, _top ), [@s], DESC, {table}[{key}], ASC )
+VAR _tip =
+    CONCATENATEX ( _restT,
+        VAR _cur = [@s] VAR _ck = {table}[{key}]
+        VAR _k = FORMAT ( COUNTROWS ( FILTER ( _restT, [@s] > _cur || ( [@s] = _cur && {table}[{key}] < _ck ) ) ) + 1, "00" )
+        RETURN " data-tooltip-title-" & _k & "='" & {_cat(f"{table}[{key}]", blank_label)} & "' data-tooltip-value-" & _k & "='" & {tip_value} & "'",
+        "", [@s], DESC, {table}[{key}], ASC )
+VAR _body =
+    CONCATENATEX ( _top,
+        VAR _cur = [@s] VAR _ck = {table}[{key}]
+        VAR _i = COUNTROWS ( FILTER ( _top, [@s] > _cur || ( [@s] = _cur && {table}[{key}] < _ck ) ) ) + 1
+        RETURN "<div style='{grid};height:30px;padding:0 8px;border-bottom:1px solid @@divider@@;font-size:12px;"
+            & IF ( {"TRUE ()" if zebra else "FALSE ()"} && MOD ( _i, 2 ) = 0, "background:@@inset@@", "" ) & "'>"
+            & {row_cells} & "</div>",
+        "", [@s], DESC, {table}[{key}], ASC )
+VAR _totals = {f'"<div style=\'{grid};height:30px;padding:0 8px;border-top:2px solid @@border@@;font-size:12px\'>" & ' + " & ".join(tcells) + ' & "</div>"' if totals else '""'}
+""" + _wrap(title, subtitle,
+            f"\"<div style='display:flex;flex-direction:column;min-height:0'>"
+            f"<div style='{grid};height:30px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:700;{hdr_bg}'>\" & {head_cells} & \"</div>\" & _body & _totals & \"</div>\""
+            f" & IF ( _rest > 0, \"<div class='tooltipEnabled'\" & _tip & \" style='font-size:12px;color:@@primary_text@@;margin-top:4px;flex:none'>{more}</div>\" )",
+            empty_text)

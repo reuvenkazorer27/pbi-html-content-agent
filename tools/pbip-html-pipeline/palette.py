@@ -113,9 +113,46 @@ def _readable(color, bg, target=4.5, toward="#000000"):
     return _mix(color, toward, hi)
 
 
-def derive(primary, accent=None, dark=False):
+# ---------------------------------------------------------------- categorical colors (non-status series)
+# Six categorical colors per palette for charts colored by category (bars, tiles, bubbles, panels).
+# Each catN gets catN_soft (tile/pill background) and catN_text (text on catN_soft, >= 4.5:1).
+# Light sets follow the reference HTML catalog's palettes; they never replace status colors.
+CATS = {
+    "ocean":    ["#0F6CBD", "#00A3AE", "#8764B8", "#CA5010", "#107C10", "#5B5FC7"],
+    "midnight": ["#4EA3F1", "#34D3BE", "#9B8AFB", "#F0B35E", "#4CC38A", "#F16B6B"],
+    "berry":    ["#7C2D5E", "#E56BA0", "#4A3B76", "#D9A441", "#3E7D4E", "#D13438"],
+    "vivid":    ["#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#06B6D4", "#EC4899"],   # catalog "vivid"
+}
+
+
+def _is_dark(p):
+    return _lum(p["surface"]) < 0.2
+
+
+def add_cats(p, cats):
+    """write cat1..cat6 (+ _soft, _text) into palette p; text tokens pushed to WCAG 4.5:1"""
+    dark = _is_dark(p)
+    away = "#FFFFFF" if dark else "#000000"
+    for i, c in enumerate(cats, 1):
+        soft = _mix(c, p["surface"], 0.80) if dark else _mix(c, "#FFFFFF", 0.86)
+        p[f"cat{i}"], p[f"cat{i}_soft"] = c, soft
+        p[f"cat{i}_text"] = _readable(c, soft, toward=away)
+    return p
+
+
+for _name, _cats in CATS.items():
+    add_cats(PALETTES[_name], _cats)
+
+
+def _derived_cats(a, b):
+    """the catalog's 'derived' set: two colors expanded into six without muddy midpoints"""
+    return [a, b, _mix(a, "#000000", 0.30), _mix(a, "#FFFFFF", 0.42), _mix(b, "#000000", 0.26), _mix(b, "#FFFFFF", 0.44)]
+
+
+def derive(primary, accent=None, dark=False, cats=None):
     """A full palette (every token) from one or two brand colors. Text tokens are pushed until they
-    pass WCAG 4.5:1 on their backgrounds; 'strong' is pushed until white text passes on it."""
+    pass WCAG 4.5:1 on their backgrounds; 'strong' is pushed until white text passes on it.
+    cats: optional six categorical colors (default: the catalog's 'derived' expansion of primary/accent)."""
     accent = accent or _mix(primary, "#00A3AE", 0.6)
     base = dict(PALETTES["midnight" if dark else "ocean"])
     surface, page, fg = base["surface"], base["page_bg"], base["fg"]
@@ -135,8 +172,24 @@ def derive(primary, accent=None, dark=False):
         bgk = k.replace("_text", "_soft").replace("active_soft", "primary_soft")
         assert contrast(out[k], out[bgk]) >= 4.5, (k, out[k], out[bgk])
     assert contrast("#FFFFFF", out["strong"]) >= 4.5 and contrast(fg, surface) >= 4.5
+    add_cats(out, cats or _derived_cats(primary, accent))
     return out
 
+
+# The reference HTML catalog's six presets as ready palettes (accent / accent2 / categorical set).
+_MONO = lambda c: [c] + [_mix(c, "#FFFFFF", t) for t in (0.22, 0.42, 0.60, 0.75)] + ["#94A3B8"]
+PRESETS = {
+    "exec":  dict(primary="#2563EB", accent="#F59E0B"),                       # blue-gold, executive
+    "trend": dict(primary="#06B6D4", accent="#F59E0B"),                       # teal, trend focus
+    "mono":  dict(primary="#334155", accent="#94A3B8", cats=_MONO("#334155")),  # one hue, no noise
+    "night": dict(primary="#818CF8", accent="#FBBF24", dark=True),            # dark, light violet
+    "warm":  dict(primary="#F43F5E", accent="#EC4899",
+                  cats=["#F43F5E", "#F59E0B", "#EC4899", "#8B5CF6", "#FBBF24", "#94A3B8"]),   # catalog "sunset"
+    "forest": dict(primary="#10B981", accent="#84CC16",
+                   cats=["#10B981", "#84CC16", "#EAB308", "#14B8A6", "#22C55E", "#94A3B8"]),  # catalog "forest"
+}
+for _name, _spec in PRESETS.items():
+    PALETTES[_name] = derive(**_spec)
 
 # brand palettes from the environment: DASH_PRIMARY=#hex [DASH_ACCENT=#hex] [DASH_DARK=1] -> palette "brand"
 if os.environ.get("DASH_PRIMARY"):

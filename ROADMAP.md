@@ -47,6 +47,7 @@ Rule for every step: **the dashboard and the fit between its parts come first.**
 | --- | --- | --- | --- |
 | 19 | Layout engine: compute `LAYOUT` from a grid spec (rows, columns, gutters) with overlap / multiple-of-8 asserts, so a new dashboard starts from intent, not coordinates | 📋 | - |
 | 20a | Card builders: waterfall, heat matrix, lift bars, small multiples, scatter, treemap, decomposition - parameterized, gated in 4 palettes × 2 directions + empty state | ✅ | `components.py`, `component_lab_example.py` |
+| 20b | Data table builder (bars, pills, totals, overflow tooltip) + per-category colors for charts + accent band; categorical `cat1..cat6` tokens and catalog presets (exec, trend, mono, night, warm, forest) | 🧪 gated headless in ocean / vivid / exec / night / warm, LTR + RTL, empty state | `components.py`, `palette.py` |
 | 20 | Component kit: the reference build's cards (KPI, lifecycle, segmented bars, 2-column list, donut, timeline, filter panel) extracted as parameterized builders on top of the token + fit system | 📋 the reference build `measures_example_projects.py` is the reference implementation | `measures_example_projects.py` |
 
 Next recommended order: 11 (confirm in Desktop) → 7 → 15 → 12/13 → 19 → 20.
