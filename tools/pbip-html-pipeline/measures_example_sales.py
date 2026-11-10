@@ -7,6 +7,8 @@ Amount, Discount, Status. Copy to measures.py to use it."""
 import os as _os, re as _re
 _os.environ.setdefault("DASH_DIR", "ltr")
 _os.environ.setdefault("DASH_LANG", "en")
+if not _os.environ.get("DASH_STYLE"):   # not ported to styles.py roles yet: legacy palettes unless a style is asked for
+    _os.environ.setdefault("DASH_PALETTE", "vivid")
 from palette import P, resolve
 import components as K
 from config import TABLE

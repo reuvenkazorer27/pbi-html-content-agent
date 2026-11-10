@@ -26,7 +26,7 @@ Do not put a "Built on HTML Content" (or any tool/agent) label on the dashboard:
 3. Type scale on 1920×1080: body 15px, secondary 14, captions ≥13, card title 20, header title 26-28, KPI value 48-50. Never below 13px.
 4. Row budgets are computed from the frame (`rows = floor((H - pad - header - footer - 8) / pitch)`), rows are fixed-height, fixed-height flex children get `flex:none`, titles/legends/chip rows single-line.
 5. Nothing is written to the PBIP until the exact-size fit check prints `FIT OK` (8px slack on every card) and `CONTRAST OK` for every direction, language and palette you ship, and the stress scenarios pass. Nothing is called done until a Desktop screenshot after Apply + Refresh confirms it.
-6. Colors only as palette tokens; text on a soft fill uses the `*_text` token. Every iteration ends with `versions.py snapshot`; a bad result is undone with `versions.py revert`. See `ROADMAP.md` for what is built and what is next.
+6. Colors only as palette tokens; text on a soft fill uses the `*_text` token. Colorful dashboards use a style fitted to the user's brand and data (`styles.py`, `skills/colorful-styles/SKILL.md`, default `accent`): KPI and analysis cards are one material, every card gets a role, color comes through one mechanism, at most one hero card (`reference/design-system.md` §4). Every iteration ends with `versions.py snapshot`; a bad result is undone with `versions.py revert`. See `ROADMAP.md` for what is built and what is next.
 
 ---
 

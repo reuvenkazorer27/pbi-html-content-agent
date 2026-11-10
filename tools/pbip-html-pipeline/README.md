@@ -40,9 +40,10 @@ Without the bridge (`bridge.py` exits 2) or the MCP: Apply external changes → 
 | --- | --- | --- |
 | `DASH_DIR` | `rtl` (default) / `ltr` | Reading direction: card `dir`/`text-align`, number alignment, arrows; `LAYOUT` and `SLICERS` are mirrored for LTR (x' = page width - x - w) |
 | `DASH_LANG` | `he` (default for rtl) / `en` (default for ltr) | UI language: `labels.py` translates display strings only (model refs and data literals are masked) and fails the build on any untranslated string; month names follow the locale |
-| `DASH_PALETTE` | `ocean`, `midnight`, `berry`, `vivid`, presets `exec`, `trend`, `mono`, `night`, `warm`, `forest` | Color tokens, page background, slicer colors, gradient layer and filled KPI cards (`vivid`) |
+| `DASH_STYLE` | a preset (`accent` default, `tonal`, `midnight`, `sand`, `ocean`, `duotone`, `sunset`, `mint`), a JSON `make_style()` dict (`'{"brand":"#0E7490","mode":"dark"}'`), or `none` | Colorful styles from `styles.py`: one card material for KPI and analysis cards, one color mechanism (bar / tint / chip), at most one hero card, every in-card color computed for contrast. Project default: `"style"` in `pipeline.json`. See `skills/colorful-styles/SKILL.md` |
+| `DASH_PALETTE` | `ocean`, `midnight`, `berry`, `vivid`, presets `exec`, `trend`, `mono`, `night`, `warm`, `forest` | Legacy palettes (setting it turns styles off): color tokens, page background, slicer colors, gradient layer and filled KPI cards (`vivid`) |
 
-Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_PALETTE=ocean` and `DASH_DIR=rtl DASH_PALETTE=vivid` each through `fitcheck.mjs` and `stress.py`. Translated strings are usually longer - the fit gate catches it; shorten the wording, not the layout.
+Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_STYLE=accent` and `DASH_DIR=rtl DASH_STYLE=sand` each through `fitcheck.mjs` and `stress.py`. Translated strings are usually longer - the fit gate catches it; shorten the wording, not the layout.
 
 ## Files
 
@@ -57,6 +58,8 @@ Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_PALETTE=ocean` and `DAS
 | `fitjs.py` | The shared `fitCheck()` script injected into preview and lab pages: nothing past the 8px safe edge (`data-bleed` bands excepted) and **no empty band** at the bottom of a card larger than max(40px, 15% of its height) (`data-fill='free'` excepted). |
 | `labels.py` | UI string translation (Hebrew authored → English) with masking of DAX data literals and model references; status display names. |
 | `palette.py` (brand + theme) | `DASH_PRIMARY` / `DASH_ACCENT` / `DASH_DARK` derive a palette named `brand` (text tokens pushed to WCAG 4.5:1, `strong` fill safe for white text). `python -I palette.py theme out.json` writes the active palette as a report theme (View → Themes → Browse). |
+| `style_check.py` | Contrast check for styles without a model: every preset plus 800 generated styles, or one style (`python -I style_check.py sand` or a JSON dict). Run it on any style you build for a user. |
+| `styles.py` | The colorful-style engine: `make_style()` from brand / mode / mechanism / hero, `PRESETS`, `ROLES`, `apply(expr, role)` for per-card tokens, `CARD` (the shared card root), `readable()` for contrast-safe colors. Registers the active style's palette in `palette.py`. |
 | `palette.py` | Color tokens for `ocean` (light), `midnight` (dark), `berry` (colorful). Every palette defines every token, including `*_text` variants chosen for WCAG 4.5:1 on their soft backgrounds. Switch: `DASH_PALETTE=midnight`. Page background, preview and slicer colors follow the palette. |
 | `gen_query.py` / `runq.ps1` | Live DAX test against the open model through Desktop's own AdomdClient. Optional 2nd arg to `gen_query.py` = a DAX filter table (used by `stress.py`). |
 | `gen_preview.py` | Places each measure's real HTML in an iframe of its exact visual size on the page background; defines `fitCheck()` (8px safe edge). |

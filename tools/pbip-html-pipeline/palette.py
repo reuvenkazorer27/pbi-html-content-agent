@@ -195,9 +195,14 @@ for _name, _spec in PRESETS.items():
 if os.environ.get("DASH_PRIMARY"):
     PALETTES["brand"] = derive(os.environ["DASH_PRIMARY"], os.environ.get("DASH_ACCENT"), os.environ.get("DASH_DARK") == "1")
 
+# ---------------------------------------------------------------- legacy palette choice
 ACTIVE = os.environ.get("DASH_PALETTE", "brand" if "brand" in PALETTES else "ocean")
 P = PALETTES[ACTIVE]
+STYLE = ""
 assert all(set(v) == set(PALETTES["ocean"]) for v in PALETTES.values()), "every palette must define every token"
+# a colorful style (styles.py: DASH_STYLE / pipeline.json "style", default "accent") replaces the choice above:
+# styles.py registers PALETTES["style"] and sets ACTIVE, P and STYLE here. Works in either import order.
+import styles as _styles  # noqa: E402
 
 
 def theme_json(palette=None, name=None):

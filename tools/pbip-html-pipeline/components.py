@@ -19,6 +19,12 @@ FONT = "font-family:Segoe UI,Arial,sans-serif"
 CARD = ("box-sizing:border-box;height:100vh;overflow:hidden;background:@@surface@@;"
         "border-radius:12px;box-shadow:0 1px 3px @@shadow@@;line-height:1.35;"
         "direction:@@dir@@;text-align:@@start@@;" + FONT + ";color:@@fg@@")
+try:   # a colorful style (styles.py) gives every builder the same card material as the KPI cards
+    import styles as _S
+    if _S.ACTIVE:
+        CARD = _S.CARD
+except ImportError:
+    _S = None
 FG2 = "@@fg2@@"
 ISO = "VAR LRI = UNICHAR ( 8294 )\nVAR PDI = UNICHAR ( 8297 )\n"
 SERIES = ["@@primary@@", "@@maint@@", "@@design@@", "@@series4@@", "@@done@@", "@@series3@@"]
@@ -74,8 +80,10 @@ def _mode(colors, default):
     return colors == "category"
 
 
-def accent(expr, cat="cat1"):
+def accent(expr, cat="cat1"):   # legacy palettes; with a style the card's role draws its accent
     """Give any builder's card a colored top band (cat1..cat6 or any color token name)."""
+    if _S is not None and _S.ACTIVE:
+        return expr   # the style already colors every card through its role (bar / tint / chip)
     a = f"style='{CARD};padding:16px 20px;"
     assert expr.count(a) == 1, "accent(): card root not found"
     return expr.replace(a, f"style='{CARD};border-top:5px solid @@{cat}@@;padding:13px 20px 16px;")
@@ -447,7 +455,11 @@ def kpi_card(title, value, fmt, icon, sub='""', cat="cat1", filled=False):
     if icon not in KPI_ICONS:
         raise ValueError(f"kpi_card needs an icon from KPI_ICONS ({', '.join(KPI_ICONS)}), got {icon!r}")
     title = _t(title)
-    if filled:
+    if _S is not None and _S.ACTIVE:   # style: one material; color via the card's role tokens (c_chip / c_icon)
+        root = f"{CARD};padding:12px 20px 14px"
+        chip, title_c = "@@c_chip@@", FG2
+        glyph = KPI_ICONS[icon].format(c="@@c_icon@@", k="@@c_icon_in@@")
+    elif filled:
         root = (f"{CARD};background:linear-gradient(160deg,rgba(0,0,0,0),rgba(0,0,0,.24)),@@strong@@;color:@@on_accent@@;"
                 f"border-top:6px solid @@{cat}@@;padding:12px 20px 14px")
         chip, title_c = "rgba(255,255,255,.22)", "@@on_accent@@"

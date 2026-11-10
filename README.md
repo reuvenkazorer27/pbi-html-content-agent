@@ -96,7 +96,7 @@ The kit does not depend on any Microsoft tool, but uses them when they are there
 | [`ROADMAP.md`](ROADMAP.md) | 20-step plan: what is built and measured, what is researched next |
 | [`tools/pbip-html-pipeline/`](tools/pbip-html-pipeline/) | Build · gate · version · write pipeline |
 | [`library/`](library/) | Components (`.dax`), palettes, icons (Kubai, MIT), fullscreen shell |
-| [`skills/`](skills/) | dashboard-shell, composite-dashboard, html-slicers-filters, navigation-header-menu, rtl-hebrew |
+| [`skills/`](skills/) | dashboard-shell, composite-dashboard, html-slicers-filters, navigation-header-menu, rtl-hebrew, colorful-styles |
 | [`reference/`](reference/) | Verified PBIR / HTML Content properties, capabilities, canvas and layout |
 | [`examples/`](examples/) | Worked examples (sales dashboard, context interaction, KPI with icon) |
 | [`checklists/validation.md`](checklists/validation.md) | What to check in Desktop, Service, mobile and export |

@@ -36,6 +36,26 @@ CARD = ("box-sizing:border-box;height:100vh;overflow:hidden;background:@@surface
 FG2 = "@@fg2@@"
 TRACK = "@@track@@"
 
+# ---------------------------------------------------------------- colorful styles (styles.py)
+# Every card - KPI and analysis - is the same material; each card has a ROLE that picks its hue, and the
+# active style decides how that hue shows (bar / tint / chip) and computes every in-card color for contrast.
+import styles as S
+STYLE = S.NAME if S.ACTIVE else ""
+CARD_ROLE = {   # this dashboard's cards -> roles (a KPI and the chart about the same thing share a role)
+    "HTML Header": "neutral", "HTML Filter Panel": "neutral",
+    "HTML KPI סהכ": "hero", "HTML KPI פעילים": "c1", "HTML KPI באפיון": "c2",
+    "HTML KPI בתחזוקה": "c3", "HTML KPI מועדים": "bad",
+    "HTML Status Flow": "c2", "HTML Owners": "c1", "HTML Departments": "c3",
+    "HTML Timeline": "warn", "HTML Type Donut": "c4",
+}
+if S.ACTIVE:
+    CARD = S.CARD
+
+
+def _apply_card_tokens(name, expr):
+    return S.apply(expr, CARD_ROLE.get(name, "neutral"))
+
+
 # status -> (display, color, light bg)
 STATUSES = [
     ("באפיון", "באפיון", "@@design@@", "@@design_soft@@"),
@@ -92,7 +112,7 @@ def _scale_fonts(expr):
 
 
 def add(name, expr, folder, fmt=None):
-    M[name] = dict(expr=translate(resolve(_resolve_dir(_scale_fonts(expr.strip()))), LANG), folder=folder, fmt=fmt)
+    M[name] = dict(expr=translate(resolve(_apply_card_tokens(name, _resolve_dir(_scale_fonts(expr.strip())))), LANG), folder=folder, fmt=fmt)
 
 
 # ---------------------------------------------------------------- base measures
@@ -136,7 +156,7 @@ VAR _c{k} =
     )"""
 
 
-add("HTML Header", ISO + "".join(chip_block(c, l, k) for k, (c, l) in enumerate(
+_header_expr = (ISO + "".join(chip_block(c, l, k) for k, (c, l) in enumerate(
     [("סטטוס", "סטטוס"), ("מחלקה", "מחלקה"), ("בעלים", "בעלים"), ("סוג", "סוג")])) + f"""
 VAR _chips = _c0 & _c1 & _c2 & _c3
 VAR _state =
@@ -163,7 +183,8 @@ RETURN
             & "<span style='padding:4px 12px;border-radius:999px;border:1px solid @@border@@;font-size:12px;color:{FG2};white-space:nowrap'>נכון ל-"
                 & LRI & FORMAT ( TODAY (), "dd/MM/yyyy" ) & PDI & "</span>"
         & "</div>"
-    & "</div>\"""", "HTML")
+    & "</div>\"""")
+add("HTML Header", _header_expr, "HTML")
 
 
 # ---------------------------------------------------------------- KPI cards
@@ -181,7 +202,12 @@ FILLED = P["kpi_filled"] == "1"   # colorful palettes: KPI cards filled with the
 
 def kpi(name, title, value_expr, accent, light, icon, sub_expr, value_color=None):
     vc = value_color or '"@@fg@@"'
-    if FILLED:
+    if STYLE:   # same material as every other card; the hero role turns this one solid (styles.py)
+        root = f"{CARD};padding:16px 20px;display:flex;flex-direction:column;justify-content:space-between"
+        title_c, chip_bg = FG2, "@@c_chip@@"
+        glyph = ICONS[icon].replace("@@on_accent@@", "@@c_icon_in@@").format(c="@@c_icon@@")
+        sub_expr = sub_expr.replace(f"background:{accent};border-radius:3px", "background:@@c_icon@@;border-radius:3px")
+    elif FILLED:
         # card = accent with a darkening overlay (text contrast only improves toward the bottom)
         root = f"{CARD};background:linear-gradient(160deg,rgba(0,0,0,0),rgba(0,0,0,.24)),{accent};padding:16px 20px;display:flex;flex-direction:column;justify-content:space-between"
         title_c, chip_bg = "@@on_accent@@", "rgba(255,255,255,.22)"
@@ -268,7 +294,7 @@ for i, (m, disp, col, bg) in enumerate(stage_html):
         f'<span style=\'font-weight:600;direction:ltr;unicode-bidi:isolate\'>" & ( {m} + 0 ) & "</span>'
         f'<span style=\'width:44px;text-align:@@end@@;color:{FG2};direction:ltr;unicode-bidi:isolate\'>" & FORMAT ( DIVIDE ( {m}, _n ) + 0, "0%" ) & "</span></div>"')
 
-add("HTML Status Flow", ISO + f"""
+_sf_vars = ISO + f"""
 VAR _n = [# פרויקטים]
 VAR _own = FILTER ( ADDCOLUMNS ( VALUES ( {C("בעלים")} ), "@n", [# פרויקטים] ), {C("בעלים")} <> "" )
 VAR _top1 = TOPN ( 1, _own, [@n], DESC, {C("בעלים")}, ASC )
@@ -278,10 +304,8 @@ VAR _late = [# חלף מועד יעד] + 0
 VAR _noDept = COUNTROWS ( FILTER ( {T}, {C("מחלקה")} = "" ) ) + 0
 VAR _noDate = COUNTROWS ( FILTER ( {T}, ISBLANK ( {C("מועד יעד")} ) ) ) + 0
 RETURN
-    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 24px;display:flex;flex-direction:column;gap:14px'>"
-        & "<div><div style='font-size:16px;font-weight:700'>מחזור חיי הפרויקט</div>"
-        & "<div style='font-size:12px;color:{FG2}'>כמה פרויקטים נמצאים בכל שלב, מאפיון ועד סיום</div></div>"
-        & "<div style='display:flex;align-items:flex-start;gap:4px'>"
+"""
+_sf_body = f"""        & "<div style='display:flex;align-items:flex-start;gap:4px'>"
             & {" & ".join(stage_parts)}
         & "</div>"
         & "<div style='display:flex;flex:none;height:14px;border-radius:7px;overflow:hidden;background:{TRACK}'>"
@@ -292,13 +316,54 @@ RETURN
             & "<div>&#8226; " & IF ( _topN > 0, "<b>" & _topOwner & "</b> מוביל/ה " & LRI & _topN & PDI & " פרויקטים (" & LRI & FORMAT ( DIVIDE ( _topN, _n ), "0%" ) & PDI & " מהתיק)", "אין בעלים בבחירה" ) & "</div>"
             & "<div>&#8226; " & IF ( _late > 0, "<span style='color:@@bad@@;font-weight:600'>" & LRI & _late & PDI & " פרויקטים</span> פעילים או באפיון כבר עברו את מועד היעד", "אין פרויקטים פעילים שעברו את מועד היעד" ) & "</div>"
             & "<div>&#8226; ל-" & LRI & FORMAT ( DIVIDE ( _noDept, _n ) + 0, "0%" ) & PDI & " מהפרויקטים לא שויכה מחלקה, ול-" & LRI & FORMAT ( DIVIDE ( _noDate, _n ) + 0, "0%" ) & PDI & " אין מועד יעד</div>"
-        & "</div>"
+        & "</div>\""""
+SF_TITLE, SF_SUB = "מחזור חיי הפרויקט", "כמה פרויקטים נמצאים בכל שלב, מאפיון ועד סיום"
+add("HTML Status Flow", _sf_vars + f"""    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 24px;display:flex;flex-direction:column;gap:14px'>"
+        & "<div><div style='font-size:16px;font-weight:700'>{SF_TITLE}</div>"
+        & "<div style='font-size:12px;color:{FG2}'>{SF_SUB}</div></div>"
+""" + _sf_body + """
     & "</div>\"""", "HTML")
 
 
 # ---------------------------------------------------------------- segmented bar lists
 BLANK_NOTE = ""  # filled per call below
+
+
+STATUS_MEASURE = {"באפיון": "[# באפיון]", "פעיל": "[# פעילים]", "בתחזוקה שוטפת": "[# בתחזוקה]",
+                  "הושלם/פרויקט חד פעמי": "[# הושלמו]"}
+
+
+def mix_block(cond):
+    """DAX line: when `cond` holds (the list above is short), a status-mix block of the current selection
+    sits at the bottom of the card (margin-top:auto) - real content instead of an empty band"""
+    bars = " & ".join(
+        f'''IF ( {STATUS_MEASURE[k]} > 0, "<div style='width:" & FORMAT ( DIVIDE ( {STATUS_MEASURE[k]}, [# פרויקטים] ) * 100, "0.0" ) & "%;background:{c}'></div>" )'''
+        for k, _, c, _ in STATUSES)
+    legend = " & ".join(
+        f'''"<span style='display:inline-flex;align-items:center;gap:6px'><span style='width:10px;height:10px;border-radius:3px;background:{c}'></span>{d} <b style='color:@@fg@@;direction:ltr;unicode-bidi:isolate'>" & ( {STATUS_MEASURE[k]} + 0 ) & "</b></span>"'''
+        for k, d, c, _ in STATUSES)
+    return (f'''        & IF ( {cond}, "<div style='margin-top:auto;flex:none;background:@@inset@@;border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:8px'>"'''
+            f''' & "<div style='font-size:13px;font-weight:700'>תמהיל הסטטוסים בבחירה</div>"'''
+            f''' & "<div style='display:flex;flex:none;height:10px;border-radius:5px;overflow:hidden;background:@@track@@'>" & {bars} & "</div>"'''
+            f''' & "<div style='display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:@@fg2@@'>" & {legend} & "</div></div>" )''')
+
+
+def _seg_return(title, subtitle, top, cols, blank_note):
+    grid = ("<div style='display:flex;flex-direction:column;gap:4px;flex:1 1 auto;min-height:0'>" if cols == 1 else
+            "<div style='display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;grid-template-rows:repeat(\" & MAX ( 1, ROUNDUP ( COUNTROWS ( _top ) / 2, 0 ) ) & \",28px);gap:4px 24px'>")   # as many grid rows as items
+    body = f"""        & "{grid}" & _body & "</div>"
+        & IF ( _rest > 0, "<div class='tooltipEnabled'" & _tip & " style='font-size:12px;color:@@primary@@;cursor:help'>ועוד " & LRI & _rest & PDI & " נוספים · העבירו את העכבר לפירוט &#9432;</div>" )
+        {BLANK_NOTE if blank_note else ""}
+""" + mix_block(f"COUNTROWS ( _top ) <= {4 if cols == 1 else 8}")
+    return f"""    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:20px 24px;display:flex;flex-direction:column;gap:12px'>"
+        & "<div><div style='font-size:16px;font-weight:700;white-space:nowrap'>{title}</div><div style='font-size:12px;color:{FG2};white-space:nowrap'>{subtitle}</div></div>"
+        & "<div style='display:flex;gap:14px;font-size:11px;color:{FG2};white-space:nowrap'>{legend_html()}</div>"
+{body}
+    & "</div>\""""
+
+
 def seg_bars(name, col, title, subtitle, top, cols=1, skip_blank=False, blank_note=""):
+    rowh = "flex:1 1 0;min-height:28px;max-height:40px" if cols == 1 else "height:28px"   # one-column rows stretch
     segs = " & ".join(
         f"""IF ( _s{i} > 0, "<div style='flex:none;width:" & FORMAT ( DIVIDE ( _s{i}, _max ) * 100, "0.00" ) & "%;background:{c}'></div>" )"""
         for i, (_, _, c, _) in enumerate(STATUSES))
@@ -337,7 +402,7 @@ VAR _body =
         VAR _n = [@n]
         {svars}
         RETURN
-            "<div style='display:flex;align-items:center;gap:12px;height:28px'>"
+            "<div style='display:flex;align-items:center;gap:12px;{rowh}'>"
                 & "<div title='" & _lbl & "' style='width:{150 if cols == 1 else 96}px;flex:none;font-size:12px;color:" & _lc & ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & _lbl & "</div>"
                 & "<div style='flex:1;display:flex;height:14px;border-radius:7px;overflow:hidden;background:{TRACK}'>" & {segs} & "</div>"
                 & "<div style='width:32px;flex:none;font-size:13px;font-weight:700;text-align:@@end@@;direction:ltr;unicode-bidi:isolate'>" & _n & "</div>"
@@ -347,13 +412,7 @@ VAR _body =
         {C(col)}, ASC
     )
 RETURN
-    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:20px 24px;display:flex;flex-direction:column;gap:12px'>"
-        & "<div><div style='font-size:16px;font-weight:700;white-space:nowrap'>{title}</div><div style='font-size:12px;color:{FG2};white-space:nowrap'>{subtitle}</div></div>"
-        & "<div style='display:flex;gap:14px;font-size:11px;color:{FG2};white-space:nowrap'>{legend_html()}</div>"
-        & "{"<div style='display:flex;flex-direction:column;gap:4px'>" if cols == 1 else "<div style='display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;grid-template-rows:repeat(" + str(-(-top // 2)) + ",28px);gap:4px 24px'>"}" & _body & "</div>"
-        & IF ( _rest > 0, "<div class='tooltipEnabled'" & _tip & " style='font-size:12px;color:@@primary@@;cursor:help'>ועוד " & LRI & _rest & PDI & " נוספים · העבירו את העכבר לפירוט &#9432;</div>" )
-        {BLANK_NOTE if blank_note else ""}
-    & "</div>\"""", "HTML")
+§RET§""".replace("§RET§", _seg_return(title, subtitle, top, cols, blank_note)), "HTML")
 
 
 seg_bars("HTML Owners", "בעלים", "פרויקטים לפי בעלים", "פרויקטים לכל בעלים, לפי סטטוס", 6)
@@ -365,6 +424,25 @@ seg_bars("HTML Departments", "מחלקה", "פרויקטים לפי מחלקה",
 # ---------------------------------------------------------------- type donut
 TYPE_COLORS = ["@@primary@@", "@@maint@@", "@@series3@@", "@@series4@@", "@@muted@@", "@@done@@"]
 color_sw = "SWITCH ( _rk, " + ", ".join(f'{i+1}, "{c}"' for i, c in enumerate(TYPE_COLORS)) + ', "@@muted@@" )'
+_DONUT_BODY = f"""        & "<div style='display:flex;align-items:center;gap:28px;flex:1;min-height:0'>"
+            & "<svg viewBox='0 0 180 180' style='flex:none;height:100%;max-height:260px;aspect-ratio:1/1'>"
+                & "<circle cx='90' cy='90' r='" & _R & "' fill='none' stroke='{TRACK}' stroke-width='24'/>" & _segs
+                & "<text x='90' y='92' text-anchor='middle' style='font-size:30px;font-weight:700;fill:@@fg@@;{FONT}'>" & _tot & "</text>"
+                & "<text x='90' y='114' text-anchor='middle' style='font-size:12px;fill:{FG2};{FONT}'>פרויקטים</text>"
+            & "</svg>"
+            & "<div style='flex:1;display:flex;flex-direction:column'>" & _legend & "</div>"
+        & "</div>\""""
+DONUT_TITLE = "פרויקטים לפי סוג"
+DONUT_SUB = 'מערכות, מסכי ניהול ו-" & LRI & "BI" & PDI & ", סוכנים'
+
+
+def _donut_return():
+    return f"""    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:20px 24px;display:flex;flex-direction:column;gap:12px'>"
+        & "<div><div style='font-size:16px;font-weight:700'>{DONUT_TITLE}</div><div style='font-size:12px;color:{FG2}'>{DONUT_SUB}</div></div>"
+""" + _DONUT_BODY + """
+    & "</div>\""""
+
+
 add("HTML Type Donut", ISO + f"""
 VAR _cats = ADDCOLUMNS ( VALUES ( {C("סוג")} ), "@n", [# פרויקטים] )
 VAR _cats2 =
@@ -405,20 +483,28 @@ VAR _legend =
         "", [@rk], ASC
     )
 RETURN
-    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:20px 24px;display:flex;flex-direction:column;gap:12px'>"
-        & "<div><div style='font-size:16px;font-weight:700'>פרויקטים לפי סוג</div><div style='font-size:12px;color:{FG2}'>מערכות, מסכי ניהול ו-" & LRI & "BI" & PDI & ", סוכנים</div></div>"
-        & "<div style='display:flex;align-items:center;gap:28px;flex:1;min-height:0'>"
-            & "<svg viewBox='0 0 180 180' style='flex:none;height:100%;max-height:260px;aspect-ratio:1/1'>"
-                & "<circle cx='90' cy='90' r='" & _R & "' fill='none' stroke='{TRACK}' stroke-width='24'/>" & _segs
-                & "<text x='90' y='92' text-anchor='middle' style='font-size:30px;font-weight:700;fill:@@fg@@;{FONT}'>" & _tot & "</text>"
-                & "<text x='90' y='114' text-anchor='middle' style='font-size:12px;fill:{FG2};{FONT}'>פרויקטים</text>"
-            & "</svg>"
-            & "<div style='flex:1;display:flex;flex-direction:column'>" & _legend & "</div>"
-        & "</div>"
-    & "</div>\"""", "HTML")
-
-
+§RET§""".replace("§RET§", _donut_return()), "HTML")
 # ---------------------------------------------------------------- timeline (gantt strip)
+_TL_BODY = f"""        & IF (
+            _cnt = 0,
+            "<div style='flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:{FG2}'>אין פרויקטים עם מועד יעד בבחירה הנוכחית</div>",
+            "<div style='display:flex;gap:12px;height:22px'><div style='width:270px;flex:none'></div><div style='width:116px;flex:none'></div>"
+                & "<div style='flex:1;position:relative;direction:ltr'>" & _axis & "</div><div style='width:100px;flex:none;font-size:11px;color:{FG2};text-align:@@end@@;line-height:22px'>מועד יעד</div></div>"
+                & "<div style='display:flex;flex-direction:column;gap:2px'>" & _body & "</div>"
+                & IF ( _cnt > 7, "<div class='tooltipEnabled'" & _tip & " style='font-size:12px;color:@@primary@@;cursor:help'>ועוד " & LRI & ( _cnt - 7 ) & PDI & " פרויקטים עם מועד מאוחר יותר · העבירו את העכבר לפירוט &#9432;</div>" )
+        )"""
+_TL_BODY += "\n" + mix_block("_cnt > 0 && _cnt <= 4")   # few dated rows: the mix fills the card
+TL_TITLE = "לוח זמנים · פרויקטים עם מועד יעד"
+TL_SUB = '" & LRI & _cnt & PDI & " מתוך " & LRI & [# פרויקטים] & PDI & " פרויקטים הוגדרו עם תאריכים · ציר הזמן נקרא משמאל לימין'
+
+
+def _tl_return():
+    return f"""    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 24px;display:flex;flex-direction:column;gap:8px'>"
+        & _head
+""" + _TL_BODY + """
+    & "</div>\""""
+
+
 add("HTML Timeline", ISO + f"""
 VAR _dated = FILTER ( {T}, NOT ISBLANK ( {C("מועד יעד")} ) )
 VAR _cnt = COUNTROWS ( _dated ) + 0
@@ -493,19 +579,7 @@ VAR _head =
         & "<span style='display:inline-flex;align-items:center;gap:4px'><span style='width:12px;height:8px;border-radius:4px;box-shadow:0 0 0 2px @@bad@@'></span>חלף המועד</span></div>"
     & "</div>"
 RETURN
-    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px 24px;display:flex;flex-direction:column;gap:8px'>"
-        & _head
-        & IF (
-            _cnt = 0,
-            "<div style='flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:{FG2}'>אין פרויקטים עם מועד יעד בבחירה הנוכחית</div>",
-            "<div style='display:flex;gap:12px;height:22px'><div style='width:270px;flex:none'></div><div style='width:116px;flex:none'></div>"
-                & "<div style='flex:1;position:relative;direction:ltr'>" & _axis & "</div><div style='width:100px;flex:none;font-size:11px;color:{FG2};text-align:@@end@@;line-height:22px'>מועד יעד</div></div>"
-                & "<div style='display:flex;flex-direction:column;gap:2px'>" & _body & "</div>"
-                & IF ( _cnt > 7, "<div class='tooltipEnabled'" & _tip & " style='font-size:12px;color:@@primary@@;cursor:help'>ועוד " & LRI & ( _cnt - 7 ) & PDI & " פרויקטים עם מועד מאוחר יותר · העבירו את העכבר לפירוט &#9432;</div>" )
-        )
-    & "</div>\"""", "HTML")
-
-
+§TL§""".replace("§TL§", _tl_return()), "HTML")
 # ---------------------------------------------------------------- right filter panel
 slots = "".join(
     f"<div style='height:80px;flex:none;box-sizing:border-box'>"
@@ -513,8 +587,13 @@ slots = "".join(
     f"<div style='height:40px'></div></div>"
     for lbl in ["סטטוס", "מחלקה", "בעלים", "סוג פרויקט"])
 
+FP_HEAD = f"""<div style='height:64px;flex:none;box-sizing:border-box;padding-top:16px'>"
+            & "<div style='font-size:18px;font-weight:700;line-height:24px'>סינון</div>"
+            & "<div style='font-size:12px;color:{FG2};line-height:18px'>הבחירה מסננת את כל הדף</div>"
+        & "</div>"""
+FP_MIX = mix_block("TRUE ()")   # the tall panel shows what the selection is made of
 add("HTML Filter Panel", ISO + f"""
-VAR _recent = TOPN ( 4, {T}, {C("מזהה")}, DESC )
+VAR _recent = TOPN ( 3, {T}, {C("מזהה")}, DESC )   -- 3 recent + the selection mix fill the tall panel
 VAR _items =
     CONCATENATEX (
         _recent,
@@ -535,15 +614,13 @@ VAR _items =
     )
 RETURN
     "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:0 16px 16px 16px;display:flex;flex-direction:column'>"
-        & "<div style='height:64px;flex:none;box-sizing:border-box;padding-top:16px'>"
-            & "<div style='font-size:18px;font-weight:700;line-height:24px'>סינון</div>"
-            & "<div style='font-size:12px;color:{FG2};line-height:18px'>הבחירה מסננת את כל הדף</div>"
-        & "</div>"
+        & "{FP_HEAD}"
         & "{slots}"
         & "<div style='margin-top:8px;border-top:1px solid @@border@@;padding-top:14px'>"
             & "<div style='font-size:14px;font-weight:700'>נוספו לאחרונה</div>"
             & _items
         & "</div>"
+{FP_MIX}
     & "</div>\"""", "HTML")
 
 
