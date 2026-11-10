@@ -1,0 +1,127 @@
+# -*- coding: utf-8 -*-
+"""Example 2 - Sales overview on invented data (make_sales_data.py), English, left-to-right.
+A whole dashboard from the kit's builders only: kpi_card (icons), treemap_rows, heat_matrix, small_multiples,
+data_table, lift_bars + an HTML filter panel over native slicers - everything except the slicers is HTML Content.
+Model: one table (pipeline.json "table") with OrderID, OrderDate, Region, Category, Product, Channel, Rep, Units,
+Amount, Discount, Status. Copy to measures.py to use it."""
+import os as _os, re as _re
+_os.environ.setdefault("DASH_DIR", "ltr")
+_os.environ.setdefault("DASH_LANG", "en")
+from palette import P, resolve
+import components as K
+from config import TABLE
+
+DIR, LANG = _os.environ["DASH_DIR"], _os.environ["DASH_LANG"]
+DIR_TOKENS = {"dir": "ltr", "lang": "en", "start": "left", "end": "right", "fwd_arrow": "&#9654;", "locale": "en-US"}
+T = f"'{TABLE}'"
+C = lambda c: f"{T}[{c}]"
+CARD, FG2, ISO = K.CARD, "@@fg2@@", K.ISO
+
+M = {}
+FONT_SCALE = {10: 13, 11: 14, 12: 15, 13: 16, 14: 17, 16: 20, 18: 22, 22: 26, 24: 30, 30: 36, 40: 50}
+
+
+def _resolve_dir(text):
+    for k, v in DIR_TOKENS.items():
+        text = text.replace(f"@@{k}@@", v)
+    return text
+
+
+def add(name, expr, folder, fmt=None):
+    expr = _re.sub(r"font-size:(\d+)px", lambda m: f"font-size:{FONT_SCALE.get(int(m.group(1)), int(m.group(1)))}px", expr.strip())
+    M[name] = dict(expr=resolve(_resolve_dir(expr)), folder=folder, fmt=fmt)
+
+
+# ---------------------------------------------------------------- base measures
+add("Revenue", f"SUM ( {C('Amount')} )", "Measures", "#,0")
+add("Orders", f"COUNTROWS ( {T} )", "Measures", "#,0")
+add("Total units", f"SUM ( {C('Units')} )", "Measures", "#,0")
+add("Avg order value", "DIVIDE ( [Revenue], [Orders] )", "Measures", "#,0")
+add("Returns", f'CALCULATE ( [Orders], KEEPFILTERS ( {C("Status")} = "Returned" ) )', "Measures", "#,0")
+add("Return rate", "DIVIDE ( [Returns], [Orders] )", "Measures", "0.0%")
+add("Revenue 30d", f"""
+VAR _end = CALCULATE ( MAX ( {C('OrderDate')} ), ALLSELECTED ( {T} ) )
+RETURN CALCULATE ( [Revenue], KEEPFILTERS ( {C('OrderDate')} > _end - 30 ) )""", "Measures", "#,0")
+add("Revenue prev 30d", f"""
+VAR _end = CALCULATE ( MAX ( {C('OrderDate')} ), ALLSELECTED ( {T} ) )
+RETURN CALCULATE ( [Revenue], KEEPFILTERS ( {C('OrderDate')} > _end - 60 && {C('OrderDate')} <= _end - 30 ) )""", "Measures", "#,0")
+
+# ---------------------------------------------------------------- header
+add("HTML Header", ISO + f"""
+VAR _n = [Orders] + 0
+VAR _from = MIN ( {C('OrderDate')} )
+VAR _to = MAX ( {C('OrderDate')} )
+RETURN
+    "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px'>"
+        & "<div style='min-width:0'><div style='font-size:22px;font-weight:700;white-space:nowrap'>Sales overview</div>"
+        & "<div style='font-size:12px;color:{FG2};white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>Invented sample data · "
+        & IF ( _n = 0, "no orders in the selection", FORMAT ( _from, "mmm yyyy" ) & " – " & FORMAT ( _to, "mmm yyyy" ) & " · " & FORMAT ( _n, "#,0" ) & " orders" ) & "</div></div>"
+    & "</div>\"""", "HTML")
+
+
+# ---------------------------------------------------------------- KPI cards (filled with a categorical color)
+FILLED = P.get("kpi_filled") == "1"   # colorful palettes: deep filled cards; light palettes: light cards
+
+
+def kpi(name, title, value, fmt, icon, cat, sub):
+    add(name, K.kpi_card(title, value, fmt, icon, sub, cat=cat, filled=FILLED), "HTML")
+
+
+kpi("HTML KPI Revenue", "Revenue", "[Revenue]", "$#,0", "money", "cat1",
+    '''VAR _c = [Revenue 30d] VAR _p = [Revenue prev 30d] RETURN IF ( ISBLANK ( _p ), "No prior 30 days", "Last 30 days " & FORMAT ( DIVIDE ( _c - _p, _p ), "+0%;-0%;0%" ) & " vs prior 30" )''')
+kpi("HTML KPI Orders", "Orders", "[Orders]", "#,0", "cart", "cat2", '"Units " & FORMAT ( [Total units] + 0, "#,0" )')
+kpi("HTML KPI AOV", "Avg order value", "[Avg order value]", "$#,0", "tag", "cat3",
+    f'FORMAT ( DISTINCTCOUNT ( {C("Product")} ) + 0, "0" ) & " products · " & FORMAT ( DISTINCTCOUNT ( {C("Region")} ) + 0, "0" ) & " regions"')
+kpi("HTML KPI Returns", "Return rate", "[Return rate]", "0.0%", "return", "cat4", '"Returned orders " & FORMAT ( [Returns] + 0, "#,0" )')
+
+# ---------------------------------------------------------------- filter panel (labels only; native slicers sit under them)
+FILTERS = ["Region", "Category", "Channel"]
+slots = "".join(f"<div style='height:80px;box-sizing:border-box'><div style='height:24px;font-size:13px;font-weight:600'>{f}</div></div>" for f in FILTERS)
+add("HTML Filter Panel", f"""
+"<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:16px;display:flex;flex-direction:column'>"
+    & "<div style='height:64px;flex:none'><div style='font-size:16px;font-weight:700'>Filters</div>"
+    & "<div style='font-size:12px;color:{FG2}'>Every selection filters the page</div></div>"
+    & "{slots}"
+& "</div>\"""", "HTML")
+
+# ---------------------------------------------------------------- charts and table from the kit's builders
+add("HTML Products", K.treemap_rows(T, "Product", "[Revenue]", "Revenue by product", "Top 6 products, tile area proportional to revenue",
+                                   top=6, colors="category"), "HTML")
+add("HTML Region Mix", K.heat_matrix(T, "Region", "Category", "[Orders]", "Orders: region × category",
+                                     "Darker = more orders"), "HTML")
+add("HTML Reps", K.accent(K.data_table(
+    T, "Rep",
+    [{"label": "Revenue", "value": "[Revenue]", "kind": "bar", "width": "1.5fr", "color": "cat1", "fmt": "$#,0", "total": "[Revenue]"},
+     {"label": "Orders", "value": "[Orders]", "kind": "number", "width": "64px", "total": "[Orders]"},
+     {"label": "AOV", "value": "[Avg order value]", "kind": "number", "width": "72px", "fmt": "$#,0", "total": "[Avg order value]"},
+     {"label": "Returns", "value": "[Return rate]", "kind": "percent", "width": "72px", "fmt": "0.0%", "total": "[Return rate]"}],
+    "Sales reps", "Sorted by revenue", sort_by="[Revenue]", top=6, key_label="Rep", totals="Total",
+    header_accent="cat1", more_label="and {n} more reps", blank_label="Unassigned",
+    tip_value='FORMAT ( [@s], "$#,0" )'), "cat1"), "HTML")
+add("HTML Returns Lift", K.lift_bars(T, "Product", f'{C("Status")} = "Returned"', "Where returns concentrate",
+                                     "Return share vs. the overall rate", top=7, colors="category"), "HTML")
+add("HTML Region Trend", K.small_multiples(T, "Region", "OrderDate", "[Orders]", "Orders by region",
+                                           "Last 6 months, shared scale", top=6, colors="category"), "HTML")
+add("HTML Background", '''"<div style='height:100vh;background:linear-gradient(135deg,@@bg_from@@ 0%,@@bg_mid@@ 55%,@@bg_to@@ 100%)'></div>"''', "HTML")
+
+# ---------------------------------------------------------------- layout (LTR authored; 1920x1080, margin 32, gutter 16)
+# filter panel docked left (32..328); content 344..1888 = 1544 wide
+LAYOUT = [
+    ("hcBackground",   "HTML Background",    0,    0,   1920, 1080),
+    ("hcHeader",       "HTML Header",        32,   24,  1856, 72),
+    ("hcFilterPanel",  "HTML Filter Panel",  32,   112, 296,  936),
+    ("hcKpiRevenue",   "HTML KPI Revenue",   344,  112, 374,  160),
+    ("hcKpiOrders",    "HTML KPI Orders",    734,  112, 374,  160),
+    ("hcKpiAov",       "HTML KPI AOV",       1124, 112, 374,  160),
+    ("hcKpiReturns",   "HTML KPI Returns",   1514, 112, 374,  160),
+    ("hcProducts",     "HTML Products",      344,  288, 504,  384),
+    ("hcRegionMix",    "HTML Region Mix",    864,  288, 504,  384),
+    ("hcRegionTrend",  "HTML Region Trend",  1384, 288, 504,  384),
+    ("hcReps",         "HTML Reps",          344,  688, 764,  360),
+    ("hcReturnsLift",  "HTML Returns Lift",   1124, 688, 764,  360),
+]
+if P.get("bg_layer") != "1":
+    LAYOUT.pop(0)
+    M.pop("HTML Background")
+# slicer y = panel top 112 + title 64 + i*80 + label 24 (+16 panel padding)
+SLICERS = [(f"sl{f}", f, 48, 112 + 16 + 64 + 24 + 80 * i, 264, 40) for i, f in enumerate(FILTERS)]

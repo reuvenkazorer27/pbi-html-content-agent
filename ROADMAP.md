@@ -17,7 +17,7 @@ Rule for every step: **the dashboard and the fit between its parts come first.**
 | 4 | Headless fit check (no browser pane, no npm): Edge + DevTools protocol | ✅ | `fitcheck.mjs` |
 | 5 | WCAG contrast gate on every text element (4.5:1, large 3:1) | ✅ | `fitcheck.mjs` |
 | 6 | Stress scenarios: all / one status / one owner / blanks / empty selection / every column filtered | ✅ | `stress.py` |
-| 7 | Microsoft PBIR validator as a gate (`powerbi-report-author validate`) + Desktop screenshots via its `preview --host desktop --screenshot` | 📋 CLI not installed (`npm i -g @microsoft/powerbi-report-authoring-cli`) | reference/pbir-visual-json.md |
+| 7 | Microsoft PBIR validator (`powerbi-report-author validate`) + Desktop reload and screenshots through the Desktop Bridge + live measures through the Modeling MCP | ✅ measured on a new project; optional, the file route stays the fallback | `bridge.py`, reference/build-workflow.md §1b |
 | 8 | Rule linter over visual.json (padding 0, altText, crossFilter when Context, slicer item colors) - PBI Inspector V2 or a small Python rule set | 📋 | - |
 
 ## C. Color and background - "colorful dashboard"

@@ -12,12 +12,32 @@ How to build, test, version and ship a dashboard with this kit without losing wo
 - An invisible dialog (one that opens without rendering) blocks every click. Find it in the window's accessibility tree (`FloatingDialog`) and answer it; do not kill the app.
 - Never force-kill Desktop or stop a Power BI process you did not start - a windowless one may be the user's own reopen in progress. Ask first.
 
+## 1b. With Power BI's own tools (optional, measured 10 Nov 2026)
+
+When they are available the loop needs no clicks and no manual screenshots. Each tool has one job; the file route stays the fallback.
+
+| Step | Tool | What it does | Measured |
+| --- | --- | --- | --- |
+| Find the window | `bridge.py status` (Desktop Bridge pipe) or the Modeling MCP `ListLocalInstances` | pid, open file, unsaved state; the MCP names each model by its window title, so no port guessing | both see every open Desktop |
+| Measures into the live model | **Power BI Modeling MCP** `measure_operations` Create/Update | applied at once, no Apply, no Refresh; a batch is one transaction | caught a measure named like a column (`Units`) and rolled the whole batch back - the file route only fails inside Desktop |
+| Report files into Desktop | `bridge.py reload` (`file.reload/v1`) | reloads the PBIR from disk, ~10s, no click | **does not reload the model**: TMDL written to disk stays out of the live model (cards show "Something's wrong with one or more fields") - push measures with the MCP first, or use Apply external changes |
+| Validate PBIR | `powerbi-report-author validate` (`@microsoft/powerbi-report-authoring-cli`, Node) | schema + layout diagnostics | found a real bug: a new page is 1280×720 unless the writer sets 1920×1080. Its slicer-height error (40 < 48px) is a false positive when padding is 0 - Desktop rendered the 40px slicer correctly; Desktop wins |
+| Screenshot | `bridge.py shot <page-id>` (`report.snapshot.capture/v1`) | real Desktop render as PNG, ~8s | right after a reload the HTML visuals are still empty - wait (`--settle`, default 15s) |
+| Gate the HTML | `runq.ps1` → preview → `fitcheck.mjs` (unchanged) | evaluates every card to files | keep it: the MCP's DAX results come back inline, and HTML cards are kilobytes each |
+
+Costs and limits:
+- The MCP takes every expression inline in the call. A 20-card dashboard is ~27K characters per full push - push only the cards that changed, and keep the TMDL on disk in sync (`gen_pbip.py`) so the PBIP stays the source of truth.
+- Writing TMDL while the live model already has the same measures still raises Desktop's "Apply external changes" banner; `bridge.py reload` clears it once disk and model agree.
+- The bridge needs Options › Preview features › *external tool access*. `bridge.py` is plain Python (no Node). The `powerbi-desktop open` CLI does not find a Microsoft Store install (`DESKTOP_EXE_NOT_FOUND`) - open the `.pbip` normally and wait for `bridge.py status`.
+- One request per pipe connection; a busy pipe answers "not found" for a moment - retry (bridge.py does).
+
 ## 2. Writing PBIP files
 
 - Generate TMDL measures and `visual.json` files from one source of truth (the pipeline's `measures.py` + `pipeline.json`), rebuilt from a clean backup copy on every run so reruns are idempotent.
 - In TMDL a line starting with `///` is the **description** of the next object - never use it as a marker around generated code.
 - DAX `VAR` names must be ASCII identifiers (a Hebrew variable name is a syntax error); non-Latin text is fine in measure, table and column names and in strings.
 - Register the AppSource visual in `report.json` (`publicCustomVisuals`) so Desktop fetches it on open.
+- Write the page canvas (`width`/`height` in `page.json`) with the layout: a new or scaffolded page is 1280×720 and clips a 1920×1080 layout.
 
 ## 3. Testing before writing
 

@@ -2,6 +2,8 @@
 
 Every rule here was measured in Power BI Desktop (Secure edition, 1920×1080 pages), not only read in documentation. Rules marked **must** are gates: the pipeline (`tools/pbip-html-pipeline/`) checks them before anything is written to a report. When a rule here conflicts with a component in `library/` or an older note in `reference/`, this page wins.
 
+Everything on the page is HTML Content except the slicers (AGENTS.md, "What this agent is built on"). No tool or agent label on the dashboard.
+
 ## 1. The card frame
 
 | Rule | Why | Verify |
@@ -54,7 +56,9 @@ Author measures with a base scale and remap sizes in one place (`FONT_SCALE` in 
 ## 5. Lists, slicers and interactivity
 
 - **Lists that do not fit:** show the top N rows; the overflow line ("and N more") carries a manual tooltip that lists the hidden items: `class='tooltipEnabled'` + `data-tooltip-title-NN` / `data-tooltip-value-NN` (one pair per item, NN zero-padded). Works in Secure. *Click to expand* is not possible in Secure - it needs the Regular edition with script, or a native drillthrough page.
-- **Tables in HTML:** a header row on a tinted band, fixed 30px rows, zebra striping, numbers end-aligned with tabular figures (`font-variant-numeric:tabular-nums`) and isolated (`direction:ltr;unicode-bidi:isolate`), text clipped with an ellipsis (never wrapped), an optional totals row with a heavier top rule, and an "and N more" line with the hover list. Rows come from the fit budget, not the data. Columns are a CSS grid shared by header, rows and totals so they always line up.
+- **Tables in HTML:** a header row on a tinted band, fixed 30px rows, zebra striping, numbers end-aligned with tabular figures (`font-variant-numeric:tabular-nums`) and isolated (`direction:ltr;unicode-bidi:isolate`), text clipped with an ellipsis (never wrapped), an optional totals row with a heavier top rule, and an "and N more" line with the hover list. Rows come from the fit budget, not the data.
+- **Must: column headers line up with their columns.** Header, rows and totals use the same grid template, and every flexible track is `minmax(0, Nfr)` with `min-width:0` cells: each row is its own grid, and a plain `1fr` (= `minmax(auto,1fr)`) lets one wide value widen its column in that row only. Never put a value in a fixed box narrower than the formatted value (a 44px box let `$284,605` stick out past its header). Check in the screenshot that each header's end edge meets its values' end edge, in LTR and RTL.
+- **Must: every KPI card has an icon** (`kpi_card` rejects one without): title and icon chip on one line, one big number, one caption line.
 - **A dominant blank category** ("no department" at 35%) is not a bar - drop it from the list and state it in a note line; otherwise it compresses every real bar.
 - **Short categorical lists** (≤12 items) fit in two columns (`display:grid; grid-auto-flow:column; grid-template-rows:repeat(n,28px)`) instead of being truncated.
 - **Native slicers on an HTML panel:** draw only the label in HTML (no box - it doubles the border); the slicer (padding 0, header off, background off, dropdown mode) supplies its own box. Position: `y = panelTop + titleBlock + i × slotPitch + labelHeight`, from the same constants the HTML uses.
