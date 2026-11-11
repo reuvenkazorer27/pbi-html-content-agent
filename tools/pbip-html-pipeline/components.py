@@ -170,6 +170,16 @@ def _mstyle(motion):
             + ("" if k == 1 else f":root{{--mo-k:{k:g}}}") + "</style>")
 
 
+
+def _stretched(expr, swaps):
+    """stretch=True: apply the (old, new) swaps that turn fixed-height list rows into rows that grow to fill the
+    card (design-system §2: flex:1 1 0 with a min and a max height). Each swap must match - a builder change that
+    breaks one fails loudly instead of silently shipping fixed rows."""
+    for old, new in swaps:
+        assert old in expr, f"stretch: pattern not found: {old[:60]}"
+        expr = expr.replace(old, new)
+    return expr
+
 # 1 --------------------------------------------------------------- waterfall
 def waterfall(table, category, delta, title, subtitle, order=None, start=None, start_label="Start", end_label="End",
               empty_text="No data", blank_label="-", motion=False, alert=None):
@@ -219,9 +229,10 @@ VAR _closeBar =
 
 # 2 --------------------------------------------------------------- heat matrix
 def heat_matrix(table, row_col, col_col, value, title, subtitle, max_rows=6, max_cols=6, empty_text="No data", blank_label="-",
-                motion=False, alert=None):
-    """Category x category grid; cell color intensity = value / max. Top rows/cols by total."""
-    return ISO + f"""
+                motion=False, alert=None, stretch=False):
+    """Category x category grid; cell color intensity = value / max. Top rows/cols by total.
+    stretch  True: rows grow to fill the card (max 120px instead of 64px) - for short lists and one-value filters."""
+    out = ISO + f"""
 VAR _rows = TOPN ( {max_rows}, ADDCOLUMNS ( VALUES ( {table}[{row_col}] ), "@t", {value} + 0 ), [@t], DESC, {table}[{row_col}], ASC )
 VAR _cols = TOPN ( {max_cols}, ADDCOLUMNS ( VALUES ( {table}[{col_col}] ), "@t", {value} + 0 ), [@t], DESC, {table}[{col_col}], ASC )
 VAR _n = COUNTROWS ( FILTER ( _rows, [@t] > 0 ) ) + 0
@@ -248,15 +259,17 @@ VAR _grid =
         "", [@t], DESC )
 """ + _wrap(title, subtitle, f"\"<div{_m(motion, 'mo-st')} style='flex:1;min-height:0;display:flex;flex-direction:column;gap:3px'>\" & _hdr & _grid & \"</div>\"", empty_text,
              motion=motion)
+    return _stretched(out, [("flex:1 1 0;min-height:26px;max-height:64px", "flex:1 1 0;min-height:26px;max-height:120px")]) if stretch else out
 
 
 # 3 --------------------------------------------------------------- lift bars (key influencers, static)
 def lift_bars(table, category, target_filter, title, subtitle, top=6, min_support=2, empty_text="No data", blank_label="-",
-              colors="single", motion=False, alert=None):
+              colors="single", motion=False, alert=None, stretch=False):
     """For each category: share of rows meeting target_filter vs. the overall share (lift = x times).
     Categories with fewer than min_support rows and blank categories are left out (a 1-row category has a
-    meaningless lift)."""
-    return ISO + f"""
+    meaningless lift).
+    stretch  True: rows grow to fill the card (28-56px instead of a fixed 28px) - for short lists and one-value filters."""
+    out = ISO + f"""
 VAR _all = COUNTROWS ( {table} ) + 0
 VAR _hit = CALCULATE ( COUNTROWS ( {table} ), {target_filter} ) + 0
 VAR _base = DIVIDE ( _hit, _all )
@@ -280,6 +293,8 @@ VAR _body =
 """ + _wrap(title, subtitle,
             f"\"<div style='font-size:12px;color:{FG2}'>\" & LRI & FORMAT ( _base, \"0%\" ) & PDI & \" = 1.0x</div><div{_m(motion, 'mo-st')} style='display:flex;flex-direction:column;gap:4px'>\" & _body & \"</div>\"",
             empty_text, motion=motion)
+    return _stretched(out, [("gap:10px;height:28px'", "gap:10px;flex:1 1 0;min-height:28px;max-height:56px'"),
+                            ("style='display:flex;flex-direction:column;gap:4px'>\" & _body", "style='flex:1;min-height:0;display:flex;flex-direction:column;gap:4px'>\" & _body")]) if stretch else out
 
 
 # 4 --------------------------------------------------------------- small multiples
@@ -300,7 +315,7 @@ VAR _panels =
         VAR _c = {table}[{category}]
         RETURN "<div style='box-sizing:border-box;border:1px solid @@border@@;border-radius:8px;padding:5px 8px;display:flex;flex-direction:column;gap:2px;min-width:0;min-height:0;flex:1 1 calc(100% / {cols} - 8px)'>"
             & "<div style='display:flex;justify-content:space-between;gap:6px;font-size:12px'><span style='white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & _c & "</span>"
-            & "<b style='direction:ltr;unicode-bidi:isolate'>" & [@t] & "</b></div>"
+            & "<b style='direction:ltr;unicode-bidi:isolate'>" & {_fmt('[@t]')} & "</b></div>"
             & "<div style='display:flex;align-items:flex-end;gap:3px;flex:1;min-height:34px;direction:ltr'>"
             & CONCATENATEX ( FILTER ( _vals, [cat] = _c ),
                 "<div{_mf(motion, 'mo-gy', alert)} style='flex:1 1 0;border-radius:2px 2px 0 0;background:" & {"\"@@primary@@\"" if not _mode(colors, "single") else _catcolor(table, category, "_c")} & ";height:" & FORMAT ( MAX ( DIVIDE ( [@v], _max ) * 100, 5 ), "0" ) & "%;opacity:" & IF ( [@v] = 0, "0.25", "1" ) & "'></div>",
@@ -412,7 +427,7 @@ VAR _n = IF ( _tot > 0, 1, 0 )""" + "".join(parts) + "\n" + _wrap(title, subtitl
 # 8 --------------------------------------------------------------- data table
 def data_table(table, key, columns, title, subtitle, sort_by, top=5, key_label=None, totals=None,
                empty_text="No data", blank_label="-", more_label="and {n} more", header_accent=None, zebra=True, tip_value='FORMAT ( [@s], "#,0" )',
-               motion=False, alert=None):
+               motion=False, alert=None, stretch=False):
     """A real table card (header row, aligned columns, zebra rows, optional totals, "and N more" + tooltip).
 
     key      column whose values are the rows (shown first unless key_label is None and you list it yourself)
@@ -427,6 +442,7 @@ def data_table(table, key, columns, title, subtitle, sort_by, top=5, key_label=N
              6 without: rows = (H - 32 padding - 58 title - 30 header - 30 totals - 22 more line - 8 slack) / 30
     totals   label for a totals row (each column's "total" DAX, if any), or None
     header_accent  None (neutral header) or a color token base such as "cat1" (tinted header row)
+    stretch  True: data rows grow to fill the card (30-44px instead of a fixed 30px) - for short lists and one-value filters
     tip_value  DAX text shown next to each hidden row in the "and N more" tooltip (row context of the key; [@s] = sort value)
     Numbers align to the end side and use tabular figures; text is clipped with an ellipsis, never wrapped."""
     if totals and not key_label:
@@ -482,7 +498,7 @@ def data_table(table, key, columns, title, subtitle, sort_by, top=5, key_label=N
         f'"<div style=\'{clip};{num_style if c.get("kind") in ("number", "percent", "date", "bar") else ""}\'>{_t(c["label"] or "")}</div>"' for c in cols)
     row_cells = " & ".join(cells)
     more = _t(more_label).replace("{n}", '" & LRI & _rest & PDI & "')
-    return ISO + f"""
+    out = ISO + f"""
 VAR _rows = ADDCOLUMNS ( VALUES ( {table}[{key}] ), "@s", {sort_by} + 0 )
 VAR _n = COUNTROWS ( _rows ) + 0
 VAR _top = TOPN ( {top}, _rows, [@s], DESC, {table}[{key}], ASC )
@@ -509,6 +525,11 @@ VAR _totals = {f'"<div style=\'{grid};height:30px;padding:0 8px;border-top:2px s
             f"<div style='{grid};height:30px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:700;{hdr_bg}'>\" & {head_cells} & \"</div>\" & _body & _totals & \"</div>\""
             f" & IF ( _rest > 0, \"<div class='tooltipEnabled'\" & _tip & \" style='font-size:12px;color:@@primary_text@@;margin-top:4px;flex:none'>{more}</div>\" )",
             empty_text, motion=motion)
+    return _stretched(out, [("style='{grid};height:30px;padding:0 8px;border-bottom".format(grid=grid), "style='{grid};flex:1 1 0;min-height:30px;max-height:44px;padding:0 8px;border-bottom".format(grid=grid)),
+                            ("style='{grid};height:30px;padding:0 8px;border-radius".format(grid=grid), "style='{grid};height:30px;flex:none;padding:0 8px;border-radius".format(grid=grid)),
+                            ("style='display:flex;flex-direction:column;min-height:0'>", "style='flex:1;display:flex;flex-direction:column;min-height:0'>")]
+                      + ([("style='{grid};height:30px;padding:0 8px;border-top".format(grid=grid), "style='{grid};height:30px;flex:none;padding:0 8px;border-top".format(grid=grid))]
+                         if totals else [])) if stretch else out
 
 
 # 9 --------------------------------------------------------------- KPI card (an icon is required)
