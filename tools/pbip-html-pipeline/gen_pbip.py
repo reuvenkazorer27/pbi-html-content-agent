@@ -193,3 +193,11 @@ for j, (name, col, x, y, w, h) in enumerate(SLICERS):
         },
     })
 print("visuals:", len(LAYOUT) + len(SLICERS))
+
+# Microsoft's PBIR validator, when installed (doc: reference/build-workflow.md §1b) - e.g. an unregistered custom visual
+import shutil as _sh, subprocess as _sp
+_cli = _sh.which("powerbi-report-author")
+if _cli:
+    from config import ROOT as _ROOT, PROJECT as _P
+    _r = _sp.run([_cli, "validate", os.path.join(_ROOT, f"{_P}.pbip")], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    print("powerbi-report-author validate:", (_r.stdout + _r.stderr).strip()[-1500:] or f"exit {_r.returncode}")

@@ -11,7 +11,9 @@
    max(VOID_MIN px, EMPTY_SHARE x card height) - one tile at the top and a block at the bottom with nothing between
    them fails like an empty bottom band. Boxes taller than 85% of the card (the card's own surface) are not ink here.
    An element marked data-fill='slot' counts as ink: it reserves room for a native visual placed on top of the card
-   (a slicer under its HTML label)."""
+   (a slicer under its HTML label).
+4. No cut text: an element's own text wider than its box (a KPI number or a tile value clipped by its card) fails
+   unless the element ends it with an ellipsis (text-overflow:ellipsis is a deliberate, visible cut)."""
 SAFE = 8            # px of slack every card keeps at the bottom/sides
 EMPTY_SHARE = 0.15  # an empty band taller than 15% of the card fails ...
 EMPTY_MIN = 40      # ... and never below 40px (small cards keep normal breathing room)
@@ -42,7 +44,7 @@ function fitCheck(){
   var SAFE=%d, SHARE=%s, MINPX=%d, VOIDPX=%d, out=[];
   document.querySelectorAll('iframe[data-name]').forEach(function(f){ try{
     var d=f.contentDocument, root=d && d.body && d.body.firstElementChild; if(!root) {out.push(f.dataset.name+': EMPTY');return;}
-    var W=f.clientWidth, H=f.clientHeight, worst=null, ink=0, boxes=[];
+    var W=f.clientWidth, H=f.clientHeight, worst=null, ink=0, boxes=[], cut=null;
     /* motion: measure the resting layout - entrances at their end, endless loops at their start - then put every
        animation back where it was (finish() would end a fill:none animation for good and change the page) */
     var saved=[];
@@ -55,12 +57,16 @@ function fitCheck(){
       if(el.closest && el.closest('.fit-clip')) return;
       var r=el.getBoundingClientRect(); if(!r.width||!r.height) return;
       if(!el.closest('svg') || el.tagName==='svg') { if(_ink(el)) { ink=Math.max(ink, r.bottom); if(el!==root && r.height<0.85*H) boxes.push.apply(boxes, _inkBoxes(el, r)); } }
+      if(cut===null && el.clientWidth>0 && el.scrollWidth>el.clientWidth+1 && getComputedStyle(el).textOverflow!=='ellipsis'
+         && Array.prototype.some.call(el.childNodes, function(n){return n.nodeType===3 && n.textContent.trim();}))
+        cut=(el.textContent||'').trim().slice(0,40);
       if(el.hasAttribute('data-bleed')) return;   // full-bleed decoration (card band); its children are still checked
       var over=Math.max(r.bottom-(H-SAFE), r.right-(W-SAFE), SAFE-r.left);
       if(over>0.5 && (!worst||over>worst.over)) worst={over:over,tag:el.tagName,txt:(el.textContent||'').trim().slice(0,40)};
     });
     if(root.scrollHeight>H+0.5) out.push(f.dataset.name+': content '+(root.scrollHeight-H)+'px taller than the visual');
     saved.forEach(function(s){ try{ s[0].currentTime=s[1]; if(s[2]==='running') s[0].play(); }catch(e){} });
+    if(cut!==null) out.push(f.dataset.name+': text cut off without an ellipsis: "'+cut+'" - give it room, shorten it, or end it with an ellipsis');
     if(worst) out.push(f.dataset.name+': '+Math.round(worst.over)+'px past the safe edge at <'+worst.tag+'> "'+worst.txt+'"');
     var free=root.matches('[data-fill=free]') || root.querySelector('[data-fill=free]');
     if(!free && root.children.length){

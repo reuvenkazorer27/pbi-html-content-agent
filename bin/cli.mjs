@@ -76,6 +76,8 @@ async function choose(rl, label, items, wanted, show = (x) => x) {
     return hit;
   }
   if (items.length === 1 || has('yes')) return items[0];
+  // no terminal (an agent or a script): never wait on a prompt nobody can answer
+  if (!process.stdin.isTTY) fail(`${label}: ${items.length} options and no terminal to ask in - pass it as a flag (or --yes for the first): ${items.map(show).join(', ')}`);
   say(`\n${label}:`);
   items.forEach((x, i) => say(`  ${i + 1}. ${show(x)}`));
   const a = await rl.question(`Choose 1-${items.length} [1]: `);
@@ -145,8 +147,12 @@ async function init() {
     } else say(`backup exists, kept: ${backup}`);
 
     // 4. pipeline.json
+    // the dashboard speaks the data's language: Hebrew/Arabic names -> RTL, otherwise LTR English (change in pipeline.json)
+    const ttext = readFileSync(join(tdir, table.id), 'utf8');
+    const lang = /[֐-׿]/.test(ttext) ? 'he' : /[؀-ۿ]/.test(ttext) ? 'ar' : 'en';
     const cfg = { project, table: table.name, page_id: page.id, page_display_name: page.name, backup_dir: '_backup',
-      partition_m: null, lineage_namespace: 'pbi-html-dashboard', style };
+      partition_m: null, lineage_namespace: 'pbi-html-dashboard', style, dir: lang === 'en' ? 'ltr' : 'rtl', lang };
+    say(`\nlanguage:        ${lang} (${cfg.dir}) - from the names in ${table.name}; change "lang"/"dir" in pipeline.json if the dashboard should differ`);
     if (table.id !== `${table.name}.tmdl`) cfg.tmdl_file = table.id;
     writeFileSync(join(build, 'pipeline.json'), JSON.stringify(cfg, null, 2) + '\n', 'utf8');
     say(`config written:  ${join(build, 'pipeline.json')}`);

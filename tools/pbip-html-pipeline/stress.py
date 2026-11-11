@@ -37,22 +37,35 @@ def run(cmd):
     return subprocess.run(cmd, cwd=HERE, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
-fails = 0
-for name, flt in SCENARIOS:
-    q, r, h = f"q_s_{name}.dax", f"r_s_{name}.json", f"p_s_{name}.html"
-    try:
+fails, pages, tmp = 0, [], []
+try:
+    # 1. every scenario's live DAX + exact-size preview
+    for name, flt in SCENARIOS:
+        q, r, h = f"q_s_{name}.dax", f"r_s_{name}.json", f"p_s_{name}.html"
+        tmp += [q, r, h]
         run([sys.executable, "-I", "gen_query.py", q] + ([flt] if flt else []))
         rq = run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "runq.ps1", "-QueryFile", q, "-OutFile", r, "-Port", PORT])
         if "rows: 1" not in rq.stdout:
             print(f"{name:14} DAX ERROR {rq.stderr.strip()[:200]}"); fails += 1; continue
         run([sys.executable, "-I", "gen_preview.py", r, h])
-        fc = run(["node", "fitcheck.mjs", h])
-        ok = fc.returncode == 0
-        fails += not ok
-        print(f"{name:14} {'PASS' if ok else 'FAIL'}" + ("" if ok else "\n    " + fc.stdout.strip().replace("\n", "\n    ")))
-    finally:   # also on a DAX error
-        for f in (q, r, h):
-            try: os.remove(os.path.join(HERE, f))
-            except OSError: pass
+        pages.append((name, h))
+    # 2. all previews in ONE headless browser (one Edge start instead of one per scenario)
+    if pages:
+        fc = run(["node", "fitcheck.mjs", *[h for _, h in pages]])
+        blocks = {}
+        for part in fc.stdout.split("== ")[1:]:
+            path, _, body = part.partition("\n")
+            blocks[os.path.basename(path.strip())] = body.strip()
+        if len(pages) == 1:
+            blocks[pages[0][1]] = fc.stdout.strip()
+        for name, h in pages:
+            body = blocks.get(h, "FIT CHECK DID NOT RUN\n" + fc.stdout.strip()[:300])
+            ok = body.startswith("FIT OK") and "CONTRAST OK" in body
+            fails += not ok
+            print(f"{name:14} {'PASS' if ok else 'FAIL'}" + ("" if ok else "\n    " + body.replace("\n", "\n    ")))
+finally:   # also on a DAX error
+    for f in tmp:
+        try: os.remove(os.path.join(HERE, f))
+        except OSError: pass
 print("STRESS OK" if not fails else f"STRESS FAIL ({fails} scenario(s))")
 sys.exit(1 if fails else 0)

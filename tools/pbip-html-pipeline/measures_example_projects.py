@@ -4,6 +4,7 @@ All measures live on table 'פרויקטים'. HTML is fully inline-styled (no S
 property, no <style>, no script) so it renders the same in HTML Content Secure and Regular.
 """
 
+import config   # first: pipeline.json "dir" / "lang" (the data's language) set the defaults below
 from palette import P, resolve, ACTIVE
 import os as _os
 

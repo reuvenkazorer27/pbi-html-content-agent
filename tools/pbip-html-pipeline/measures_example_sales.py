@@ -6,6 +6,7 @@ Model: one table (pipeline.json "table") with OrderID, OrderDate, Region, Catego
 Amount, Discount, Status. Copy to measures.py to use it.
 Colors: the active style (styles.py, default accent) with a role per card; DASH_PALETTE=<name> still selects a legacy palette."""
 import os as _os, re as _re
+import config   # first: pipeline.json "dir" / "lang" (the data's language) win over the example's defaults below
 _os.environ.setdefault("DASH_DIR", "ltr")
 _os.environ.setdefault("DASH_LANG", "en")
 from palette import P, resolve

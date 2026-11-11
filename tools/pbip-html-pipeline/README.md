@@ -12,11 +12,11 @@ Measured end to end in Power BI Desktop (Oct 2026 release) on the kit's referenc
 
 ```
 python -I gen_query.py q_all.dax                         # 1. DEFINE every measure + EVALUATE all HTML measures
-powershell -File runq.ps1 -QueryFile q_all.dax -OutFile r_all.json   # 2. run it on the open Desktop model (port auto)
+powershell -ExecutionPolicy Bypass -File runq.ps1 -QueryFile q_all.dax -OutFile r_all.json   # 2. run it on the open Desktop model (port auto)
 python -I regress.py r_all.json                          # 3. which cards changed vs the last version (byte compare)
 python -I gen_preview.py r_all.json preview.html         # 4. exact-size preview of every card
 node fitcheck.mjs preview.html --shot full.png           # 5. GATE: FIT OK (no clipping, no empty band) + CONTRAST OK (headless Edge, no npm)
-python -I stress.py                                      # 6. GATE: 6 filter scenarios (all, one status, one owner, blanks, empty)
+python -I stress.py                                      # 6. GATE: the pipeline.json "stress" scenarios (one value per slicer, empty, all-chips)
 python -I versions.py snapshot "what changed" --fit "FIT OK" --results r_all.json --shot full.png   # 7. version
 python -I gen_pbip.py                                    # 8. write TMDL + visual.json (padding 0, palette slicers)
 # 9. Desktop: Apply external changes -> Home > Refresh -> screenshot and compare with full.png
@@ -63,7 +63,7 @@ Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_STYLE=accent` and `DASH
 | `gen_query.py` / `runq.ps1` | Live DAX test against the open model through Desktop's own AdomdClient. Optional 2nd arg to `gen_query.py` = a DAX filter table (used by `stress.py`). |
 | `gen_preview.py` | Places each measure's real HTML in an iframe of its exact visual size on the page background; defines `fitCheck()` (8px safe edge). |
 | `fitcheck.mjs` | Headless Edge via DevTools protocol + Node's built-in WebSocket. Waits until every card has rendered, runs `fitCheck()` and a WCAG contrast check on every text element (4.5:1, large text 3:1); optional screenshot. Closes Edge over CDP and kills anything left on its temp profile (Edge's children outlive a plain kill). Exit 1 on failure. |
-| `stress.py` | Re-renders all cards under filter scenarios and gates each with `fitcheck.mjs`. Scenarios from `pipeline.json` `"stress"` (the built-in ones fit only the reference build); `"port"` / `DASH_PORT` pins the Desktop model. |
+| `stress.py` | Re-renders all cards under filter scenarios and gates each with `fitcheck.mjs`. Scenarios from `pipeline.json` `"stress"` (the built-in ones fit only the reference build); `"port"` / `DASH_PORT` pins the Desktop model. All scenarios render in one headless Edge (`fitcheck.mjs a.html b.html ...`). |
 | `regress.py` | Byte-compares every measure's HTML with the last version: refactors must print IDENTICAL; intended changes list exactly which cards changed. |
 | `versions.py` | `snapshot` / `list` / `diff vA vB` / `revert vN` (auto pre-revert snapshot). A version = zip of .pbip + report/model definitions + `_build` sources + the real HTML outputs + screenshot, in `<project>/_versions/`. After revert: Apply external changes -> Refresh. |
 | `config.py` / `pipeline.json` | Project settings (PBIP name, host table, page, backup, optional partition M); no project names or paths are hardcoded in the scripts. |

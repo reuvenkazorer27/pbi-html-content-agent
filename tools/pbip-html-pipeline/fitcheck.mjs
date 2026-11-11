@@ -1,5 +1,6 @@
 // Headless fit + contrast check for preview.html (no npm packages: Edge + DevTools protocol + Node's WebSocket)
 //   node fitcheck.mjs preview.html [--shot out.png]
+//   node fitcheck.mjs a.html b.html c.html        several pages in ONE browser (stress.py): each block starts "== <file>"
 // Prints FIT OK / FIT FAIL lines and CONTRAST OK / CONTRAST FAIL lines; exit code 1 on any failure.
 import { spawn, spawnSync } from 'node:child_process';
 import { writeFileSync, mkdtempSync, existsSync, rmSync } from 'node:fs';
@@ -8,8 +9,10 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const args = process.argv.slice(2);
-const page = resolve(args[0] || 'preview.html');
 const shot = args.includes('--shot') ? args[args.indexOf('--shot') + 1] : null;
+const pages = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--shot').map(a => resolve(a));
+if (!pages.length) pages.push(resolve('preview.html'));
+const page = pages[0];
 // Edge: EDGE_PATH, else the machine-wide and per-user install locations
 const EDGE = [process.env.EDGE_PATH,
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -82,25 +85,31 @@ const CONTRAST_JS = `
 await send('Runtime.enable');
 // wait until the page and every card iframe have rendered (fixed sleeps gave false EMPTY results)
 const READY = "document.readyState==='complete' && [...document.querySelectorAll('iframe[data-name]')].every(f=>f.contentDocument&&f.contentDocument.readyState==='complete'&&f.contentDocument.body&&f.contentDocument.body.firstElementChild)";
-for (let i = 0; i < 100; i++) { const r = await send('Runtime.evaluate', { expression: READY, returnByValue: true }); if (r.result?.result?.value) break; await sleep(100); }
-await sleep(300);
-const fit = await send('Runtime.evaluate', { expression: "fitCheck(); document.getElementById('fit').textContent", returnByValue: true });
-const con = await send('Runtime.evaluate', { expression: CONTRAST_JS, returnByValue: true });
-const fitTxt = fit.result?.result?.value ?? ('FIT CHECK ERROR ' + JSON.stringify(fit.result?.exceptionDetails?.text));
-const conTxt = con.result?.result?.value ?? ('CONTRAST CHECK ERROR ' + JSON.stringify(con.result?.exceptionDetails?.text));
-console.log(fitTxt); console.log(conTxt);
-if (shot) {
-  await send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
-  // the reference screenshot shows the resting layout (what the gate measured), not a frame mid-animation:
-  // entrances at their end, endless loops at their start (motion frames are checked with motion_frames.mjs)
-  await send('Runtime.evaluate', { expression: `document.querySelectorAll('iframe').forEach(f => { try {
-    (f.contentDocument.getAnimations ? f.contentDocument.getAnimations() : []).forEach(a => { try {
-      const t = a.effect.getComputedTiming(); a.pause(); a.currentTime = t.iterations === Infinity ? 0 : t.endTime; } catch (e) {} });
-  } catch (e) {} })` });
-  await sleep(100);
-  const s = await send('Page.captureScreenshot', { format: 'png' });
-  writeFileSync(shot, Buffer.from(s.result.data, 'base64')); console.log('screenshot ' + shot);
+let allOk = true;
+for (let p = 0; p < pages.length; p++) {
+  if (p > 0) { await send('Page.navigate', { url: pathToFileURL(pages[p]).href }); await sleep(200); }
+  for (let i = 0; i < 100; i++) { const r = await send('Runtime.evaluate', { expression: READY, returnByValue: true }); if (r.result?.result?.value) break; await sleep(100); }
+  await sleep(300);
+  const fit = await send('Runtime.evaluate', { expression: "fitCheck(); document.getElementById('fit').textContent", returnByValue: true });
+  const con = await send('Runtime.evaluate', { expression: CONTRAST_JS, returnByValue: true });
+  const fitTxt = fit.result?.result?.value ?? ('FIT CHECK ERROR ' + JSON.stringify(fit.result?.exceptionDetails?.text));
+  const conTxt = con.result?.result?.value ?? ('CONTRAST CHECK ERROR ' + JSON.stringify(con.result?.exceptionDetails?.text));
+  if (pages.length > 1) console.log('== ' + pages[p]);
+  console.log(fitTxt); console.log(conTxt);
+  allOk = allOk && fitTxt.startsWith('FIT OK') && conTxt.startsWith('CONTRAST OK');
+  if (shot && p === 0) {
+    await send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+    // the reference screenshot shows the resting layout (what the gate measured), not a frame mid-animation:
+    // entrances at their end, endless loops at their start (motion frames are checked with motion_frames.mjs)
+    await send('Runtime.evaluate', { expression: `document.querySelectorAll('iframe').forEach(f => { try {
+      (f.contentDocument.getAnimations ? f.contentDocument.getAnimations() : []).forEach(a => { try {
+        const t = a.effect.getComputedTiming(); a.pause(); a.currentTime = t.iterations === Infinity ? 0 : t.endTime; } catch (e) {} });
+    } catch (e) {} })` });
+    await sleep(100);
+    const s = await send('Page.captureScreenshot', { format: 'png' });
+    writeFileSync(shot, Buffer.from(s.result.data, 'base64')); console.log('screenshot ' + shot);
+  }
 }
 ws.close();
 await closeBrowser();
-process.exit(fitTxt.startsWith('FIT OK') && conTxt.startsWith('CONTRAST OK') ? 0 : 1);
+process.exit(allOk ? 0 : 1);

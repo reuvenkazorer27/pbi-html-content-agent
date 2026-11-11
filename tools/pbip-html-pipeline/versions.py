@@ -113,6 +113,17 @@ def _is_git():
 
 # never committed: the zip snapshots (a local backup) and Python caches
 _GIT_EXCLUDE = (":(exclude)_versions/*.zip", ":(exclude,glob)**/__pycache__/**")
+_GIT_IGNORE = ("_versions/*.zip", "**/__pycache__/")
+
+
+def _ensure_gitignore():
+    """add the snapshot zips and Python caches to the project's .gitignore once, so git status stays clean"""
+    path = os.path.join(ROOT, ".gitignore")
+    have = open(path, encoding="utf-8").read().splitlines() if os.path.exists(path) else []
+    missing = [l for l in _GIT_IGNORE if l not in have]
+    if missing:
+        with open(path, "a", encoding="utf-8", newline="\n") as f:
+            f.write(("" if not have or have[-1] == "" else "\n") + "\n".join(missing) + "\n")
 
 
 def _git_commit(msg, tag=None):
@@ -120,6 +131,7 @@ def _git_commit(msg, tag=None):
     An existing tag is never moved."""
     if not _is_git():
         return
+    _ensure_gitignore()
     _git("add", "-A", "--", ".", *_GIT_EXCLUDE)
     code, out = _git("commit", "-m", msg)
     if code != 0 and "nothing to commit" not in out:
