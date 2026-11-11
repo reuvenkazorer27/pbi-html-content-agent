@@ -49,6 +49,8 @@ From `reference/design-system.md` §4:
    - Both reading directions if you ship both.
    - After Apply external changes + Refresh, take a Desktop screenshot.
 
+Note: `mode="dark"` with `mechanism="tint"` / `"tint-strong"` gives a dark page with **light tinted cards** (measured: card backgrounds `#EEFDFC`, `#FEF1F1` on a near-black page). For dark cards use a bar or chip mechanism (`midnight`, `ocean`).
+
 ## Choosing a mechanism
 
 | Reader / need | Mechanism | Presets |

@@ -32,13 +32,13 @@ The arithmetic: menu docks right (1056 = 1280 - 24 - 200), so content width is 1
 ## Making separate visuals look like one surface
 
 - Page background or wallpaper carries the design (color or image). HTML Content containers: Effects → Background off, Border off, Shadow off unless intentionally added.
-- Card look: paint `background` on the component's own root element (use `var(--pbi-theme-bg-light, #FFFFFF)`), with one consistent border-radius (8-12px) and padding across every component.
+- Card look: paint `background` on the component's own root element from the active style's tokens (`styles.CARD`, `@@surface@@` / the role tokens - `reference/design-system.md` §4), with one consistent border-radius (8-12px) and padding across every component.
 - Same font stack everywhere: `'Segoe UI', 'Assistant', sans-serif` (system fonts only; no @font-face, especially in Secure).
 - Same internal spacing scale: 4/8/16/24.
 
 ## Data and binding
 
-- One measure table `_HTML` for all HTML-producing measures; one component per file in `library/components/`.
+- The pipeline's host table (`pipeline.json` `"table"`) holds every HTML-producing measure, in the `HTML` display folder; the static `library/components/` files keep one component per file.
 - Each HTML Content visual binds its own measure (Values) and its own Context column(s) when it must cross-filter.
 - Cross-filter direction: HTML visuals filter native visuals and each other normally once *Cross-filtering → Enable* is on and a Context column exists. Native visuals (charts, slicers) filter HTML visuals automatically.
 
@@ -49,6 +49,6 @@ The arithmetic: menu docks right (1056 = 1280 - 24 - 200), so content width is 1
 
 ## Consistency checklist
 
-- One palette from `library/palettes.md`, applied through the theme or CSS variables, not ad-hoc hex.
+- One style from `styles.py` (`skills/colorful-styles/SKILL.md`; default `accent`), colors only as tokens, never ad-hoc hex. `library/palettes.md` is the static library's doc-based palette list; where it differs, `reference/design-system.md` wins.
 - Every region's verification label listed.
 - Mobile: decide explicitly - build a mobile layout (323pt width floor, custom visual min 323×180pt) or declare desktop-only.

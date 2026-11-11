@@ -2,9 +2,23 @@
 
 How to build, test, version and ship a dashboard with this kit without losing work, corrupting the report or leaving the machine in a bad state. Measured in Power BI Desktop (PBIP/PBIR, Windows).
 
+## 0. No PBIP or no model yet (measured 10 Nov 2026)
+
+Creating the model is not the kit's job, but the route is short. With the **Power BI Modeling MCP** only one GUI step is left:
+
+1. Desktop: Home → **Blank report** → File → Save as → *Power BI project files (\*.pbip)*, in its own folder (make it its own git repo - §5).
+2. Modeling MCP on the open window (`ListLocalInstances` names it by window title): `table_operations` Create with an M partition (e.g. `Excel.Workbook(File.Contents(...))`) **and every column declared** (`sourceColumn`, `dataType` - the MCP does not infer columns from M), `relationship_operations` Create, `model_operations` RefreshWithXMLA (Full), `table_operations` MarkAsDateTable. Calculated columns: `column_operations` Create, then a `Calculate` refresh. Desktop shows the tables at once, no Apply.
+3. **Save in Desktop (Ctrl+S)** - until then the TMDL on disk is still the empty model.
+4. Then `npx pbi-html-content-agent init`.
+
+The M path is absolute: a moved data file breaks refresh. Data that is already loaded (the user imported it in Desktop) needs none of this.
+
+**One host table.** The pipeline binds every slicer to `pipeline.json` `table`, and `heat_matrix`, `small_multiples` and `lift_bars` take all their columns from one table (`lift_bars` counts `COUNTROWS(table)` - give it the fact table). `treemap_rows` and `data_table` accept a dimension table, but `VALUES(dim[col])` is not filtered by a slicer on the fact table (a `data_table` then lists every row and never shows its empty state). On a star schema, bring the dimension columns you filter or break down by into the fact table as calculated columns (`RELATED(...)`, e.g. with the Modeling MCP) and make the fact table the host table.
+
 ## 1. Iterating while Desktop is open
 
 - Write the files, then click **Apply external changes** in Desktop's banner. Do not close Desktop between iterations. The banner can be hidden behind the canvas until the window repaints - take a screenshot to find it.
+- **The banner needs a saved Desktop.** Check `bridge.py status` → `hasUnsavedChanges` before writing. Measured: with no unsaved changes the banner appeared after `gen_pbip.py`; with unsaved changes (e.g. after a Desktop refresh) no banner came. The flag can also stay `true` - after Modeling MCP edits even through Ctrl+S, and right after opening a PBIP. Then either push the measures with the Modeling MCP and `bridge.py reload` (§1b), or close Desktop with **Don't save** (only a window you opened - ask the user otherwise) and reopen the `.pbip`.
 - After Apply the **model** is updated, but visuals keep **cached query results**: click Home → **Refresh** (or switch page) before judging the render. To check whether the model has the new version, evaluate the measure text (e.g. DAX `SEARCH` for a new string).
 - Save in Desktop **before** you write files; after writing, do **not** save from Desktop until you have applied the external changes - a save writes Desktop's in-memory state over your files.
 - If Desktop must be closed, close it **before** writing - it saves on close and can overwrite your files.
@@ -45,6 +59,7 @@ Costs and limits:
 
 - Generate TMDL measures and `visual.json` files from one source of truth (the pipeline's `measures.py` + `pipeline.json`), rebuilt from a clean backup copy on every run so reruns are idempotent.
 - In TMDL a line starting with `///` is the **description** of the next object - never use it as a marker around generated code.
+- `gen_pbip.py` rebuilds the host table's `.tmdl` from the backup copy (`backup_dir`) on every run. **A model change on the host table after `init`** (a calculated column, a renamed column, an MCP edit saved by Desktop) must be copied into the backup too - otherwise the next write drops it from the files, and Apply drops it from the model.
 - DAX `VAR` names must be ASCII identifiers (a Hebrew variable name is a syntax error); non-Latin text is fine in measure, table and column names and in strings.
 - Register the AppSource visual in `report.json` (`publicCustomVisuals`) so Desktop fetches it on open.
 - Write the page canvas (`width`/`height` in `page.json`) with the layout: a new or scaffolded page is 1280×720 and clips a 1920×1080 layout.
@@ -55,6 +70,7 @@ Costs and limits:
 
 - **Motion** (`skills/motion/SKILL.md`): freeze frames with `motion_frames.mjs` (pauses every animation at exact times - deterministic), then after Apply + **Refresh** record the Desktop window with `burst.ps1` (Desktop must be the front window: the burst captures the screen). An entrance is checked during a filter change, a loop with no interaction at all.
 
+- **Several Desktop models open:** `runq.ps1` without `-Port` uses the newest model where the query runs - a query that fails on yours can silently run on another window with the same tables. Pin the model: `runq.ps1 -Port <port>` and `"port"` in `pipeline.json` (or `DASH_PORT`) for `stress.py`; the Modeling MCP's `ListLocalInstances` lists each window's port.
 - Evaluate every HTML measure against the open model before writing anything: `runq.ps1` loads `Microsoft.PowerBI.AdomdClient.dll` from Desktop's own folder, finds the model port in `...\AnalysisServicesWorkspaces\*\Data\msmdsrv.port.txt` (UTF-16, newest file) and runs a `DEFINE MEASURE ... EVALUATE ROW(...)` query. The real HTML it returns feeds the preview.
 - Gates, in order: `regress.py` (only the intended cards changed), `fitcheck.mjs` (fit + WCAG contrast on the exact-size preview), `stress.py` (filter scenarios). Verify that a scenario really filters - a gate that tests nothing passes everything.
 - Headless browser checks must clean up after themselves. `child.kill()` stops only the browser launcher; Edge's GPU/renderer children outlive it and accumulate into hundreds of processes, which then make later checks fail at random. Wait for real readiness (page and every card rendered) instead of a fixed sleep, close the browser over the DevTools protocol (`Browser.close`), kill anything left on the run's temporary profile, and delete the profile. Check: a process count before and after a run must match.
@@ -75,7 +91,7 @@ Costs and limits:
 
 ## 5. Git
 
-- Make the dashboard project a git repo. `versions.py` then commits and tags `vNNN` on every snapshot and commits every revert; the zip snapshots stay as a local backup (ignored by git).
+- Make the dashboard project **its own** git repo (`git init` in the project folder). `versions.py` then commits the project folder and tags `vNNN` on every snapshot and commits every revert. The zip snapshots (`_versions/*.zip`) and Python caches are never committed - they stay a local backup. Inside a parent repo `versions.py` does not use git at all (zip-only, with a note), so it can never commit someone else's work, and it never moves an existing tag.
 - Recommended for shared or long-lived dashboards: once a basic version exists, make each change on its own branch and merge it through a pull request with a review. (Changes to this kit itself always follow that flow - see the README's Contributing section.)
 - `.gitignore` must exclude secrets and local state: env/key files, pulled data, `**/.pbi/cache.abf`, `**/.pbi/localSettings.json`, build scratch. Before the first commit, list tracked files and check that none of those appear.
 - Ignore by prefix, not by extension: a broad `*.dax` rule meant for scratch queries silently drops a whole component library. Compare the tracked file count with the files on disk before pushing.

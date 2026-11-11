@@ -82,7 +82,8 @@ Everything the agent builds is HTML Content except the slicers (see "What this a
 ## 3. Working method
 
 1. **Classify the request**: pattern A/B/C, edition (Secure unless a Regular-only feature is required), direction and language, canvas size, who consumes (Desktop / Service / mobile / export).
-2. **Ask once for what only the user knows**: the model's tables and measures, the questions the page must answer, brand colors and light/dark (for the style), whether one number is the headline.
+2. **Ask once for what only the user knows**: the model's tables and measures, the questions the page must answer, brand colors and light/dark (for the style), **the page background - clean (light gray / white) or a colored page, and which color**, whether one number is the headline.
+   Then **stop after one version for a direction check**: build the KPI row and one analysis card (or one full first version), gate it, show the preview, and wait for the user's go-ahead before building every card and before writing the PBIP. Do not produce the whole template in one pass.
 3. **Load the matching skill**, build from `components.py` builders first and `library/` second, adapt names to the user's model - never invent measures without naming the tables/columns you assumed.
 4. **Produce deliverables**: DAX measures, PBIR `visual.json` per `reference/pbir-visual-json.md` (or step-by-step Desktop instructions), exact x/y/width/height for every visual.
 5. **State verification status** for each part (measured in Desktop / gated / doc-based) and attach `checklists/validation.md`.

@@ -44,7 +44,7 @@ Because the GUID matches an AppSource listing, Power BI retrieves and updates th
 }
 ```
 
-Convention used across this folder: HTML-producing measures live in a dedicated empty-display-folder measure table named `_HTML`.
+Convention used across this folder: HTML-producing measures live in a dedicated empty-display-folder measure table named `_HTML`. The pipeline (`tools/pbip-html-pipeline/`) instead puts them on its host table (`pipeline.json` `"table"`, display folder `HTML`); the examples below work with either.
 
 ## Adding Context (cross-filter / tooltips / drillthrough) - source-verified, not yet run in Desktop
 
