@@ -100,20 +100,36 @@ def _git(*args):
 
 
 def _is_git():
-    return _git("rev-parse", "--is-inside-work-tree")[0] == 0
+    """True only when ROOT is the top of its own repo. Inside a parent repo, git stays off (zip-only versions):
+    committing there would sweep the parent's unrelated work into the snapshot."""
+    code, top = _git("rev-parse", "--show-toplevel")
+    if code != 0:
+        return False
+    if os.path.normcase(os.path.realpath(top)) != os.path.normcase(os.path.realpath(ROOT)):
+        print(f"git: parent repo detected ({top}) - versions are zip-only. Run `git init` in {ROOT} to enable git.")
+        return False
+    return True
+
+
+# never committed: the zip snapshots (a local backup) and Python caches
+_GIT_EXCLUDE = (":(exclude)_versions/*.zip", ":(exclude,glob)**/__pycache__/**")
 
 
 def _git_commit(msg, tag=None):
-    """Commit everything .gitignore allows (never env files, caches, local settings) and tag it."""
+    """Commit the project folder only (never env files, caches, local settings, zip snapshots) and tag it.
+    An existing tag is never moved."""
     if not _is_git():
         return
-    _git("add", "-A")
+    _git("add", "-A", "--", ".", *_GIT_EXCLUDE)
     code, out = _git("commit", "-m", msg)
     if code != 0 and "nothing to commit" not in out:
         print("git commit failed: " + out[-300:])
         return
     if tag:
-        _git("tag", "-f", tag)
+        if _git("rev-parse", "-q", "--verify", f"refs/tags/{tag}")[0] == 0:
+            print(f"git: committed; tag {tag} already exists - left where it is (tags are never moved)")
+            return
+        _git("tag", tag)
     print(f"git: committed{' + tagged ' + tag if tag else ''}")
 
 
