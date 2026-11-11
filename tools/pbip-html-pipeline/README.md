@@ -6,7 +6,7 @@ Measured end to end in Power BI Desktop (Oct 2026 release) on the kit's referenc
 
 1. Copy this folder next to your PBIP as `_build/` and make a clean backup copy of the PBIP (the writer rebuilds the TMDL from it on every run).
 2. Copy `pipeline.example.json` to `pipeline.json` and fill it: `project` (the PBIP base name), `table` (the table that hosts the generated measures), `page_id` (folder under `definition/pages`), `page_display_name`, `backup_dir` (relative to the project folder), optional `partition_m` (a file in `_build` whose M replaces the table's partition) and `lineage_namespace` (keep it stable once measures exist).
-3. Write your measures and `LAYOUT` in `measures.py`, starting from `measures_example_projects.py`; adapt the scenarios in `stress.py` to your columns.
+3. Write your measures and `LAYOUT` in `measures.py`, starting from `measures_example_projects.py`; put your stress scenarios in `pipeline.json` `"stress"` (`[{"name": ..., "filter": "{T}[Col] = \"value\""}]`, `{T}` = the host table: one value per slicer-like column, a blank, an empty selection, an all-columns-filtered worst case). Several Desktop models open: set `"port"` too (see build-workflow §3).
 
 ## The loop (every iteration, in this order)
 
@@ -63,7 +63,7 @@ Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_STYLE=accent` and `DASH
 | `gen_query.py` / `runq.ps1` | Live DAX test against the open model through Desktop's own AdomdClient. Optional 2nd arg to `gen_query.py` = a DAX filter table (used by `stress.py`). |
 | `gen_preview.py` | Places each measure's real HTML in an iframe of its exact visual size on the page background; defines `fitCheck()` (8px safe edge). |
 | `fitcheck.mjs` | Headless Edge via DevTools protocol + Node's built-in WebSocket. Waits until every card has rendered, runs `fitCheck()` and a WCAG contrast check on every text element (4.5:1, large text 3:1); optional screenshot. Closes Edge over CDP and kills anything left on its temp profile (Edge's children outlive a plain kill). Exit 1 on failure. |
-| `stress.py` | Re-renders all cards under filter scenarios and gates each with `fitcheck.mjs`. |
+| `stress.py` | Re-renders all cards under filter scenarios and gates each with `fitcheck.mjs`. Scenarios from `pipeline.json` `"stress"` (the built-in ones fit only the reference build); `"port"` / `DASH_PORT` pins the Desktop model. |
 | `regress.py` | Byte-compares every measure's HTML with the last version: refactors must print IDENTICAL; intended changes list exactly which cards changed. |
 | `versions.py` | `snapshot` / `list` / `diff vA vB` / `revert vN` (auto pre-revert snapshot). A version = zip of .pbip + report/model definitions + `_build` sources + the real HTML outputs + screenshot, in `<project>/_versions/`. After revert: Apply external changes -> Refresh. |
 | `config.py` / `pipeline.json` | Project settings (PBIP name, host table, page, backup, optional partition M); no project names or paths are hardcoded in the scripts. |

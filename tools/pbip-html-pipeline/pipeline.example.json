@@ -6,5 +6,13 @@
   "backup_dir": "../MyReport_backup",
   "partition_m": null,
   "lineage_namespace": "pbi-html-dashboard",
-  "style": "accent"
+  "style": "accent",
+  "port": 0,
+  "stress": [
+    {"name": "one-status", "filter": "{T}[Status] = \"Done\""},
+    {"name": "busiest-owner", "filter": "TOPN ( 1, VALUES ( {T}[Owner] ), CALCULATE ( COUNTROWS ( {T} ) ) )"},
+    {"name": "no-department", "filter": "{T}[Department] = \"\""},
+    {"name": "empty", "filter": "{T}[ID] = -1"},
+    {"name": "all-chips", "filter": "FILTER ( ALL ( {T} ), {T}[Status] = \"Done\" )"}
+  ]
 }
