@@ -3,10 +3,11 @@
 \\\\.\\pipe\\pbi-desktop-bridge-<pid>. Needs Desktop's preview feature "external tool access" (Options > Preview features).
 
   python -I bridge.py status                     -> every Desktop with the bridge: pid, open file, unsaved changes
-  python -I bridge.py reload  [--pid N]          -> reload the REPORT (PBIR) from disk, then wait until the active
-                                                  page has rendered (its capture grew and held still);
-                                                  the live MODEL is NOT reloaded from TMDL
-                                                  (push measures with the Modeling MCP, or Apply external changes)
+  python -I bridge.py reload  [--pid N] [--report-only]
+                                               -> reload the REPORT (PBIR) and the MODEL (TMDL) from disk
+                                                  (file.reload/v1 reloadModelDefinition=true: no Apply banner, no
+                                                  click, no MCP push), then wait until the active page has rendered;
+                                                  --report-only reloads the PBIR alone
   python -I bridge.py shot <page-id> out.png [--pid N] [--scale 1]
                                                   -> captures until two captures 5s apart are the same size: custom
                                                   visuals render after the page, and a capture right after a reload
@@ -110,7 +111,13 @@ if __name__ == "__main__":
     methods = {m["name"] for m in call(pid, "bridge.manifest")["methods"]}
     if cmd == "reload":
         name = next((m for m in methods if m.startswith("report.reload")), None) or next(m for m in methods if "reload" in m)
-        print(name, call(pid, name, {}, wait=120))
+        # file.reload/v1 takes reloadModelDefinition (required): True re-applies the TMDL on disk to the live model, so
+        # report AND measures arrive with no Apply banner, no click and no MCP push; --report-only keeps the old behavior
+        st = next((i for i in instances() if str(i["pid"]) == str(pid)), {})
+        if st.get("hasUnsavedChanges"):
+            print("WARNING: Desktop has unsaved changes - a reload can be refused or a later save can overwrite the files "
+                  "on disk (incl. publicCustomVisuals); reloading anyway")
+        print(name, call(pid, name, {"reloadModelDefinition": "--report-only" not in sys.argv}, wait=180))
         # right after a reload the custom visuals are empty and two empty captures are the same size, so "stable"
         # alone is not "rendered": wait until the active page's capture has GROWN past the first one and then held
         # still (or has held still for 4 captures, i.e. it was already rendered), up to ~90s

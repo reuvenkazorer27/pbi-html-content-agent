@@ -28,7 +28,7 @@ Never write the PBIP (8) unless 5 and 6 pass. Never skip 7: it is what makes rev
 
 ```
 powerbi-report-author validate <project>.pbip                     # optional PBIR validation (Node CLI)
-python -I bridge.py reload                                       # report files into Desktop (not the model), waits for render
+python -I bridge.py reload                                       # report AND model into Desktop, waits for render; then MCP Calculate
 python -I bridge.py shot <page-id> desktop.png                   # real Desktop screenshot, compare with full.png
 ```
 
@@ -51,7 +51,7 @@ Gate every combination you ship: e.g. `DASH_DIR=ltr DASH_STYLE=accent` and `DASH
 | --- | --- |
 | `measures.py` (start from `measures_example_projects.py`) | Single source of truth: measures, `LAYOUT`, `SLICERS`. Inline styles only; colors only as `@@token@@`; `FONT_SCALE` remaps sizes; `CARD` root carries `height:100vh;overflow:hidden;line-height:1.35` and the direction tokens (`direction:@@dir@@;text-align:@@start@@`). |
 | `layout_check.py` | Layout gate: visuals on the page, no HTML visual on top of another (full-page background layer excepted), each slicer inside exactly one HTML panel. `gen_pbip.py` runs it and writes nothing on failure; `python -I layout_check.py` runs it alone. |
-| `bridge.py` | Power BI Desktop Bridge in plain Python (named pipe, JSON-RPC): `status`, `reload` (report only, then waits for render), `shot <page-id> out.png`. Exit 2 when no bridge - fall back to Apply external changes. |
+| `bridge.py` | Power BI Desktop Bridge in plain Python (named pipe, JSON-RPC): `status`, `reload` (report **and model** from disk - `reloadModelDefinition: true`; `--report-only` for the PBIR alone; then MCP `Calculate`), `shot <page-id> out.png`. Exit 2 when no bridge - fall back to Apply external changes. |
 | `measures_example_sales.py` + `make_sales_data.py` | Example 2: an English LTR sales dashboard on invented data, built only from the builders (icon KPIs, treemap, heat matrix, small multiples, table, lift bars) + HTML filter panel over native slicers. |
 | `components.py` | Parameterized card builders: `kpi_card` (icon required),  `waterfall`, `heat_matrix`, `lift_bars`, `small_multiples`, `scatter`, `treemap_rows`, `decomp_static`, `data_table` (column kinds text / number / percent / date / bar / pill, totals row, "and N more" tooltip). Charts take `colors="category"` (stable color per category value: alphabetical rank → `cat1..cat6`); `accent(expr, "cat2")` adds a colored top band. Each returns a DAX expression for `add(...)`; titles, empty text and `blank_label` are arguments, so they work in any language. Designed and gated at 520-640 × 320-400. Any column argument may be a full reference (`'Dim'[Col]`); list rows stretch by default; `fill=mix(...)` adds a status-mix block when a list is short. |
 | `component_lab_example.py` | Binds every builder to a model, evaluates them on the open Desktop model and renders a gate page (`node fitcheck.mjs lab.html`). Optional DAX filter argument for empty/filtered states; `LAB_COLORS=category` colors every chart per category; `LAB_FROM=results.json` renders saved (e.g. anonymized) results without querying. |

@@ -120,6 +120,10 @@ async function init() {
     const page = await choose(rl, 'Report page to build on', pages, flag('page'), (p) => `${p.name}  (${p.id})`);
 
     let style = flag('style');
+    if (style === undefined && !has('yes') && !process.stdin.isTTY) {   // no terminal: never wait on the question
+      say('\nstyle:           accent (no terminal to ask in - pass --style to choose)');
+      style = 'accent';
+    }
     if (style === undefined && !has('yes')) {
       say(`\nStyle (see skills/colorful-styles): ${STYLES.join(', ')} - or a brand later, in pipeline.json`);
       style = (await rl.question('Style [accent]: ')).trim() || 'accent';
@@ -135,6 +139,9 @@ async function init() {
     // 2. the pipeline, next to the PBIP
     const build = join(dir, '_build');
     if (existsSync(build) && !has('force')) fail(`${build} exists - keep it, or rerun with --force to overwrite the pipeline files`);
+    // --force refreshes the pipeline files, never the project's own settings (stress scenarios, port, style, language)
+    const prevCfgPath = join(build, 'pipeline.json');
+    const prevCfg = existsSync(prevCfgPath) ? (() => { try { return JSON.parse(readFileSync(prevCfgPath, 'utf8')); } catch { return {}; } })() : {};
     cpSync(PIPE, build, { recursive: true });
     say(`pipeline copied: ${build}`);
 
@@ -154,6 +161,10 @@ async function init() {
       partition_m: null, lineage_namespace: 'pbi-html-dashboard', style, dir: lang === 'en' ? 'ltr' : 'rtl', lang };
     say(`\nlanguage:        ${lang} (${cfg.dir}) - from the names in ${table.name}; change "lang"/"dir" in pipeline.json if the dashboard should differ`);
     if (table.id !== `${table.name}.tmdl`) cfg.tmdl_file = table.id;
+    for (const k of ['stress', 'port', 'lang', 'dir', 'lineage_namespace', 'partition_m'])
+      if (prevCfg[k] !== undefined && prevCfg[k] !== null) cfg[k] = prevCfg[k];
+    if (flag('style') === undefined && prevCfg.style !== undefined) cfg.style = prevCfg.style;
+    if (Object.keys(prevCfg).length) say('kept from the previous pipeline.json: ' + ['stress', 'port', 'style', 'lang', 'dir'].filter((k) => prevCfg[k] !== undefined).join(', '));
     writeFileSync(join(build, 'pipeline.json'), JSON.stringify(cfg, null, 2) + '\n', 'utf8');
     say(`config written:  ${join(build, 'pipeline.json')}`);
 

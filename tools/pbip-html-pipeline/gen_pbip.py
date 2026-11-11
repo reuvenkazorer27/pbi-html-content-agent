@@ -196,8 +196,41 @@ print("visuals:", len(LAYOUT) + len(SLICERS))
 
 # Microsoft's PBIR validator, when installed (doc: reference/build-workflow.md §1b) - e.g. an unregistered custom visual
 import shutil as _sh, subprocess as _sp
+_KNOWN_FALSE = {"PBIR_SLICER_HEIGHT_BELOW_FLOOR"}   # a 40px slicer with padding 0 renders fine in Desktop (measured)
+
+
+def _findings(node, out):
+    """every {code, severity/level, message} object anywhere in the validator's JSON"""
+    if isinstance(node, dict):
+        if "code" in node:
+            out.append(node)
+        for v in node.values():
+            _findings(v, out)
+    elif isinstance(node, list):
+        for v in node:
+            _findings(v, out)
+    return out
+
+
 _cli = _sh.which("powerbi-report-author")
 if _cli:
     from config import ROOT as _ROOT, PROJECT as _P
     _r = _sp.run([_cli, "validate", os.path.join(_ROOT, f"{_P}.pbip")], capture_output=True, text=True, encoding="utf-8", errors="replace")
-    print("powerbi-report-author validate:", (_r.stdout + _r.stderr).strip()[-1500:] or f"exit {_r.returncode}")
+    _raw = (_r.stdout or "") + (_r.stderr or "")
+    try:
+        _all = _findings(json.loads(_r.stdout[_r.stdout.index("{"):] if "{" in _r.stdout else _r.stdout), [])
+    except ValueError:
+        _all = None
+    if _all is None:
+        print("powerbi-report-author validate (unparsed):", _raw.strip()[-800:] or f"exit {_r.returncode}")
+    else:
+        _real = [f for f in _all if f.get("code") not in _KNOWN_FALSE]
+        _sev = lambda f: str(f.get("severity") or f.get("level") or "").lower()
+        _err = [f for f in _real if _sev(f) in ("error", "fatal")]
+        _known = len(_all) - len(_real)
+        print(f"powerbi-report-author validate: {'OK' if not _err else 'ERRORS'} - {len(_err)} error(s), "
+              f"{len(_real) - len(_err)} other finding(s), {_known} known false positive(s) ignored")
+        for f in _real[:12]:
+            print(f"  {_sev(f) or 'info'}: {f.get('code')} - {str(f.get('message') or '')[:160]}")
+        if any("VISUAL_TYPE_UNKNOWN" in str(f.get("code")) for f in _all):
+            print("  -> a visual type is not registered: the HTML Content visual will show 'add it to this report first'")

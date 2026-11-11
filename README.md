@@ -156,7 +156,7 @@ python -I versions.py snapshot "what changed" --fit "FIT OK" --results r_all.jso
 python -I gen_pbip.py                                                # write TMDL + visual.json
 ```
 
-Then into Desktop: with Microsoft's report-authoring CLI, `powerbi-report-author preview <folder> --host desktop --reload-with-model`; without it, **Apply external changes → Home ▸ Refresh** ([`build-workflow.md`](reference/build-workflow.md) §1, §1b).
+Then into Desktop, no click: `powerbi-report-author preview <folder> --host desktop --reload-with-model` (Microsoft's report-authoring CLI) or `python -I bridge.py reload` (report and model), then the Modeling MCP's `Calculate` refresh and a screenshot. Without either: **Apply external changes → Home ▸ Refresh** ([`build-workflow.md`](reference/build-workflow.md) §1b).
 
 Requirements: see [Requirements](#requirements). Details: [`tools/pbip-html-pipeline/README.md`](tools/pbip-html-pipeline/README.md).
 

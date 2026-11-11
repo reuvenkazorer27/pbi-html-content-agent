@@ -393,12 +393,23 @@ VAR _dots =
 
 
 # 6 --------------------------------------------------------------- treemap (two rows, proportional)
+def _fitcond(tv, row, width):
+    """treemap: DAX condition 'the value of this tile fits' - pixels when the card width is known, else a share of the row"""
+    if not width:
+        return f"DIVIDE ( [@v], {tv} ) >= 0.16"
+    # tile width = share of the row x (card width - 2 x 20 padding - 6px gaps); value text ~10px per character at 16px bold
+    return (f"DIVIDE ( [@v], {tv} ) * ( {int(width)} - 40 - 6 * ( COUNTROWS ( {row} ) - 1 ) ) - 16 "
+            f">= 10 * ( LEN ( {_fmt('[@v]')} ) - 2 )")
+
+
 def treemap_rows(table, category, value, title, subtitle, top=8, empty_text="No data", blank_label="-", colors="status", motion=False, alert=None,
-                 fill=None, short_when=2):
+                 fill=None, short_when=2, width=None):
     """Approximate treemap: largest categories split over two rows, tile width proportional to value.
     colors: "status" (default, status-token cycle) or "category" (stable color per category value).
     One tile takes the whole area; fill (DAX text, e.g. mix(...)) is shown under the tiles when there are at most short_when.
-    A tile narrower than 16% of its row shows its name only (ellipsis) - a cut number would misread."""
+    A tile too narrow for its value shows its name only (ellipsis) - a cut number would misread. width = the card's
+    width in px (from LAYOUT): the value is shown only where it fits in pixels; without width, tiles under 16% of their row
+    drop it (a rough rule - pass width)."""
     TILE = 'SWITCH ( _i, 0, "background:@@primary_soft@@;color:@@primary_text@@;border-top:3px solid @@primary@@", 1, "background:@@maint_soft@@;color:@@maint_text@@;border-top:3px solid @@maint@@", 2, "background:@@design_soft@@;color:@@design_text@@;border-top:3px solid @@design@@", 3, "background:@@done_soft@@;color:@@done_text@@;border-top:3px solid @@done@@", 4, "background:@@bad_soft@@;color:@@fg@@;border-top:3px solid @@bad@@", "background:@@neutral_soft@@;color:@@fg@@;border-top:3px solid @@muted@@" )'
     tile = (_catstyle(table, category, f"{_c(table, category)}", "background:@@{c}_soft@@;color:@@{c}_text@@;border-top:3px solid @@{c}@@")
             if _mode(colors, "status") else TILE)
@@ -418,13 +429,13 @@ VAR _r1 = CONCATENATEX ( _row1,
     RETURN "<div{_mf(motion, 'mo-pop', alert)} style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
         & {tile} & "'>"
         & "<div style='font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{_c(table, category)}", blank_label)} & "</div>"
-        & IF ( DIVIDE ( [@v], _t1 ) >= 0.16, "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div>" ) & "</div>", "", [@k], ASC )
+        & IF ( {_fitcond('_t1', '_row1', width)}, "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div>" ) & "</div>", "", [@k], ASC )
 VAR _r2 = CONCATENATEX ( _row2,
     VAR _i = MOD ( INT ( [@k] ) - 1, 6 )
     RETURN "<div{_mf(motion, 'mo-pop', alert)} style='flex:" & FORMAT ( MAX ( DIVIDE ( [@v], _tot ) * 1000, 1 ), "0" ) & " 1 0;min-width:0;border-radius:6px;padding:8px;box-sizing:border-box;overflow:hidden;"
         & {tile} & "'>"
         & "<div style='font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>" & {_cat(f"{_c(table, category)}", blank_label)} & "</div>"
-        & IF ( DIVIDE ( [@v], _t2 ) >= 0.16, "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div>" ) & "</div>", "", [@k], ASC )
+        & IF ( {_fitcond('_t2', '_row2', width)}, "<div style='font-size:16px;font-weight:700;direction:ltr;unicode-bidi:isolate;text-align:@@start@@'>" & {_fmt('[@v]')} & "</div>" ) & "</div>", "", [@k], ASC )
 """.replace("VAR _tiles = ( t ) => BLANK ()\n", "") + _wrap(title, subtitle,
             f"\"<div style='flex:1;display:flex;flex-direction:column;gap:6px;min-height:0'><div{_m(motion, 'mo-st')} style='flex:1;display:flex;gap:6px;min-height:0'>\" & _r1 & \"</div>\" & IF ( _r2 = \"\", \"\", \"<div{_m(motion, 'mo-st')} style='flex:1;display:flex;gap:6px;min-height:0'>\" & _r2 & \"</div>\" ){_fill(fill, f"_n <= {short_when}")} & \"</div>\"",
             empty_text, motion=motion)
