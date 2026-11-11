@@ -132,26 +132,27 @@ add("HTML Region Trend", K.small_multiples(T, "Region", "OrderDate", "[Orders]",
 add("HTML Background", '''"<div style='height:100vh;background:linear-gradient(135deg,@@bg_from@@ 0%,@@bg_mid@@ 55%,@@bg_to@@ 100%)'></div>"''', "HTML")
 
 # ---------------------------------------------------------------- layout (LTR authored; 1920x1080, margin 32, gutter 16)
+# header 80px: at 72 the accent style's top bar pushes the title 1px past the safe edge (FIT FAIL)
 # filter panel docked left (32..328); content 344..1888 = 1544 wide
 LAYOUT = [
     ("hcBackground",   "HTML Background",    0,    0,   1920, 1080),
-    ("hcHeader",       "HTML Header",        32,   24,  1856, 72),
-    ("hcFilterPanel",  "HTML Filter Panel",  32,   112, 296,  936),
-    ("hcKpiRevenue",   "HTML KPI Revenue",   344,  112, 374,  160),
-    ("hcKpiOrders",    "HTML KPI Orders",    734,  112, 374,  160),
-    ("hcKpiAov",       "HTML KPI AOV",       1124, 112, 374,  160),
-    ("hcKpiReturns",   "HTML KPI Returns",   1514, 112, 374,  160),
-    ("hcProducts",     "HTML Products",      344,  288, 504,  384),
-    ("hcRegionMix",    "HTML Region Mix",    864,  288, 504,  384),
-    ("hcRegionTrend",  "HTML Region Trend",  1384, 288, 504,  384),
-    ("hcReps",         "HTML Reps",          344,  688, 764,  360),
-    ("hcReturnsLift",  "HTML Returns Lift",   1124, 688, 764,  360),
+    ("hcHeader",       "HTML Header",        32,   24,  1856, 80),
+    ("hcFilterPanel",  "HTML Filter Panel",  32,   120, 296,  928),
+    ("hcKpiRevenue",   "HTML KPI Revenue",   344,  120, 374,  160),
+    ("hcKpiOrders",    "HTML KPI Orders",    734,  120, 374,  160),
+    ("hcKpiAov",       "HTML KPI AOV",       1124, 120, 374,  160),
+    ("hcKpiReturns",   "HTML KPI Returns",   1514, 120, 374,  160),
+    ("hcProducts",     "HTML Products",      344,  296, 504,  380),
+    ("hcRegionMix",    "HTML Region Mix",    864,  296, 504,  380),
+    ("hcRegionTrend",  "HTML Region Trend",  1384, 296, 504,  380),
+    ("hcReps",         "HTML Reps",          344,  692, 764,  356),
+    ("hcReturnsLift",  "HTML Returns Lift",   1124, 692, 764,  356),
 ]
 if P.get("bg_layer") != "1":
     LAYOUT.pop(0)
     M.pop("HTML Background")
-# slicer y = panel top 112 + title 64 + i*80 + label 24 (+16 panel padding)
-SLICERS = [(f"sl{f}", f, 48, 112 + 16 + 64 + 24 + 80 * i, 264, 40) for i, f in enumerate(FILTERS)]
+# slicer y = panel top 120 + title 64 + i*80 + label 24 (+16 panel padding)
+SLICERS = [(f"sl{f}", f, 48, 120 + 16 + 64 + 24 + 80 * i, 264, 40) for i, f in enumerate(FILTERS)]
 
 # RTL: mirror the LTR-authored layout (x' = page width - x - w); the filter panel docks right
 PAGE_W, PAGE_H = 1920, 1080
