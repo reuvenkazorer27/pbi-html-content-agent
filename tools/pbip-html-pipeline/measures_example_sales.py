@@ -3,13 +3,13 @@
 A whole dashboard from the kit's builders only: kpi_card (icons), treemap_rows, heat_matrix, small_multiples,
 data_table, lift_bars + an HTML filter panel over native slicers - everything except the slicers is HTML Content.
 Model: one table (pipeline.json "table") with OrderID, OrderDate, Region, Category, Product, Channel, Rep, Units,
-Amount, Discount, Status. Copy to measures.py to use it."""
+Amount, Discount, Status. Copy to measures.py to use it.
+Colors: the active style (styles.py, default accent) with a role per card; DASH_PALETTE=<name> still selects a legacy palette."""
 import os as _os, re as _re
 _os.environ.setdefault("DASH_DIR", "ltr")
 _os.environ.setdefault("DASH_LANG", "en")
-if not _os.environ.get("DASH_STYLE"):   # not ported to styles.py roles yet: legacy palettes unless a style is asked for
-    _os.environ.setdefault("DASH_PALETTE", "vivid")
 from palette import P, resolve
+import styles as S
 import components as K
 from config import TABLE
 
@@ -32,8 +32,17 @@ def _resolve_dir(text):
     return text
 
 
+ROLE = {   # one role per card (styles.py): a KPI and the chart about the same thing share a hue; one hero at most
+    "HTML Header": "neutral", "HTML Filter Panel": "neutral",
+    "HTML KPI Revenue": "hero", "HTML KPI Orders": "c1", "HTML KPI AOV": "c2", "HTML KPI Returns": "bad",
+    "HTML Products": "c3", "HTML Region Mix": "c1", "HTML Region Trend": "c4", "HTML Reps": "c2", "HTML Returns Lift": "bad",
+}
+
+
 def add(name, expr, folder, fmt=None):
     expr = _re.sub(r"font-size:(\d+)px", lambda m: f"font-size:{FONT_SCALE.get(int(m.group(1)), int(m.group(1)))}px", expr.strip())
+    if folder == "HTML":
+        expr = S.apply(expr, ROLE.get(name, "neutral"))   # no-op with a legacy palette
     M[name] = dict(expr=resolve(_resolve_dir(expr)), folder=folder, fmt=fmt)
 
 
@@ -65,7 +74,7 @@ RETURN
 
 
 # ---------------------------------------------------------------- KPI cards (filled with a categorical color)
-FILLED = P.get("kpi_filled") == "1"   # colorful palettes: deep filled cards; light palettes: light cards
+FILLED = P.get("kpi_filled") == "1"   # legacy palettes only: deep filled cards (a style colors KPIs by role)
 
 
 def kpi(name, title, value, fmt, icon, cat, sub):
@@ -126,7 +135,8 @@ add("HTML Reps", K.accent(K.data_table(
     header_accent="cat1", more_label="and {n} more reps", blank_label="Unassigned",
     tip_value='FORMAT ( [@s], "$#,0" )'), "cat1"), "HTML")
 add("HTML Returns Lift", K.lift_bars(T, "Product", f'{C("Status")} = "Returned"', "Where returns concentrate",
-                                     "Return share vs. the overall rate", top=7, colors="category"), "HTML")
+                                     "Return share vs. the overall rate", top=7, colors="category",
+                                     fill=K.mix(T, "Channel", "[Orders]", "Orders by channel")), "HTML")
 add("HTML Region Trend", K.small_multiples(T, "Region", "OrderDate", "[Orders]", "Orders by region",
                                            "Last 6 months, shared scale", top=6, colors="category"), "HTML")
 add("HTML Background", '''"<div style='height:100vh;background:linear-gradient(135deg,@@bg_from@@ 0%,@@bg_mid@@ 55%,@@bg_to@@ 100%)'></div>"''', "HTML")

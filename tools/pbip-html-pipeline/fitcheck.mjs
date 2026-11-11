@@ -91,6 +91,13 @@ const conTxt = con.result?.result?.value ?? ('CONTRAST CHECK ERROR ' + JSON.stri
 console.log(fitTxt); console.log(conTxt);
 if (shot) {
   await send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+  // the reference screenshot shows the resting layout (what the gate measured), not a frame mid-animation:
+  // entrances at their end, endless loops at their start (motion frames are checked with motion_frames.mjs)
+  await send('Runtime.evaluate', { expression: `document.querySelectorAll('iframe').forEach(f => { try {
+    (f.contentDocument.getAnimations ? f.contentDocument.getAnimations() : []).forEach(a => { try {
+      const t = a.effect.getComputedTiming(); a.pause(); a.currentTime = t.iterations === Infinity ? 0 : t.endTime; } catch (e) {} });
+  } catch (e) {} })` });
+  await sleep(100);
   const s = await send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(shot, Buffer.from(s.result.data, 'base64')); console.log('screenshot ' + shot);
 }

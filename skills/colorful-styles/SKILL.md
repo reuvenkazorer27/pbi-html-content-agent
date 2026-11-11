@@ -49,7 +49,9 @@ From `reference/design-system.md` §4:
    - Both reading directions if you ship both.
    - After Apply external changes + Refresh, take a Desktop screenshot.
 
-Note: `mode="dark"` with `mechanism="tint"` / `"tint-strong"` gives a dark page with **light tinted cards** (measured: card backgrounds `#EEFDFC`, `#FEF1F1` on a near-black page). For dark cards use a bar or chip mechanism (`midnight`, `ocean`).
+Dark + tint: `mode="dark"` with `mechanism="tint"` / `"tint-strong"` tints dark card surfaces in each role's hue (text pushed toward white), not light pastels on a dark page.
+
+A preset with some inputs changed: `"style": {"preset": "accent", "hero": false}` (or `"page": "#..."` for a colored page) - no need to copy the preset's colors.
 
 ## Choosing a mechanism
 
@@ -69,6 +71,3 @@ Note: `mode="dark"` with `mechanism="tint"` / `"tint-strong"` gives a dark page 
 - Do not hand-pick a text color. Use `styles.readable(color, [backgrounds], 4.5, toward)`.
 - Do not judge a style on the unfiltered page only.
 
-## Not covered yet
-
-The sales example (`measures_example_sales.py`) still has its own KPI cards and builds with the legacy palettes. Port it by giving its cards roles.

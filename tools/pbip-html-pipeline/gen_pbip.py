@@ -23,9 +23,50 @@ def lit(v):
     return {"expr": {"Literal": {"Value": v}}}
 
 
+# ---------------------------------------------------------------- before writing
+# Desktop with unsaved changes may not offer "Apply external changes" and a later save overwrites these files
+try:
+    import bridge as _br
+    from config import PROJECT as _PROJECT
+    for _i in _br.instances():
+        if os.path.basename(_i.get("currentFilePath") or "").lower() == f"{_PROJECT}.pbip".lower() and _i.get("hasUnsavedChanges"):
+            print(f"WARNING: Desktop (pid {_i['pid']}) has unsaved changes in {_PROJECT}.pbip - the Apply banner may not show, "
+                  "and saving in Desktop now would overwrite what is written here. See reference/build-workflow.md §1.")
+except Exception:
+    pass   # no bridge: nothing to check
+
+
+def _strip_generated(text):
+    """the host table's TMDL without the measures this pipeline generates (they are rebuilt from measures.py)"""
+    out, skip = [], False
+    for line in text.splitlines(keepends=True):
+        mm = re.match(r"\tmeasure '?(.*?)'? =", line)
+        if mm:
+            skip = mm.group(1) in M
+        elif re.match(r"\t\S", line):
+            skip = False
+        if not skip:
+            out.append(line)
+    return "".join(out)
+
+
+def _objects(text):
+    return set(re.findall(r"^\t(?:column|partition|hierarchy|calculationGroup) .*$", text, flags=re.M))
+
+
 # ---------------------------------------------------------------- TMDL
 # always rebuild from the untouched backup copy so reruns stay idempotent
 src = open(TMDL_BACKUP, encoding="utf-8").read()
+_live = open(TMDL, encoding="utf-8").read()
+_new = sorted(_objects(_live) - _objects(src))
+if "--refresh-backup" in sys.argv:
+    open(TMDL_BACKUP, "w", encoding="utf-8", newline="\n").write(_strip_generated(_live))
+    src = open(TMDL_BACKUP, encoding="utf-8").read()
+    print("backup refreshed from the live TMDL (generated measures removed)")
+elif _new:
+    raise SystemExit("the model changed after the backup was made - these objects of the host table are not in the backup and "
+                     "would be dropped:\n  " + "\n  ".join(o.strip() for o in _new) +
+                     "\nSave in Desktop, then run: python -I gen_pbip.py --refresh-backup   (nothing was written)")
 # optional: replace the table's partition M with a file from _build (pipeline.json "partition_m")
 if PARTITION_M:
     mcode = open(os.path.join(HERE, PARTITION_M), encoding="utf-8").read().strip("\n")
@@ -118,7 +159,14 @@ for i, (name, meas, x, y, w, h) in enumerate(LAYOUT):
         },
     })
 
+def _slicer_field(col):
+    """slicer column: a column of the host table, or any table's column written 'Table'[Column] / Table[Column]"""
+    mm = re.match(r"^'?(.+?)'?\[(.+)\]$", col)
+    return (mm.group(1), mm.group(2)) if mm else (ENTITY, col)
+
+
 for j, (name, col, x, y, w, h) in enumerate(SLICERS):
+    ent, col = _slicer_field(col)
     write_visual(name, {
         "$schema": VC_SCHEMA,
         "name": name,
@@ -126,8 +174,8 @@ for j, (name, col, x, y, w, h) in enumerate(SLICERS):
         "visual": {
             "visualType": "slicer",
             "query": {"queryState": {"Values": {"projections": [{
-                "field": {"Column": {"Expression": {"SourceRef": {"Entity": ENTITY}}, "Property": col}},
-                "queryRef": f"{ENTITY}.{col}",
+                "field": {"Column": {"Expression": {"SourceRef": {"Entity": ent}}, "Property": col}},
+                "queryRef": f"{ent}.{col}",
                 "nativeQueryRef": col,
                 "active": True,
             }]}}},

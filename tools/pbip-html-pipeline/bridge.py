@@ -43,8 +43,10 @@ def call(pid, method, args=None, wait=60):
             if "error" in out:
                 err = out["error"]
                 info = err.get("data") or {}
-                # the bridge marks transient states retryable (e.g. CaptureMetadataNotReady right after a reload)
-                if time.time() < end and (info.get("retryable") or "busy" in json.dumps(err).lower()):
+                # the bridge marks transient states retryable (e.g. CaptureMetadataNotReady right after a reload);
+                # PrintMetadataUnavailable (reported after a fresh open, before the page rendered once) is retried too
+                txt = json.dumps(err).lower()
+                if time.time() < end and (info.get("retryable") or any(k in txt for k in ("busy", "metadatanotready", "printmetadataunavailable"))):
                     time.sleep(max(0.5, (info.get("retryAfterMs") or 1000) / 1000))
                     continue
                 raise RuntimeError(f"{method}: {err}")
