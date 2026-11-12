@@ -29,12 +29,18 @@ def lit(v):
 try:
     import bridge as _br
     from config import PROJECT as _PROJECT
-    for _i in _br.instances():
-        if os.path.basename(_i.get("currentFilePath") or "").lower() == f"{_PROJECT}.pbip".lower() and _i.get("hasUnsavedChanges"):
+    _all = _br.instances()   # [] when no Desktop has the bridge: nothing to check, nothing to say
+    _mine = [i for i in _all if os.path.basename(i.get("currentFilePath") or "").lower() == f"{_PROJECT}.pbip".lower()]
+    for _i in _mine:
+        if _i.get("hasUnsavedChanges"):
             print(f"WARNING: Desktop (pid {_i['pid']}) has unsaved changes in {_PROJECT}.pbip - the Apply banner may not show, "
                   "and saving in Desktop now would overwrite what is written here. See reference/build-workflow.md §1.")
-except (Exception, SystemExit):
-    pass   # no bridge, or it did not answer: nothing to check
+    _unknown = [i for i in _all if i.get("error")]
+    if _unknown and not _mine:   # a window we could not ask may be this project's: say so once, not per window
+        print(f"note: unsaved-changes check incomplete - {len(_unknown)} Desktop window(s) did not answer the bridge "
+              f"({_unknown[0]['error']})")
+except (Exception, SystemExit) as _e:   # never block the write on the bridge - but say that the check did not run
+    print(f"note: unsaved-changes check skipped - the Desktop Bridge failed: {_e}")
 
 
 def _strip_generated(text):

@@ -1,6 +1,6 @@
 # Contributing to the kit
 
-Work happens through pull requests: one branch per change, a review on the PR, merge through the PR - never directly to `main`. Every change to the pipeline or an example must pass `regress.py`, `fitcheck.mjs` and `stress.py` (and `style_check.py` for color changes). Never commit keys, env files, pulled data or `.pbi` caches (see `.gitignore` and `reference/build-workflow.md`).
+Work happens through pull requests: one branch per change, a review on the PR, merge through the PR - never directly to `main`. Every change to the pipeline or an example must pass `regress.py`, `fitcheck.mjs` and `stress.py` (and `style_check.py` for color changes, `python -I logo.py selftest` for changes to `logo.py`, `bridge.py` or the style resolution). Never commit keys, env files, pulled data or `.pbi` caches (see `.gitignore` and `reference/build-workflow.md`).
 
 ## Releasing
 
