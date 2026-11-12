@@ -39,9 +39,11 @@ def check(layout, slicers, page_w=1920, page_h=1080):
         for n2, r2 in body[i + 1:]:
             if _overlap(r1, r2):
                 bad.append(f"{n1} {r1} overlaps {n2} {r2}")
+    # Pattern A (one fullscreen HTML visual): the page visual itself hosts the slicers and nav buttons
+    pool = body if body else [(n, r) for n, r in html if n in layers]
     for i, (n, r) in enumerate(sl):
-        hosts = [hn for hn, hr in body if _inside(r, hr)]
-        hits = [hn for hn, hr in body if _overlap(r, hr) and hn not in hosts]
+        hosts = [hn for hn, hr in pool if _inside(r, hr)]
+        hits = [hn for hn, hr in pool if _overlap(r, hr) and hn not in hosts]
         if len(hosts) != 1:
             bad.append(f"slicer {n} {r} must sit inside exactly one HTML panel (found {hosts or 'none'})")
         if hits:

@@ -86,7 +86,18 @@ Uiverse.io is an open-source library of HTML/CSS elements (github.com/uiverse-io
      Scaling: give EVERY root `<div>` in the DAX - the empty-state branch too - `style='{page_kit.zoom_root_style()}'` (design size + CSS `zoom`), because px computed in DAX escape `fluid()`. Gate the DAX outputs at the design size (zoom = 1). *(measured: complete page in Desktop with the filter pane open; a pin placed only on the first `<div` of the expression landed in the empty-state branch and the page was clipped)*
    - Then the normal loop (`reference/build-workflow.md`): `gen_pbip.py`, `versions.py snapshot`, reload, Calculate, Desktop screenshot.
 
-## 7. Traps (measured unless marked)
+## 7. Side menu across pages, and native slicers
+
+A motion-designed page is still a Power BI page: navigation and filtering are native, the HTML draws them (`skills/navigation-header-menu`, `skills/html-slicers-filters`).
+
+- **One source of truth for coordinates.** The generator defines every menu-item and slicer-slot rectangle once (page px on the 1920 x 1080 design canvas) and uses the same numbers twice: to draw the HTML (absolute boxes) and to write `PAGES` in `measures.py`. Power BI scales the canvas and the visual by the same factor, and the HTML scales with `--u` / zoom, so the native visuals stay aligned.
+- **Side menu**: an HTML rail with one item per page (icon, label, the page's own short metric is fine). Each page is its own measure and marks ITSELF as the active item - a static active state is honest here because the measure belongs to that page. Over every item sits a native blank button (`NAV` entry: `(name, target page id, x, y, w, h)`), written by `gen_pbip.py` as an invisible `actionButton` with Page navigation. No hover-only effects on items (there is no hover feedback through the overlay).
+- **Native slicers**: the HTML draws a filter panel with a label and a `data-fill='slot'` box per slicer; the native dropdown slicer sits exactly on the slot (`SLICERS` entry: `(name, column, x, y, w, h)`, 40 px high). The slicer colours come from the pipeline palette - pick the pipeline `style` (light / dark) that matches the page. Panels that hold slots never animate (slicers would float).
+- **The page must react to the slicers**: that needs live DAX measures (section 6 step 4). A static study cannot be tested with slicers - say so. Show the active filter in the HTML (e.g. "Region: Europe" from `SELECTEDVALUE` / `ISFILTERED`) so the page states its own context.
+- **Both pages share the slicers' state** only if the slicers are synced (View > Sync slicers) - otherwise each page keeps its own; say which in the deliverable.
+- `measures.py`: `PAGES = [{"id": "<page folder>", "name": "Overview", "LAYOUT": [(...)], "SLICERS": [(...)], "NAV": [(...)]}, ...]` - the first page is `pipeline.json`'s `page_id`; `gen_pbip.py` creates the other page folders, `pages.json` order and the buttons, and `layout_check` requires every slicer and button to sit inside exactly one HTML visual.
+
+## 8. Traps (measured unless marked)
 
 - **Desktop injects its own line-height / font-size into the visual** *(measured)*: a page that fit in the browser was clipped at the bottom in Desktop. `page_kit.fluid` pins both on the root.
 - **Fixed px vs the visual size** *(measured)*: `--u = min(100vw/W, 100vh/H)` is exactly 1 px at the design size (pixel-identical render) and scales the page with the visual. A live DAX page uses `page_kit.zoom_root_style()` instead (section 6).
@@ -105,10 +116,10 @@ Uiverse.io is an open-source library of HTML/CSS elements (github.com/uiverse-io
 - **Measure names must not equal a column name** of the host table *(measured)*: Desktop refuses to load the model; a DAX query with `DEFINE MEASURE` does not catch it.
 - **Untested in Desktop so far** (may degrade, text stays readable): `backdrop-filter`, SVG `feTurbulence`, `mask-image`, blend modes, animated `filter:blur()`, `font-stretch` on Bahnschrift.
 
-## 8. Hebrew / RTL
+## 9. Hebrew / RTL
 
 Root `dir='rtl' lang='he'`, layout mirrored with logical properties, every number / percent / id isolated (`<bdi>` or `direction:ltr;unicode-bidi:isolate`), Hebrew month abbreviations with geresh. **Time axes run left to right** (as `skills/rtl-hebrew` says) and carry a label ("ציר הזמן: משמאל לימין"); a grid of period frames counts as a time axis. **No letter-spacing on Hebrew text**: in languages with tracked caps (3, 9) the tracking applies to Latin and digits only; Hebrew labels stay untracked, weight carries the emphasis.
 
-## 9. Deliverable
+## 10. Deliverable
 
 Per page: the design language and hero device, how each data field maps to a visual, the gate lines for the page and every stress variant, the Uiverse elements used (path, author, MIT), static vs live DAX, what was checked in Desktop vs only in the headless gate, and the motion budget (settles by N s, loops: none).

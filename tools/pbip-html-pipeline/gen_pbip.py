@@ -4,14 +4,25 @@ import sys, os, json, uuid, re
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from measures import M, LAYOUT, SLICERS
-from config import TMDL, TMDL_BACKUP, REPORT_DIR, PAGE_DIR, TABLE as ENTITY, PAGE_DISPLAY_NAME, PARTITION_M, LINEAGE_NS, require_paths
+from config import TMDL, TMDL_BACKUP, REPORT_DIR, PAGE_DIR, PAGE_ID, TABLE as ENTITY, PAGE_DISPLAY_NAME, PARTITION_M, LINEAGE_NS, require_paths
 
 require_paths()
 import measures as _ms
 from layout_check import check as _layout_check
-_problems = _layout_check(LAYOUT, SLICERS, getattr(_ms, "PAGE_W", 1920), getattr(_ms, "PAGE_H", 1080))
-if _problems:   # never place a visual on top of another - fix LAYOUT / SLICERS first
-    raise SystemExit("layout check failed, nothing written:\n  " + "\n  ".join(_problems))
+# Several pages (optional): measures.PAGES = [{"id": folder, "name": display name, "LAYOUT": [...], "SLICERS": [...],
+#   "NAV": [(visual name, target page id, x, y, w, h), ...]}, ...]; the first page is pipeline.json's page_id.
+# Without PAGES: one page from LAYOUT / SLICERS (+ optional measures.NAV), exactly as before.
+PAGES = getattr(_ms, "PAGES", None) or [{"id": PAGE_ID, "name": PAGE_DISPLAY_NAME, "LAYOUT": LAYOUT, "SLICERS": SLICERS,
+                                         "NAV": getattr(_ms, "NAV", [])}]
+_ids = {p["id"] for p in PAGES}
+for _p in PAGES:
+    for _n, _t, *_r in _p.get("NAV", []):
+        if _t not in _ids:
+            raise SystemExit(f"nav button {_n} on page {_p['id']} points to page {_t!r}, which is not in PAGES (nothing written)")
+    _problems = _layout_check(_p["LAYOUT"], list(_p.get("SLICERS", [])) + [(n, t, *r) for n, t, *r in _p.get("NAV", [])],
+                              getattr(_ms, "PAGE_W", 1920), getattr(_ms, "PAGE_H", 1080))
+    if _problems:   # never place a visual on top of another - fix LAYOUT / SLICERS / NAV first
+        raise SystemExit(f"layout check failed on page {_p['id']}, nothing written:\n  " + "\n  ".join(_problems))
 REPORT = os.path.join(REPORT_DIR, "definition")
 HTML_GUID = "htmlContent443BE3AD55E043BF878BED274D3A6865"  # HTML Content Secure (certified)
 VC_SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json"
@@ -147,22 +158,7 @@ if _rt:
         print(f"report theme: {_fname}")
 json.dump(rep, open(rp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
-# ---------------------------------------------------------------- page.json
-pp = os.path.join(PAGE_DIR, "page.json")
-page = json.load(open(pp, encoding="utf-8"))
-if PAGE_DISPLAY_NAME:
-    page["displayName"] = PAGE_DISPLAY_NAME
-# the layout is authored for a fixed canvas: write it, or a new (scaffolded) page stays 1280x720 and clips everything
-page["width"], page["height"] = getattr(_ms, "PAGE_W", 1920), getattr(_ms, "PAGE_H", 1080)
-page["displayOption"] = "FitToPage"
-color = {"solid": {"color": lit(f"'{BG}'")}}
-page["objects"] = {
-    "background": [{"properties": {"color": color, "transparency": lit("0D")}}],
-    "outspace": [{"properties": {"color": color, "transparency": lit("0D")}}],
-}
-json.dump(page, open(pp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-
-# ---------------------------------------------------------------- visuals
+# ---------------------------------------------------------------- pages and visuals
 NO_CHROME = {
     "background": [{"properties": {"show": lit("false")}}],
     "border": [{"properties": {"show": lit("false")}}],
@@ -172,40 +168,10 @@ NO_CHROME = {
     # the Fluent 2 theme pads every visual 16/14/16/16 -> the HTML viewport would be 30px shorter than the frame
     "padding": [{"properties": {"top": lit("0D"), "bottom": lit("0D"), "left": lit("0D"), "right": lit("0D")}}],
 }
-
-
-def write_visual(name, body):
-    d = os.path.join(PAGE_DIR, "visuals", name)
-    os.makedirs(d, exist_ok=True)
-    json.dump(body, open(os.path.join(d, "visual.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-
-
-# generated visuals (hc*/sl*) that the current layout no longer has would point at a removed measure
 import shutil
-_keep = {n for n, *_ in LAYOUT} | {n for n, *_ in SLICERS}
-_vdir = os.path.join(PAGE_DIR, "visuals")
-for _d in sorted(os.listdir(_vdir)) if os.path.isdir(_vdir) else []:
-    if _d[:2] in ("hc", "sl") and _d not in _keep:
-        shutil.rmtree(os.path.join(_vdir, _d))
-        print("removed stale generated visual:", _d)
+PAGES_DIR = os.path.join(REPORT, "pages")
+_template = json.load(open(os.path.join(PAGE_DIR, "page.json"), encoding="utf-8"))
 
-z = 1000
-for i, (name, meas, x, y, w, h) in enumerate(LAYOUT):
-    write_visual(name, {
-        "$schema": VC_SCHEMA,
-        "name": name,
-        "position": {"x": x, "y": y, "z": z + i, "width": w, "height": h, "tabOrder": i},
-        "visual": {
-            "visualType": HTML_GUID,
-            "query": {"queryState": {"content": {"projections": [{
-                "field": {"Measure": {"Expression": {"SourceRef": {"Entity": ENTITY}}, "Property": meas}},
-                "queryRef": f"{ENTITY}.{meas}",
-                "nativeQueryRef": meas,
-            }]}}},
-            "visualContainerObjects": NO_CHROME,
-            "drillFilterOtherVisuals": True,
-        },
-    })
 
 def _slicer_field(col):
     """slicer column: a column of the host table, or any table's column written 'Table'[Column] / Table[Column]"""
@@ -213,34 +179,117 @@ def _slicer_field(col):
     return (mm.group(1), mm.group(2)) if mm else (ENTITY, col)
 
 
-for j, (name, col, x, y, w, h) in enumerate(SLICERS):
-    ent, col = _slicer_field(col)
-    write_visual(name, {
-        "$schema": VC_SCHEMA,
-        "name": name,
-        "position": {"x": x, "y": y, "z": 5000 + j, "width": w, "height": h, "tabOrder": 100 + j},
-        "visual": {
-            "visualType": "slicer",
-            "query": {"queryState": {"Values": {"projections": [{
-                "field": {"Column": {"Expression": {"SourceRef": {"Entity": ent}}, "Property": col}},
-                "queryRef": f"{ent}.{col}",
-                "nativeQueryRef": col,
-                "active": True,
-            }]}}},
-            "objects": {
-                "data": [{"properties": {"mode": lit("'Dropdown'")}}],
-                "header": [{"properties": {"show": lit("false")}}],
-                # palette-driven so a dark page never gets a white dropdown (verified names: items.fontColor / items.background)
-                "items": [{"properties": {
-                    "fontColor": {"solid": {"color": lit(f"'{PAL['slicer_fg']}'")}},
-                    "background": {"solid": {"color": lit(f"'{PAL['slicer_bg']}'")}},
-                }}],
+def write_page(pg):
+    pdir = os.path.join(PAGES_DIR, pg["id"])
+    os.makedirs(pdir, exist_ok=True)
+    pp = os.path.join(pdir, "page.json")
+    page = json.load(open(pp, encoding="utf-8")) if os.path.exists(pp) else {"$schema": _template.get("$schema")}
+    page["name"] = pg["id"]
+    if pg.get("name"):
+        page["displayName"] = pg["name"]
+    page.setdefault("displayName", pg["id"])
+    # the layout is authored for a fixed canvas: write it, or a new (scaffolded) page stays 1280x720 and clips everything
+    page["width"], page["height"] = getattr(_ms, "PAGE_W", 1920), getattr(_ms, "PAGE_H", 1080)
+    page["displayOption"] = "FitToPage"
+    color = {"solid": {"color": lit(f"'{BG}'")}}
+    page["objects"] = {
+        "background": [{"properties": {"color": color, "transparency": lit("0D")}}],
+        "outspace": [{"properties": {"color": color, "transparency": lit("0D")}}],
+    }
+    json.dump(page, open(pp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    vdir = os.path.join(pdir, "visuals")
+
+    def write_visual(name, body):
+        d = os.path.join(vdir, name)
+        os.makedirs(d, exist_ok=True)
+        json.dump(body, open(os.path.join(d, "visual.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+
+    layout, slicers, nav = pg["LAYOUT"], pg.get("SLICERS", []), pg.get("NAV", [])
+    # generated visuals (hc*/sl*/nv*) that the current layout no longer has would point at a removed measure
+    keep = {n for n, *_ in layout} | {n for n, *_ in slicers} | {n for n, *_ in nav}
+    for _d in sorted(os.listdir(vdir)) if os.path.isdir(vdir) else []:
+        if _d[:2] in ("hc", "sl", "nv") and _d not in keep:
+            shutil.rmtree(os.path.join(vdir, _d))
+            print("removed stale generated visual:", pg["id"], _d)
+    for i, (name, meas, x, y, w, h) in enumerate(layout):
+        write_visual(name, {
+            "$schema": VC_SCHEMA,
+            "name": name,
+            "position": {"x": x, "y": y, "z": 1000 + i, "width": w, "height": h, "tabOrder": i},
+            "visual": {
+                "visualType": HTML_GUID,
+                "query": {"queryState": {"content": {"projections": [{
+                    "field": {"Measure": {"Expression": {"SourceRef": {"Entity": ENTITY}}, "Property": meas}},
+                    "queryRef": f"{ENTITY}.{meas}",
+                    "nativeQueryRef": meas,
+                }]}}},
+                "visualContainerObjects": NO_CHROME,
+                "drillFilterOtherVisuals": True,
             },
-            "visualContainerObjects": NO_CHROME,
-            "drillFilterOtherVisuals": True,
-        },
-    })
-print("visuals:", len(LAYOUT) + len(SLICERS))
+        })
+    for j, (name, col, x, y, w, h) in enumerate(slicers):
+        ent, col = _slicer_field(col)
+        write_visual(name, {
+            "$schema": VC_SCHEMA,
+            "name": name,
+            "position": {"x": x, "y": y, "z": 5000 + j, "width": w, "height": h, "tabOrder": 100 + j},
+            "visual": {
+                "visualType": "slicer",
+                "query": {"queryState": {"Values": {"projections": [{
+                    "field": {"Column": {"Expression": {"SourceRef": {"Entity": ent}}, "Property": col}},
+                    "queryRef": f"{ent}.{col}",
+                    "nativeQueryRef": col,
+                    "active": True,
+                }]}}},
+                "objects": {
+                    "data": [{"properties": {"mode": lit("'Dropdown'")}}],
+                    "header": [{"properties": {"show": lit("false")}}],
+                    # palette-driven so a dark page never gets a white dropdown (verified names: items.fontColor / items.background)
+                    "items": [{"properties": {
+                        "fontColor": {"solid": {"color": lit(f"'{PAL['slicer_fg']}'")}},
+                        "background": {"solid": {"color": lit(f"'{PAL['slicer_bg']}'")}},
+                    }}],
+                },
+                "visualContainerObjects": NO_CHROME,
+                "drillFilterOtherVisuals": True,
+            },
+        })
+    # native page-navigation buttons over the HTML menu items (skills/navigation-header-menu): blank and invisible,
+    # the action in visualContainerObjects.visualLink (names from `powerbi-report-author formatting describe-object`)
+    off = {"properties": {"show": lit("false")}}
+    for k, (name, target, x, y, w, h) in enumerate(nav):
+        write_visual(name, {
+            "$schema": VC_SCHEMA,
+            "name": name,
+            "position": {"x": x, "y": y, "z": 6000 + k, "width": w, "height": h, "tabOrder": 200 + k},
+            "visual": {
+                "visualType": "actionButton",
+                "objects": {
+                    "icon": [{"properties": {"shapeType": lit("'blank'")}, "selector": {"id": "default"}}],
+                    "text": [off], "outline": [off],
+                    "fill": [{"properties": {"show": lit("false"), "transparency": lit("100D")}, "selector": {"id": st}}
+                             for st in ("default", "hover", "selected", "disabled")],
+                },
+                "visualContainerObjects": {
+                    **{kk: vv for kk, vv in NO_CHROME.items() if kk != "padding"},
+                    "visualLink": [{"properties": {"show": lit("true"), "type": lit("'PageNavigation'"),
+                                                   "navigationSection": lit(f"'{target}'")}}],
+                },
+            },
+            "howCreated": "InsertVisualButton",
+        })
+    return len(layout) + len(slicers) + len(nav)
+
+
+_count = sum(write_page(pg) for pg in PAGES)
+# pages.json: every generated page in order, the first one opens
+_pj = os.path.join(PAGES_DIR, "pages.json")
+_pages = json.load(open(_pj, encoding="utf-8"))
+_order = [p["id"] for p in PAGES]
+_pages["pageOrder"] = _order + [p for p in _pages.get("pageOrder", []) if p not in _order]
+_pages["activePageName"] = _order[0]
+json.dump(_pages, open(_pj, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+print("pages:", len(PAGES), "| visuals:", _count)
 
 # Microsoft's PBIR validator, when installed (doc: reference/build-workflow.md §1b) - e.g. an unregistered custom visual
 import shutil as _sh, subprocess as _sp
