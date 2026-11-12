@@ -84,6 +84,7 @@ HEX = re.compile(r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
 NAMED = {"black": "#000000", "white": "#FFFFFF", "red": "#FF0000", "green": "#008000", "blue": "#0000FF",
          "yellow": "#FFFF00", "orange": "#FFA500", "purple": "#800080", "gray": "#808080", "grey": "#808080",
          "navy": "#000080", "teal": "#008080", "maroon": "#800000"}
+PAINT = ("fill", "stroke", "font-size")   # the cascaded properties that weigh a color (font-size: a wordmark's area)
 SHAPES = ("rect", "circle", "ellipse", "path", "polygon", "polyline", "line", "text")
 HIDDEN = ("defs", "clipPath", "mask", "symbol", "pattern", "marker", "style", "title", "desc", "metadata")
 XLINK = "{http://www.w3.org/1999/xlink}href"
@@ -113,8 +114,6 @@ def _area(tag, attrs):
         return 3.1416 * num("r") ** 2
     if tag == "ellipse":
         return 3.1416 * num("rx") * num("ry")
-    if tag == "text":
-        return 1.2 * num("font-size", 16) ** 2   # a word of strokes, not its bounding box
     if tag == "line":
         return 4 * (abs(num("x2") - num("x1")) + abs(num("y2") - num("y1")))
     if tag in ("path", "polygon", "polyline"):
@@ -149,12 +148,29 @@ def _paints(value, grads):
     return [NAMED[v.lower()]] if v.lower() in NAMED else []
 
 
+_SIZES = {"xx-small": 9, "x-small": 10, "small": 13, "medium": 16, "large": 18, "x-large": 24, "xx-large": 32}
+
+
+def _px(value, parent):
+    """a CSS font-size -> px: px / unitless (user units) / pt / em / rem / % / keywords; anything else = the parent's"""
+    v = str(value).replace("!important", "").strip().lower()
+    if v in _SIZES:
+        return float(_SIZES[v])
+    if v in ("smaller", "larger"):
+        return parent / 1.2 if v == "smaller" else parent * 1.2
+    m = re.fullmatch(r"(\d+(?:\.\d*)?|\.\d+)\s*(px|pt|em|rem|%)?", v)   # '1.2.3' -> no match -> parent
+    if not m:
+        return parent   # 'inherit', calc(), var(): keep the inherited size
+    n, unit = float(m.group(1)), m.group(2) or "px"
+    return {"px": n, "pt": n * 4 / 3, "em": n * parent, "rem": n * 16.0, "%": n / 100 * parent}[unit]
+
+
 def _local(tag):
     return tag.rsplit("}", 1)[-1] if isinstance(tag, str) else ""
 
 
 def _css_rules(root):
-    """[(compound selector, {fill/stroke})] in source order. A selector is matched on its last compound
+    """[(compound selector, {fill / stroke / font-size})] in source order. A selector is matched on its last compound
     (tag, .class, #id, combined): `svg path`, `g .cls-1`, `path.cls-1`, `#a`, `*` - an approximation that covers
     logo exports; specificity is not modeled, the later rule wins."""
     css = " ".join(el.text or "" for el in root.iter() if _local(el.tag) == "style")
@@ -162,7 +178,7 @@ def _css_rules(root):
     rules = []
     for sel, body in re.findall(r"([^{}@]+)\{([^{}]*)\}", css):
         props = {k.strip().lower(): v.strip() for k, v in re.findall(r"([\w-]+)\s*:\s*([^;]+)", body)
-                 if k.strip().lower() in ("fill", "stroke")}
+                 if k.strip().lower() in PAINT}
         for s in sel.split(","):
             last = re.split(r"[\s>+~]+", s.strip())[-1]
             if props and re.fullmatch(r"[a-zA-Z*]*(?:[.#][\w-]+)*", last or "-"):
@@ -212,14 +228,16 @@ def _svg_pairs(txt):
 
     def cascade(el, inherited):
         paint = dict(inherited)
-        for k in ("fill", "stroke"):          # presentation attribute < CSS rule < inline style
+        for k in PAINT:                       # presentation attribute < CSS rule < inline style
             if el.get(k) is not None:
                 paint[k] = el.get(k)
         paint.update(_css_for(el, rules))
-        paint.update({k: v.strip() for k, v in re.findall(r"(fill|stroke)\s*:\s*([^;]+)", el.get("style", ""))})
+        paint.update({k: v.strip() for k, v in re.findall(r"(fill|stroke|font-size)\s*:\s*([^;]+)", el.get("style", ""))})
         for k in ("fill", "stroke"):
             if (paint.get(k) or "").strip() == "inherit":
                 paint[k] = inherited.get(k)
+        if isinstance(paint.get("font-size"), str):   # set on this element: to px against the inherited size
+            paint["font-size"] = _px(paint["font-size"], inherited.get("font-size") or 16.0)
         return paint
 
     def add(paint, area, line=False):
@@ -243,23 +261,29 @@ def _svg_pairs(txt):
             else:                                # a <g> or a shape keeps its own paint (cascaded over the <use>'s)
                 walk(target, paint, depth + 1)
             return
-        if tag == "text":   # a wordmark: weighted by font size, split over its <tspan>s by their share of letters
-            area = _area("text", el.attrib)
-            parts = [((el.text or "").strip(), paint)] + [((t.text or "").strip(), cascade(t, paint))
-                                                          for t in el if _local(t.tag) == "tspan"]
-            letters = sum(len(s) for s, _ in parts) or 1
-            for s, p in parts:
-                if s:
-                    add(p, area * len(s) / letters)
-            if not any(s for s, _ in parts):
-                add(paint, area)
+        if tag == "text":   # a wordmark: weighted by its font size, split over its runs by their share of letters
+            runs = []
+
+            def collect(node, p):   # the node's own text, its <tspan>/<a> children (nested), and each child's tail
+                runs.append(((node.text or "").strip(), p))
+                for ch in node:
+                    if _local(ch.tag) in ("tspan", "a", "textPath"):
+                        collect(ch, cascade(ch, p))
+                    runs.append(((ch.tail or "").strip(), p))   # text after </tspan> is painted like its parent
+            collect(el, paint)
+            letters = sum(len(t) for t, _ in runs)
+            for t, p in runs:   # each run by its own size: 1.2 * size^2 for the whole word, shared by letters
+                if t:
+                    add(p, 1.2 * (p.get("font-size") or 16.0) ** 2 * len(t) / letters)
+            if not letters:
+                add(paint, 1.2 * (paint.get("font-size") or 16.0) ** 2)
             return
         if tag in SHAPES:
             add(paint, _area(tag, el.attrib), line=tag == "line")
         for ch in el:
             walk(ch, paint, depth)
 
-    walk(root, {"fill": "#000000", "stroke": None})   # SVG default fill is black
+    walk(root, {"fill": "#000000", "stroke": None, "font-size": None})   # SVG default fill is black
     return pairs
 
 
@@ -399,10 +423,15 @@ def colors(p=None):
 
 # ---------------------------------------------------------------- check
 def selftest():
-    """the cases two code reviews found (12 Nov 2026), no model or Desktop needed: python -I logo.py selftest"""
-    import subprocess
+    """the cases the code reviews found (12 Nov 2026), no model or Desktop needed: python -I logo.py selftest"""
     import tempfile
-    d, fails = tempfile.mkdtemp(), []
+    with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as tmp:   # nothing left in %TEMP%
+        return _selftest(d, tmp)
+
+
+def _selftest(d, tmp):
+    import subprocess
+    fails = []
 
     def svg(name, body, vb="0 0 200 60", head=""):
         p = os.path.join(d, name + ".svg")
@@ -443,8 +472,12 @@ def selftest():
                                             "<use xlink:href='#k'/>"), "#DC2626", None),
         ("two-color <tspan> wordmark", svg("t", "<rect width='20' height='20' fill='#0B5D6B'/><text font-size='40'><tspan fill='#0B5D6B'>Tide"
                                                 "</tspan><tspan fill='#F28C38'>well</tspan></text>"), "#0B5D6B", "#F28C38"),
+        ("text after </tspan> keeps the parent's color", svg("tail", "<text font-size='40' fill='#12343B'><tspan fill='#F28C38'>T"
+                                                              "</tspan>idewell Group</text>"), "#12343B", None),
+        ("nested <tspan> colors", svg("nest", "<rect width='9' height='9' fill='#0B5D6B'/><text font-size='40'><tspan fill='#0B5D6B'>Tide"
+                                            "<tspan fill='#F28C38'>well</tspan></tspan></text>"), "#0B5D6B", "#F28C38"),
         ("BOM + XML declaration", svg("bom", "<rect width='9' height='9' fill='#0B5D6B'/>", "0 0 9 9",
-                                      "﻿<?xml version='1.0' encoding='UTF-8'?>"), "#0B5D6B", None),
+                                      "\ufeff<?xml version='1.0' encoding='UTF-8'?>"), "#0B5D6B", None),
     ]
     for label, p, brand, accent in cases:
         try:
@@ -466,11 +499,10 @@ def selftest():
     frag = fragment(svg("fs", "<rect width='9' height='9' fill='#000'/><text style='font-size:22px'>A</text>"), 40)
     expect("font-size survives FONT_SCALE", "font-size:22.0px" in frag)
     expect("a logo never mirrors", "direction:ltr" in fragment(tw, 40))
-    expect("no BOM in the fragment", "﻿" not in fragment(os.path.join(d, "bom.svg"), 40))
+    expect("no BOM in the fragment", "\ufeff" not in fragment(os.path.join(d, "bom.svg"), 40))
     # `import logo` before palette, with "style": {"logo": true}: was a circular-import crash
-    tmp = tempfile.mkdtemp()
     for f in os.listdir(HERE):
-        if f.endswith(".py") and f != "pipeline.json":
+        if f.endswith(".py"):
             open(os.path.join(tmp, f), "w", encoding="utf-8").write(open(os.path.join(HERE, f), encoding="utf-8").read())
     json.dump({"project": "x", "table": "T", "page_id": "p", "backup_dir": "_b", "logo": {"path": tw},
                "style": {"logo": True, "preset": "mint"}}, open(os.path.join(tmp, "pipeline.json"), "w"))
@@ -478,9 +510,28 @@ def selftest():
     r = subprocess.run([sys.executable, "-I", "-c", f"import sys; sys.path.insert(0, {tmp!r}); import logo, palette; "
                         "print(palette.P['primary'])"], capture_output=True, text=True, env=env, cwd=tmp)
     expect("`import logo` first with a logo style", r.returncode == 0 and "#0B5D6B" in r.stdout.upper())
+    if r.returncode or "#0B5D6B" not in r.stdout.upper():
+        print("     " + (r.stdout + r.stderr).strip()[-1500:].replace("\n", "\n     "))
     import bridge
     expect("bridge: report title vs opening title",
-           bridge.is_report_title("sales-demo") and not bridge.is_report_title("Untitled - Power BI Desktop"))
+           bridge.is_report_title("sales-demo") and not bridge.is_report_title("Untitled - Power BI Desktop")
+           and not bridge.is_report_title("ללא שם - Power BI Desktop"))
+    expect("bridge: '<project> - Power BI Desktop' is the project's report",
+           bridge.is_report_title("sales-demo - Power BI Desktop", "sales-demo")
+           and not bridge.is_report_title("Untitled - Power BI Desktop", "sales-demo"))
+    # a wordmark sized by CSS weighs by that size: the 48px dark word outweighs the small mark
+    big = svg("fsz", "<style>.w{font-size:48px;fill:#12343B}</style><rect width='30' height='30' fill='#F28C38'/>"
+                     "<text class='w'>Tidewell</text>")
+    cols = extract(big)
+    expect("CSS font-size weighs the wordmark", cols[0][0] == "#12343B")
+    rel = extract(svg("rel", "<rect width='40' height='40' fill='#F28C38'/><g font-size='20'>"
+                             "<text font-size='50%' fill='#12343B'>Tidewell</text></g>"))
+    expect("relative font-size (50% of 20px = 10px) is not read as 50px", rel[0][0] == "#F28C38")
+    per = colors(svg("per", "<text font-size='14'><tspan font-size='48' fill='#0B5D6B'>TIDE</tspan>"
+                            "<tspan fill='#F28C38'>well</tspan></text>"))
+    expect("a <tspan>'s own font-size weighs its run", per["brand"] == "#0B5D6B")
+    expect("bridge: another report that starts with the project's name is not this project's",
+           not bridge.is_report_title("sales-archive - Power BI Desktop", "sales"))
     print("SELFTEST OK" if not fails else f"SELFTEST FAIL ({len(fails)})")
     return 0 if not fails else 1
 
