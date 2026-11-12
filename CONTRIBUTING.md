@@ -12,6 +12,8 @@ Users get a change only when the version changes, so bump `version` in both `pac
 
 When you measure something new in Desktop that is true for everyone (not specific to one model or one person), add it as a rule to the document it belongs to - `reference/design-system.md`, `reference/build-workflow.md`, `reference/pbir-visual-json.md`, a skill or the checklist - with the reason and how to verify it. One rule lives in one place; other files link to it. Do not keep a diary of sessions, names or chat quotes in this kit.
 
+**The kit stays general: improvements only, no reports.** A PR carries the improvement itself, written into the file where it belongs (code, an existing reference page, a skill, the checklist). Never commit test reports, dashboards or measures built for one user's model, screenshots of a run, or a new Markdown file that only records what happened in a session - those stay with the project they were made for. Prefer extending an existing page over adding a new `.md` file; a new file needs a reason that no existing page can hold the content.
+
 ## Adding a component
 
 - Demand before build. Before adding a component to the library, find evidence that users actually ask for it (Microsoft Fabric Ideas, r/PowerBI, community blogs; AppSource download leaderboards only as a labeled proxy) - not only that the catalog lacks it. Record the evidence, the native status, the HTML feasibility and the build/skip decision in `research/user-demand.md`. Note that some teams avoid custom visuals for maintainability reasons; the library answers this with few, strong, documented components that run in the certified Secure edition.

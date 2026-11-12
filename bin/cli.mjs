@@ -76,6 +76,8 @@ async function choose(rl, label, items, wanted, show = (x) => x) {
     return hit;
   }
   if (items.length === 1 || has('yes')) return items[0];
+  // no terminal (an agent or a script): never wait on a prompt nobody can answer
+  if (!process.stdin.isTTY) fail(`${label}: ${items.length} options and no terminal to ask in - pass it as a flag (or --yes for the first): ${items.map(show).join(', ')}`);
   say(`\n${label}:`);
   items.forEach((x, i) => say(`  ${i + 1}. ${show(x)}`));
   const a = await rl.question(`Choose 1-${items.length} [1]: `);
@@ -118,6 +120,10 @@ async function init() {
     const page = await choose(rl, 'Report page to build on', pages, flag('page'), (p) => `${p.name}  (${p.id})`);
 
     let style = flag('style');
+    if (style === undefined && !has('yes') && !process.stdin.isTTY) {   // no terminal: never wait on the question
+      say('\nstyle:           accent (no terminal to ask in - pass --style to choose)');
+      style = 'accent';
+    }
     if (style === undefined && !has('yes')) {
       say(`\nStyle (see skills/colorful-styles): ${STYLES.join(', ')} - or a brand later, in pipeline.json`);
       style = (await rl.question('Style [accent]: ')).trim() || 'accent';
@@ -133,6 +139,9 @@ async function init() {
     // 2. the pipeline, next to the PBIP
     const build = join(dir, '_build');
     if (existsSync(build) && !has('force')) fail(`${build} exists - keep it, or rerun with --force to overwrite the pipeline files`);
+    // --force refreshes the pipeline files, never the project's own settings (stress scenarios, port, style, language)
+    const prevCfgPath = join(build, 'pipeline.json');
+    const prevCfg = existsSync(prevCfgPath) ? (() => { try { return JSON.parse(readFileSync(prevCfgPath, 'utf8')); } catch { return {}; } })() : {};
     cpSync(PIPE, build, { recursive: true });
     say(`pipeline copied: ${build}`);
 
@@ -145,9 +154,17 @@ async function init() {
     } else say(`backup exists, kept: ${backup}`);
 
     // 4. pipeline.json
+    // the dashboard speaks the data's language: Hebrew/Arabic names -> RTL, otherwise LTR English (change in pipeline.json)
+    const ttext = readFileSync(join(tdir, table.id), 'utf8');
+    const lang = /[֐-׿]/.test(ttext) ? 'he' : /[؀-ۿ]/.test(ttext) ? 'ar' : 'en';
     const cfg = { project, table: table.name, page_id: page.id, page_display_name: page.name, backup_dir: '_backup',
-      partition_m: null, lineage_namespace: 'pbi-html-dashboard', style };
+      partition_m: null, lineage_namespace: 'pbi-html-dashboard', style, dir: lang === 'en' ? 'ltr' : 'rtl', lang };
+    say(`\nlanguage:        ${lang} (${cfg.dir}) - from the names in ${table.name}; change "lang"/"dir" in pipeline.json if the dashboard should differ`);
     if (table.id !== `${table.name}.tmdl`) cfg.tmdl_file = table.id;
+    for (const k of ['stress', 'port', 'lang', 'dir', 'lineage_namespace', 'partition_m'])
+      if (prevCfg[k] !== undefined && prevCfg[k] !== null) cfg[k] = prevCfg[k];
+    if (flag('style') === undefined && prevCfg.style !== undefined) cfg.style = prevCfg.style;
+    if (Object.keys(prevCfg).length) say('kept from the previous pipeline.json: ' + ['stress', 'port', 'style', 'lang', 'dir'].filter((k) => prevCfg[k] !== undefined).join(', '));
     writeFileSync(join(build, 'pipeline.json'), JSON.stringify(cfg, null, 2) + '\n', 'utf8');
     say(`config written:  ${join(build, 'pipeline.json')}`);
 

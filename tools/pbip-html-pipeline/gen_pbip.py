@@ -23,9 +23,50 @@ def lit(v):
     return {"expr": {"Literal": {"Value": v}}}
 
 
+# ---------------------------------------------------------------- before writing
+# Desktop with unsaved changes may not offer "Apply external changes" and a later save overwrites these files
+try:
+    import bridge as _br
+    from config import PROJECT as _PROJECT
+    for _i in _br.instances():
+        if os.path.basename(_i.get("currentFilePath") or "").lower() == f"{_PROJECT}.pbip".lower() and _i.get("hasUnsavedChanges"):
+            print(f"WARNING: Desktop (pid {_i['pid']}) has unsaved changes in {_PROJECT}.pbip - the Apply banner may not show, "
+                  "and saving in Desktop now would overwrite what is written here. See reference/build-workflow.md §1.")
+except Exception:
+    pass   # no bridge: nothing to check
+
+
+def _strip_generated(text):
+    """the host table's TMDL without the measures this pipeline generates (they are rebuilt from measures.py)"""
+    out, skip = [], False
+    for line in text.splitlines(keepends=True):
+        mm = re.match(r"\tmeasure '?(.*?)'? =", line)
+        if mm:
+            skip = mm.group(1) in M
+        elif re.match(r"\t\S", line):
+            skip = False
+        if not skip:
+            out.append(line)
+    return "".join(out)
+
+
+def _objects(text):
+    return set(re.findall(r"^\t(?:column|partition|hierarchy|calculationGroup) .*$", text, flags=re.M))
+
+
 # ---------------------------------------------------------------- TMDL
 # always rebuild from the untouched backup copy so reruns stay idempotent
 src = open(TMDL_BACKUP, encoding="utf-8").read()
+_live = open(TMDL, encoding="utf-8").read()
+_new = sorted(_objects(_live) - _objects(src))
+if "--refresh-backup" in sys.argv:
+    open(TMDL_BACKUP, "w", encoding="utf-8", newline="\n").write(_strip_generated(_live))
+    src = open(TMDL_BACKUP, encoding="utf-8").read()
+    print("backup refreshed from the live TMDL (generated measures removed)")
+elif _new:
+    raise SystemExit("the model changed after the backup was made - these objects of the host table are not in the backup and "
+                     "would be dropped:\n  " + "\n  ".join(o.strip() for o in _new) +
+                     "\nSave in Desktop, then run: python -I gen_pbip.py --refresh-backup   (nothing was written)")
 # optional: replace the table's partition M with a file from _build (pipeline.json "partition_m")
 if PARTITION_M:
     mcode = open(os.path.join(HERE, PARTITION_M), encoding="utf-8").read().strip("\n")
@@ -118,7 +159,14 @@ for i, (name, meas, x, y, w, h) in enumerate(LAYOUT):
         },
     })
 
+def _slicer_field(col):
+    """slicer column: a column of the host table, or any table's column written 'Table'[Column] / Table[Column]"""
+    mm = re.match(r"^'?(.+?)'?\[(.+)\]$", col)
+    return (mm.group(1), mm.group(2)) if mm else (ENTITY, col)
+
+
 for j, (name, col, x, y, w, h) in enumerate(SLICERS):
+    ent, col = _slicer_field(col)
     write_visual(name, {
         "$schema": VC_SCHEMA,
         "name": name,
@@ -126,8 +174,8 @@ for j, (name, col, x, y, w, h) in enumerate(SLICERS):
         "visual": {
             "visualType": "slicer",
             "query": {"queryState": {"Values": {"projections": [{
-                "field": {"Column": {"Expression": {"SourceRef": {"Entity": ENTITY}}, "Property": col}},
-                "queryRef": f"{ENTITY}.{col}",
+                "field": {"Column": {"Expression": {"SourceRef": {"Entity": ent}}, "Property": col}},
+                "queryRef": f"{ent}.{col}",
                 "nativeQueryRef": col,
                 "active": True,
             }]}}},
@@ -145,3 +193,59 @@ for j, (name, col, x, y, w, h) in enumerate(SLICERS):
         },
     })
 print("visuals:", len(LAYOUT) + len(SLICERS))
+
+# Microsoft's PBIR validator, when installed (doc: reference/build-workflow.md §1b) - e.g. an unregistered custom visual
+import shutil as _sh, subprocess as _sp
+_KNOWN_FALSE = {"PBIR_SLICER_HEIGHT_BELOW_FLOOR"}   # a 40px slicer with padding 0 renders fine in Desktop (measured)
+
+
+def _findings(node, out):
+    """every finding in the validator's JSON as {code, severity, message, file}. The CLI keys findings by code:
+    data.diagnostics = {CODE: {"severity": ..., "items": [{"message", "file"}, ...]}}; objects that carry their own
+    "code" field are taken as they are."""
+    if isinstance(node, dict):
+        diag = node.get("diagnostics")
+        if isinstance(diag, dict):
+            for code, d in diag.items():
+                d = d if isinstance(d, dict) else {}
+                for it in (d.get("items") or [{}]):
+                    out.append({"code": code, "severity": d.get("severity"),
+                                "message": (it or {}).get("message"), "file": (it or {}).get("file")})
+        elif "code" in node:
+            out.append(node)
+        for k, v in node.items():
+            if not (k == "diagnostics" and isinstance(diag, dict)):
+                _findings(v, out)
+    elif isinstance(node, list):
+        for v in node:
+            _findings(v, out)
+    return out
+
+
+_cli = _sh.which("powerbi-report-author")
+if _cli:
+    from config import ROOT as _ROOT, PROJECT as _P
+    _r = _sp.run([_cli, "validate", os.path.join(_ROOT, f"{_P}.pbip")], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    _raw = (_r.stdout or "") + (_r.stderr or "")
+    try:
+        _doc = json.loads(_r.stdout[_r.stdout.index("{"):] if "{" in _r.stdout else _r.stdout)
+        _all = _findings(_doc, [])
+        _failed = '"result": "failed"' in json.dumps(_doc) or '"result":"failed"' in _r.stdout
+    except ValueError:
+        _all, _failed = None, False
+    if _all is None:
+        print("powerbi-report-author validate (unparsed):", _raw.strip()[-800:] or f"exit {_r.returncode}")
+    else:
+        _real = [f for f in _all if f.get("code") not in _KNOWN_FALSE]
+        _sev = lambda f: str(f.get("severity") or f.get("level") or "").lower()
+        _err = [f for f in _real if _sev(f) in ("error", "fatal")]
+        _known = len(_all) - len(_real)
+        if _failed and not _all:   # the validator failed but nothing was parsed: never report OK on a format we cannot read
+            print("powerbi-report-author validate: WARNING - the validator reports 'failed' but no finding could be read:",
+                  _raw.strip()[-800:])
+        print(f"powerbi-report-author validate: {'OK' if not _err else 'ERRORS'} - {len(_err)} error(s), "
+              f"{len(_real) - len(_err)} other finding(s), {_known} known false positive(s) ignored")
+        for f in _real[:12]:
+            print(f"  {_sev(f) or 'info'}: {f.get('code')} - {str(f.get('message') or '')[:160]}")
+        if any("VISUAL_TYPE_UNKNOWN" in str(f.get("code")) for f in _all):
+            print("  -> a visual type is not registered: the HTML Content visual will show 'add it to this report first'")

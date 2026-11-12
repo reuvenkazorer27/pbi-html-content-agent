@@ -9,9 +9,12 @@ one status, many long titles all change row counts and text lengths.
 import os, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from config import TABLE
-# The scenarios below use the reference build's columns (Hebrew: סטטוס = status, בעלים = owner,
-# מחלקה = department, מזהה = id). Replace the columns and values with your model's; keep the shapes:
+from config import TABLE, CFG
+# Your model's scenarios go in pipeline.json, so this file never needs editing:
+#   "stress": [{"name": "one-status", "filter": "{T}[Status] = \"Done\""}, ...]   ({T} = the host table)
+# Each filter is a DAX filter table/expression; an "all" (unfiltered) scenario is always run first.
+# Without "stress", the built-in scenarios below run - they use the reference build's columns (Hebrew: סטטוס = status, בעלים = owner,
+# מחלקה = department, מזהה = id). For your model, put the same shapes in pipeline.json:
 # one value per slicer-like column, a blank, an empty selection, and an all-columns-filtered worst case.
 # Scenario values are data-driven or generic - never hardcode a real person's name here.
 T = f"'{TABLE}'"
@@ -24,25 +27,46 @@ SCENARIOS = [
     ("empty", f"{T}[מזהה] = -1"),
     ("all-chips", f"FILTER ( ALL ( {T} ), {T}[סטטוס] = \"באפיון\" )"),   # marks every column filtered: header shows 4 chips
 ]
+if CFG.get("stress"):
+    SCENARIOS = [("all", None)] + [(sc["name"], sc["filter"].replace("{T}", T)) for sc in CFG["stress"] if sc.get("name") != "all"]
+# several Desktop models open: pin the one to test ("port" in pipeline.json or DASH_PORT; 0 = newest that answers)
+PORT = str(os.environ.get("DASH_PORT") or CFG.get("port") or 0)
 
 
 def run(cmd):
     return subprocess.run(cmd, cwd=HERE, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
-fails = 0
-for name, flt in SCENARIOS:
-    q, r, h = f"q_s_{name}.dax", f"r_s_{name}.json", f"p_s_{name}.html"
-    run([sys.executable, "-I", "gen_query.py", q] + ([flt] if flt else []))
-    rq = run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "runq.ps1", "-QueryFile", q, "-OutFile", r])
-    if "rows: 1" not in rq.stdout:
-        print(f"{name:14} DAX ERROR {rq.stderr.strip()[:200]}"); fails += 1; continue
-    run([sys.executable, "-I", "gen_preview.py", r, h])
-    fc = run(["node", "fitcheck.mjs", h])
-    ok = fc.returncode == 0
-    fails += not ok
-    print(f"{name:14} {'PASS' if ok else 'FAIL'}" + ("" if ok else "\n    " + fc.stdout.strip().replace("\n", "\n    ")))
-    for f in (q, r, h):
+fails, pages, tmp = 0, [], []
+try:
+    # 1. every scenario's live DAX + exact-size preview
+    for name, flt in SCENARIOS:
+        q, r, h = f"q_s_{name}.dax", f"r_s_{name}.json", f"p_s_{name}.html"
+        tmp += [q, r, h]
+        run([sys.executable, "-I", "gen_query.py", q] + ([flt] if flt else []))
+        rq = run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "runq.ps1", "-QueryFile", q, "-OutFile", r, "-Port", PORT])
+        if "rows: 1" not in rq.stdout:
+            hint = (f" (pinned port {PORT}: if Desktop was reopened, the port changed - update \"port\" in pipeline.json)"
+                    if PORT != "0" else "")
+            print(f"{name:14} DAX ERROR {rq.stderr.strip()[:200]}{hint}"); fails += 1; continue
+        run([sys.executable, "-I", "gen_preview.py", r, h])
+        pages.append((name, h))
+    # 2. all previews in ONE headless browser (one Edge start instead of one per scenario)
+    if pages:
+        fc = run(["node", "fitcheck.mjs", *[h for _, h in pages]])
+        blocks = {}
+        for part in fc.stdout.split("== ")[1:]:
+            path, _, body = part.partition("\n")
+            blocks[os.path.basename(path.strip())] = body.strip()
+        if len(pages) == 1:
+            blocks[pages[0][1]] = fc.stdout.strip()
+        for name, h in pages:
+            body = blocks.get(h, "FIT CHECK DID NOT RUN\n" + fc.stdout.strip()[:300])
+            ok = body.startswith("FIT OK") and "CONTRAST OK" in body
+            fails += not ok
+            print(f"{name:14} {'PASS' if ok else 'FAIL'}" + ("" if ok else "\n    " + body.replace("\n", "\n    ")))
+finally:   # also on a DAX error
+    for f in tmp:
         try: os.remove(os.path.join(HERE, f))
         except OSError: pass
 print("STRESS OK" if not fails else f"STRESS FAIL ({fails} scenario(s))")

@@ -104,3 +104,10 @@ def translate(expr, lang):
         i = _HEB.search(re.sub(r"\x00\d+\x00", "", s)).start()
         raise AssertionError("untranslated Hebrew in EN build: ..." + re.sub(r"\x00\d+\x00", "", s)[max(0, i - 60):i + 40])
     return re.sub(r"\x00(\d+)\x00", lambda m: masked[int(m.group(1))], s)
+
+
+def L(en, he):
+    """A display string in the dashboard's UI language (DASH_LANG, default he) - for a measures.py authored in English
+    that also ships in Hebrew (translate() above goes the other way: Hebrew authored, English built)."""
+    import os
+    return he if os.environ.get("DASH_LANG", "he") == "he" else en

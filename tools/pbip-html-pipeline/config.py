@@ -21,6 +21,11 @@ PAGE_DISPLAY_NAME = CFG.get("page_display_name")               # optional: page 
 BACKUP_DIR = os.path.normpath(os.path.join(ROOT, CFG["backup_dir"]))   # clean copy of the PBIP (rebuild source)
 PARTITION_M = CFG.get("partition_m")                           # optional: file in _build whose M replaces the table partition
 LINEAGE_NS = CFG.get("lineage_namespace", "pbi-html-dashboard")   # keep stable: measure lineage tags derive from it
+# the dashboard speaks the data's language: init writes "dir"/"lang" from the model's names; DASH_DIR / DASH_LANG still win
+if CFG.get("dir"):
+    os.environ.setdefault("DASH_DIR", CFG["dir"])
+if CFG.get("lang"):
+    os.environ.setdefault("DASH_LANG", CFG["lang"])
 
 REPORT_DIR = os.path.join(ROOT, f"{PROJECT}.Report")
 MODEL_DIR = os.path.join(ROOT, f"{PROJECT}.SemanticModel")

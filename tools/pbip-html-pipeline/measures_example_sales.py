@@ -3,13 +3,14 @@
 A whole dashboard from the kit's builders only: kpi_card (icons), treemap_rows, heat_matrix, small_multiples,
 data_table, lift_bars + an HTML filter panel over native slicers - everything except the slicers is HTML Content.
 Model: one table (pipeline.json "table") with OrderID, OrderDate, Region, Category, Product, Channel, Rep, Units,
-Amount, Discount, Status. Copy to measures.py to use it."""
+Amount, Discount, Status. Copy to measures.py to use it.
+Colors: the active style (styles.py, default accent) with a role per card; DASH_PALETTE=<name> still selects a legacy palette."""
 import os as _os, re as _re
+import config   # first: pipeline.json "dir" / "lang" (the data's language) win over the example's defaults below
 _os.environ.setdefault("DASH_DIR", "ltr")
 _os.environ.setdefault("DASH_LANG", "en")
-if not _os.environ.get("DASH_STYLE"):   # not ported to styles.py roles yet: legacy palettes unless a style is asked for
-    _os.environ.setdefault("DASH_PALETTE", "vivid")
 from palette import P, resolve
+import styles as S
 import components as K
 from config import TABLE
 
@@ -32,8 +33,17 @@ def _resolve_dir(text):
     return text
 
 
+ROLE = {   # one role per card (styles.py): a KPI and the chart about the same thing share a hue; one hero at most
+    "HTML Header": "neutral", "HTML Filter Panel": "neutral",
+    "HTML KPI Revenue": "hero", "HTML KPI Orders": "c1", "HTML KPI AOV": "c2", "HTML KPI Returns": "bad",
+    "HTML Products": "c3", "HTML Region Mix": "c1", "HTML Region Trend": "c4", "HTML Reps": "c2", "HTML Returns Lift": "bad",
+}
+
+
 def add(name, expr, folder, fmt=None):
     expr = _re.sub(r"font-size:(\d+)px", lambda m: f"font-size:{FONT_SCALE.get(int(m.group(1)), int(m.group(1)))}px", expr.strip())
+    if folder == "HTML":
+        expr = S.apply(expr, ROLE.get(name, "neutral"))   # no-op with a legacy palette
     M[name] = dict(expr=resolve(_resolve_dir(expr)), folder=folder, fmt=fmt)
 
 
@@ -65,7 +75,7 @@ RETURN
 
 
 # ---------------------------------------------------------------- KPI cards (filled with a categorical color)
-FILLED = P.get("kpi_filled") == "1"   # colorful palettes: deep filled cards; light palettes: light cards
+FILLED = P.get("kpi_filled") == "1"   # legacy palettes only: deep filled cards (a style colors KPIs by role)
 
 
 def kpi(name, title, value, fmt, icon, cat, sub):
@@ -126,32 +136,34 @@ add("HTML Reps", K.accent(K.data_table(
     header_accent="cat1", more_label="and {n} more reps", blank_label="Unassigned",
     tip_value='FORMAT ( [@s], "$#,0" )'), "cat1"), "HTML")
 add("HTML Returns Lift", K.lift_bars(T, "Product", f'{C("Status")} = "Returned"', "Where returns concentrate",
-                                     "Return share vs. the overall rate", top=7, colors="category"), "HTML")
+                                     "Return share vs. the overall rate", top=7, colors="category",
+                                     fill=K.mix(T, "Channel", "[Orders]", "Orders by channel")), "HTML")
 add("HTML Region Trend", K.small_multiples(T, "Region", "OrderDate", "[Orders]", "Orders by region",
                                            "Last 6 months, shared scale", top=6, colors="category"), "HTML")
 add("HTML Background", '''"<div style='height:100vh;background:linear-gradient(135deg,@@bg_from@@ 0%,@@bg_mid@@ 55%,@@bg_to@@ 100%)'></div>"''', "HTML")
 
 # ---------------------------------------------------------------- layout (LTR authored; 1920x1080, margin 32, gutter 16)
+# header 80px: at 72 the accent style's top bar pushes the title 1px past the safe edge (FIT FAIL)
 # filter panel docked left (32..328); content 344..1888 = 1544 wide
 LAYOUT = [
     ("hcBackground",   "HTML Background",    0,    0,   1920, 1080),
-    ("hcHeader",       "HTML Header",        32,   24,  1856, 72),
-    ("hcFilterPanel",  "HTML Filter Panel",  32,   112, 296,  936),
-    ("hcKpiRevenue",   "HTML KPI Revenue",   344,  112, 374,  160),
-    ("hcKpiOrders",    "HTML KPI Orders",    734,  112, 374,  160),
-    ("hcKpiAov",       "HTML KPI AOV",       1124, 112, 374,  160),
-    ("hcKpiReturns",   "HTML KPI Returns",   1514, 112, 374,  160),
-    ("hcProducts",     "HTML Products",      344,  288, 504,  384),
-    ("hcRegionMix",    "HTML Region Mix",    864,  288, 504,  384),
-    ("hcRegionTrend",  "HTML Region Trend",  1384, 288, 504,  384),
-    ("hcReps",         "HTML Reps",          344,  688, 764,  360),
-    ("hcReturnsLift",  "HTML Returns Lift",   1124, 688, 764,  360),
+    ("hcHeader",       "HTML Header",        32,   24,  1856, 80),
+    ("hcFilterPanel",  "HTML Filter Panel",  32,   120, 296,  928),
+    ("hcKpiRevenue",   "HTML KPI Revenue",   344,  120, 374,  160),
+    ("hcKpiOrders",    "HTML KPI Orders",    734,  120, 374,  160),
+    ("hcKpiAov",       "HTML KPI AOV",       1124, 120, 374,  160),
+    ("hcKpiReturns",   "HTML KPI Returns",   1514, 120, 374,  160),
+    ("hcProducts",     "HTML Products",      344,  296, 504,  380),
+    ("hcRegionMix",    "HTML Region Mix",    864,  296, 504,  380),
+    ("hcRegionTrend",  "HTML Region Trend",  1384, 296, 504,  380),
+    ("hcReps",         "HTML Reps",          344,  692, 764,  356),
+    ("hcReturnsLift",  "HTML Returns Lift",   1124, 692, 764,  356),
 ]
 if P.get("bg_layer") != "1":
     LAYOUT.pop(0)
     M.pop("HTML Background")
-# slicer y = panel top 112 + title 64 + i*80 + label 24 (+16 panel padding)
-SLICERS = [(f"sl{f}", f, 48, 112 + 16 + 64 + 24 + 80 * i, 264, 40) for i, f in enumerate(FILTERS)]
+# slicer y = panel top 120 + title 64 + i*80 + label 24 (+16 panel padding)
+SLICERS = [(f"sl{f}", f, 48, 120 + 16 + 64 + 24 + 80 * i, 264, 40) for i, f in enumerate(FILTERS)]
 
 # RTL: mirror the LTR-authored layout (x' = page width - x - w); the filter panel docks right
 PAGE_W, PAGE_H = 1920, 1080

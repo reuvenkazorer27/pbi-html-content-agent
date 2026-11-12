@@ -118,6 +118,8 @@ def make_style(brand, accent=None, mode="light", mechanism="bar", bar=4, hero=Tr
         "hero": hero, "radius": radius,
         "page": page or (_mix(brand, "#0B0D12", .93) if dark else _mix(brand, "#F3F4F6", .94)),
         "card": None if tinted else (card or (_mix(brand, "#16181D", .92) if dark else "#FFFFFF")),
+        # tinted cards are computed from this base: dark mode tints dark surfaces (not light pastels on a dark page)
+        "tint_base": (card or _mix(brand, "#16181D", .92)) if (tinted and dark) else None,
         "border": border or (_mix(brand, "#2A2E35", .85) if dark else _mix(brand, "#E5E7EB", .88)),
         "shadow": shadow or ("none" if dark else "0 1px 2px rgba(16,24,40,.06)"),
         "colors": base,
@@ -125,7 +127,11 @@ def make_style(brand, accent=None, mode="light", mechanism="bar", bar=4, hero=Tr
 
 
 def _preset(colors, **kw):
-    return make_style(colors["brand"], colors=colors, **kw)
+    """a preset keeps its make_style() inputs, so pipeline.json can say {"preset": "accent", "hero": false}"""
+    args = dict(brand=colors["brand"], colors=colors, **kw)
+    st = make_style(**args)
+    st["inputs"] = args
+    return st
 
 
 _LIGHT = {"neutral": "#64748B", "brand": "#4F46E5", "c1": "#1D4ED8", "c2": "#7C3AED", "c3": "#0F766E",
@@ -169,7 +175,7 @@ DATA_TOKENS = {"primary": "c1", "design": "c2", "maint": "c3", "done": "good", "
 def style_palette(st):
     """a full token palette for style `st`: page, neutral in-card tokens from the card color, data colors
     pushed to 3:1 (marks) / 4.5:1 (text) on the card, soft pills with text-safe text"""
-    card = st["card"] or "#FFFFFF"
+    card = st["card"] or st.get("tint_base") or "#FFFFFF"
     dark = _lum(card) < 0.2
     away = "#FFFFFF" if dark else "#000000"
     p = dict(PALETTES["midnight" if dark else "ocean"])
@@ -219,7 +225,7 @@ def card_tokens(st, role):
     assert role in ROLES, f"unknown role {role!r} - use one of {ROLES}"
     hero = role == "hero" and st["hero"]
     hue = st["colors"]["brand" if role == "hero" else role]
-    t = tone(hue, st["card"] or "#FFFFFF")
+    t = tone(hue, st["card"] or st.get("tint_base") or "#FFFFFF")
     out = {"c_barw": f"{st['bar'] or 1}px", "c_shadow": st["shadow"], "c_chip": t["s3"], "c_icon": t["s9"],
            "c_icon_in": "@@on_accent@@"}
     if hero:                 # the one solid card: brand fill, white text, same shape
@@ -265,11 +271,17 @@ def _from_config():
 
 
 def resolve_style(spec):
-    """a preset name, a make_style() argument dict, or None/"none" -> a style dict or None"""
+    """a preset name, a make_style() argument dict, {"preset": name, ...changed inputs}, or None/"none" -> a style dict"""
     if spec in (None, "", "none"):
         return None
     if isinstance(spec, str) and spec.lstrip().startswith("{"):   # DASH_STYLE='{"brand": "#0E7490", "mode": "dark"}'
         spec = json.loads(spec)
+    if isinstance(spec, dict) and "preset" in spec:   # a preset with some inputs changed
+        name = spec["preset"]
+        assert name in PRESETS, f"unknown preset {name!r}: use one of {', '.join(PRESETS)}"
+        args = dict(PRESETS[name]["inputs"])
+        args.update({k: v for k, v in spec.items() if k != "preset"})
+        return make_style(**args)
     if isinstance(spec, dict):
         return make_style(**spec)
     assert spec in PRESETS, f"unknown style {spec!r}: use a preset ({', '.join(PRESETS)}) or a make_style() dict"

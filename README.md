@@ -20,6 +20,24 @@
 
 ---
 
+## Requirements
+
+**Required** (`npx pbi-html-content-agent doctor` checks Windows, Python, Node, Edge and that Desktop is running):
+
+| What | Why | Notes |
+| --- | --- | --- |
+| **Windows** | Power BI Desktop and the gates (PowerShell, Edge) are Windows-only | |
+| **Power BI Desktop**, report saved as a **Power BI Project (`.pbip`) with PBIR + TMDL** | the kit writes TMDL measures and PBIR `visual.json` files | File → Save as → *Power BI project files*. The model must exist (tables loaded); creating it is not the kit's job - see [`build-workflow.md`](reference/build-workflow.md) §0 |
+| **Python 3** | the pipeline (`_build/*.py`) | standard library only, no pip packages |
+| **Node.js 22+** | `npx ... init`, the headless gates (`fitcheck.mjs`) | built-in WebSocket/fetch only, no npm packages |
+| **Microsoft Edge** | headless fit / contrast / stress rendering | `EDGE_PATH` if it is not in the default location |
+| **Windows PowerShell** | `runq.ps1` runs the DAX on the open model through Desktop's own AdomdClient | run it with `-ExecutionPolicy Bypass` (the scripts do) |
+| **The HTML Content visual** (AppSource, by Daniel Marsh-Patrick, free; Secure edition by default) | renders every card | `gen_pbip.py` registers it in `report.json`; Desktop downloads it when it opens the report (internet access needed; first write: see build-workflow §1) |
+
+**Recommended:** **git** - make the project folder its own repo, so every `versions.py snapshot` is a commit and a tag (build-workflow §5).
+
+**Optional** (used when present, [`build-workflow.md`](reference/build-workflow.md) §1b): the **Power BI Modeling MCP** (model and measures into the live model), the **Desktop Bridge** (Options › Preview features › *external tool access*; `bridge.py` status / reload / screenshot), and Microsoft's **report-authoring CLI** (`@microsoft/powerbi-report-authoring-cli`: PBIR validation, loading report + model into Desktop).
+
 ## Install
 
 **Claude Code** (v2.1.275 or later), in any session:
@@ -138,9 +156,9 @@ python -I versions.py snapshot "what changed" --fit "FIT OK" --results r_all.jso
 python -I gen_pbip.py                                                # write TMDL + visual.json
 ```
 
-Then, in Desktop: **Apply external changes → Home ▸ Refresh**.
+Then into Desktop, no click: `powerbi-report-author preview <folder> --host desktop --reload-with-model` (Microsoft's report-authoring CLI) or `python -I bridge.py reload` (report and model), then the Modeling MCP's `Calculate` refresh and a screenshot. Without either: **Apply external changes → Home ▸ Refresh** ([`build-workflow.md`](reference/build-workflow.md) §1b).
 
-Requirements: **Windows** with Power BI Desktop (PBIP enabled), Python 3, Node 22+ and Microsoft Edge. No npm or pip packages are needed. Details: [`tools/pbip-html-pipeline/README.md`](tools/pbip-html-pipeline/README.md).
+Requirements: see [Requirements](#requirements). Details: [`tools/pbip-html-pipeline/README.md`](tools/pbip-html-pipeline/README.md).
 
 ## Repository map
 
