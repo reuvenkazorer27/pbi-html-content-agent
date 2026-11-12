@@ -1,6 +1,6 @@
 {
   "name": "pbi-html-content-agent",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "An AI agent kit for pixel-exact Power BI dashboards on the HTML Content visual: gated card builders, colorful styles, motion, LTR/RTL, a PBIP/PBIR writer and fit/contrast/stress gates. `npx pbi-html-content-agent init` sets it up next to your report.",
   "type": "module",
   "bin": {
