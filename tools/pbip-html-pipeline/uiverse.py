@@ -3,14 +3,18 @@
 Copyright (c) 2023 Uiverse.io) and adapt it for an HTML Content page. Python stdlib only.
 
   python -I uiverse.py list Patterns                 # file names in a folder (Patterns, Cards, Notifications, ...)
-  python -I uiverse.py get Patterns/<file>.html --prefix bg1 [--out el.html]
+  python -I uiverse.py search Patterns dots grid     # elements whose author/tags comment matches all words (cached)
+  python -I uiverse.py get Patterns/<file>.html --prefix bg1 [--split] [--out el.html]
+
+--split prints the CSS (ready to merge into your page's ONE <style>) and the markup separately, with rem/em
+converted to px (16px = 1rem) so page_kit.fluid() can scale them.
 
 `get` downloads the raw file, keeps the author/tags comment as attribution, scopes every class to `<prefix>-`
 (so two elements never clash inside one measure), and REPORTS what the Secure edition / the dashboard rules
 reject: script, :hover-only effects, infinite animations, external url(), form controls. It never runs anything.
 Use the element as a texture, frame, badge or card surface behind real data - never as a fake control.
 Record what you used in the deliverable: element path, author, MIT."""
-import sys, re, json, urllib.request
+import sys, re, os, json, tempfile, urllib.request
 
 RAW = "https://raw.githubusercontent.com/uiverse-io/galaxy/main/"
 API = "https://api.github.com/repos/uiverse-io/galaxy/contents/"
@@ -23,6 +27,27 @@ def _get(url):
 
 def list_folder(folder):
     return [f["name"] for f in json.loads(_get(API + folder))]
+
+
+CACHE = os.path.join(tempfile.gettempdir(), "uiverse_cache")
+
+
+def search(folder, words):
+    """match all words against each element's author/tags comment; files are cached in the temp folder"""
+    os.makedirs(os.path.join(CACHE, folder), exist_ok=True)
+    hits = []
+    for name in list_folder(folder):
+        p = os.path.join(CACHE, folder, name)
+        if not os.path.exists(p):
+            open(p, "w", encoding="utf-8").write(_get(RAW + folder + "/" + name))
+        head = " ".join(re.findall(r"/\*\s*From Uiverse\.io[^*]*\*/", open(p, encoding="utf-8").read()))
+        if all(w.lower() in head.lower() for w in words):
+            hits.append((name, head.strip()[:120]))
+    return hits
+
+
+def to_px(css):
+    return re.sub(r"(-?\d*\.?\d+)r?em(?![\w-])", lambda m: f"{float(m.group(1)) * 16:g}px", css)
 
 
 def adapt(src, prefix):
@@ -43,11 +68,20 @@ def adapt(src, prefix):
 if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "list":
         print("\n".join(list_folder(sys.argv[2])))
+    elif len(sys.argv) >= 4 and sys.argv[1] == "search":
+        for name, head in search(sys.argv[2], sys.argv[3:]):
+            print(f"{sys.argv[2]}/{name}  {head}")
     elif len(sys.argv) >= 3 and sys.argv[1] == "get":
         path = sys.argv[2]
         prefix = sys.argv[sys.argv.index("--prefix") + 1] if "--prefix" in sys.argv else "uv"
         el, notes = adapt(_get(RAW + path), prefix)
         head = f"<!-- Uiverse.io element {path} (MIT License, Copyright (c) 2023 Uiverse.io), scoped as {prefix}- -->\n"
+        if "--split" in sys.argv:   # CSS ready to merge into the page's single <style>; rem/em -> px for fluid()
+            css = to_px("\n".join(re.findall(r"<style[^>]*>(.*?)</style>", el, re.S))).strip()
+            markup = re.sub(r"<style[^>]*>.*?</style>", "", el, flags=re.S).strip()
+            el = (f"/* ---- CSS: merge into your page's single <style> ---- */\n/* Uiverse.io {path}, MIT, scoped {prefix}- */\n"
+                  f"{css}\n\n<!-- ---- markup ---- -->\n{markup}\n")
+            head = ""
         if "--out" in sys.argv:
             open(sys.argv[sys.argv.index("--out") + 1], "w", encoding="utf-8").write(head + el)
         else:
