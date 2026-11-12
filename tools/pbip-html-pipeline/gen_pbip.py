@@ -29,7 +29,7 @@ def lit(v):
 try:
     import bridge as _br
     from config import PROJECT as _PROJECT
-    _all = _br.instances()   # [] when no Desktop has the bridge: nothing to check, nothing to say
+    _all = _br.instances(_PROJECT)   # [] when no Desktop has the bridge: nothing to check, nothing to say
     _mine = [i for i in _all if os.path.basename(i.get("currentFilePath") or "").lower() == f"{_PROJECT}.pbip".lower()]
     for _i in _mine:
         if _i.get("hasUnsavedChanges"):

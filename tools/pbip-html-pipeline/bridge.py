@@ -70,12 +70,9 @@ def _exchange(pid, body, timeout):
     return box["data"]
 
 
-def report_window(pid):
-    """the title of the Desktop window of `pid` once it shows a report, else None.
-    Measured: while opening, Desktop has no window or one titled '<blank> - Power BI Desktop' ('Untitled - ...'); with
-    a report open the title is the file's base name alone ('sales-demo'). So: ready = a visible window whose title does
-    not end with the product name - no dependence on the UI language, and a report saved as 'Untitled.pbip' still
-    counts. Off Windows (no user32) it does not block: returns ''."""
+def report_window(pid, project=None):
+    """the title of the Desktop window of `pid` once it shows a report, else None (see is_report_title).
+    Off Windows (no user32) it does not block: returns ''."""
     try:
         import ctypes
         from ctypes import wintypes
@@ -102,47 +99,25 @@ def report_window(pid):
         return True
 
     user32.EnumWindows(proc(each), 0)
-    titles = [t for t in found if is_report_title(t)]
-    if titles:
-        return titles[0]
-    # only measured on one Desktop build: a build that titles an open report '<name> - Power BI Desktop' would never
-    # count as ready - so a titled window that has existed for READY_AFTER seconds counts as ready anyway
-    if found and _process_age(pid) >= READY_AFTER:
-        return found[0]
-    return None
+    titles = [t for t in found if is_report_title(t, project)]
+    return titles[0] if titles else None
 
 
-READY_AFTER = 90   # seconds; a normal open showed its report title within 20-30 s (measured 12 Nov 2026)
-
-
-def _process_age(pid):
-    """seconds since the process started (Windows), 0 when unknown"""
-    try:
-        import ctypes
-        from ctypes import wintypes
-        k32 = ctypes.WinDLL("kernel32")
-        k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
-        k32.OpenProcess.restype = wintypes.HANDLE
-        k32.GetProcessTimes.argtypes = (wintypes.HANDLE,) + (ctypes.POINTER(wintypes.FILETIME),) * 4
-        k32.CloseHandle.argtypes = (wintypes.HANDLE,)
-        k32.GetSystemTimeAsFileTime.argtypes = (ctypes.POINTER(wintypes.FILETIME),)
-        h = k32.OpenProcess(0x1000, False, int(pid))   # PROCESS_QUERY_LIMITED_INFORMATION
-        if not h:
-            return 0
-        t = [wintypes.FILETIME() for _ in range(4)]
-        ok = k32.GetProcessTimes(h, *[ctypes.byref(x) for x in t])
-        k32.CloseHandle(h)
-        now = wintypes.FILETIME()
-        k32.GetSystemTimeAsFileTime(ctypes.byref(now))
-        ft = lambda f: (f.dwHighDateTime << 32 | f.dwLowDateTime) / 1e7
-        return ft(now) - ft(t[0]) if ok else 0
-    except Exception:
-        return 0
-
-
-def is_report_title(title):
-    """a Desktop window title that shows an open report: the file name alone, not '<blank> - Power BI Desktop'"""
-    return bool(title.strip()) and not title.rstrip().lower().endswith("power bi desktop")
+def is_report_title(title, project=None):
+    """a Desktop window title that shows an open report.
+    Measured (12 Nov 2026): while opening, Desktop has no window or one titled '<blank> - Power BI Desktop' ('Untitled
+    - Power BI Desktop', stuck that way for minutes once); with a report open the title is the file's base name alone
+    ('sales-demo'). So a title that does not end with the product name is a report (any UI language). A build that
+    titles reports '<name> - Power BI Desktop' is covered by the project's own name: '<project>' or '<project> - ...'
+    is this project's report (logic only - no such build was run; whether it shows that title while still opening is
+    not known). No time-based fallback: a window stuck on the blank title stays 'opening'."""
+    t = title.strip().lower()
+    if not t:
+        return False
+    p = str(project or "").strip().lower()
+    if p and (t == p or t.startswith(p + " - ")):
+        return True
+    return not t.endswith("power bi desktop")
 
 
 def call(pid, method, args=None, wait=60):
@@ -172,11 +147,25 @@ def call(pid, method, args=None, wait=60):
             time.sleep(0.5)
 
 
-def instances():
+def _project():
+    """pipeline.json's project name, or None (bridge.py also runs where there is no pipeline.json)"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    try:
+        from config import PROJECT
+        return PROJECT
+    except (Exception, SystemExit):
+        return None
+
+
+def instances(project=None):
+    """every Desktop with the bridge; one still opening (no report window - see is_report_title) is not contacted"""
+    project = project or _project()
     out = []
     for p in glob.glob(PIPE + "*"):
         pid = p.rsplit("-", 1)[1]
-        if report_window(pid) is None:   # still opening: do not touch it (a request now can wedge it)
+        if report_window(pid, project) is None:   # still opening: do not touch it (a request now can wedge it)
             out.append({"pid": int(pid), "error": "no report window yet (Desktop still opening) - not contacted"})
             continue
         try:
@@ -188,7 +177,7 @@ def instances():
 
 
 def find_pid(project):
-    for i in instances():
+    for i in instances(project):
         if os.path.basename(i.get("currentFilePath") or "").lower() == f"{project}.pbip".lower():
             return i["pid"]
     return None
@@ -230,7 +219,7 @@ if __name__ == "__main__":
         name = next((m for m in methods if m.startswith("report.reload")), None) or next(m for m in methods if "reload" in m)
         # file.reload/v1 takes reloadModelDefinition (required): True re-applies the TMDL on disk to the live model, so
         # report AND measures arrive with no Apply banner, no click and no MCP push; --report-only keeps the old behavior
-        st = next((i for i in instances() if str(i["pid"]) == str(pid)), {})
+        st = next((i for i in instances(_project()) if str(i["pid"]) == str(pid)), {})
         if st.get("hasUnsavedChanges"):
             print("WARNING: Desktop has unsaved changes - a reload can be refused or a later save can overwrite the files "
                   "on disk (incl. publicCustomVisuals); reloading anyway")
