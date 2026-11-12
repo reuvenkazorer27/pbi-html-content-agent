@@ -51,13 +51,18 @@ def _exchange(pid, body, timeout):
         # hang at exit (measured)
         try:
             import ctypes
-            k32 = ctypes.windll.kernel32
+            from ctypes import wintypes
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.OpenThread.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+            k32.OpenThread.restype = wintypes.HANDLE   # a 64-bit handle: the default int restype would truncate it
+            k32.CancelSynchronousIo.argtypes = (wintypes.HANDLE,)
+            k32.CloseHandle.argtypes = (wintypes.HANDLE,)
             h = k32.OpenThread(0x0001, False, box.get("tid", 0))   # THREAD_TERMINATE: required by CancelSynchronousIo
             if h:
                 k32.CancelSynchronousIo(h)
                 k32.CloseHandle(h)
             t.join(2)
-        except (ImportError, AttributeError, OSError):
+        except Exception:   # not Windows, or the cancel failed: the timeout below still frees the caller
             pass
         raise SystemExit(f"bridge did not answer in {timeout:.0f} s for pid {pid} - Desktop busy or still opening")
     if "err" in box:
@@ -66,32 +71,78 @@ def _exchange(pid, body, timeout):
 
 
 def report_window(pid):
-    """the title of the Desktop window of `pid` once it shows a report; None while it has no titled window or only
-    'Untitled' (still opening) - a bridge request before that can leave Desktop windowless (observed twice).
-    Off Windows (no user32) it does not block: returns ''."""
+    """the title of the Desktop window of `pid` once it shows a report, else None.
+    Measured: while opening, Desktop has no window or one titled '<blank> - Power BI Desktop' ('Untitled - ...'); with
+    a report open the title is the file's base name alone ('sales-demo'). So: ready = a visible window whose title does
+    not end with the product name - no dependence on the UI language, and a report saved as 'Untitled.pbip' still
+    counts. Off Windows (no user32) it does not block: returns ''."""
     try:
         import ctypes
         from ctypes import wintypes
-        user32 = ctypes.windll.user32
+        user32 = ctypes.WinDLL("user32")
     except (ImportError, AttributeError, OSError):
         return ""
+    user32.GetWindowThreadProcessId.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+    user32.IsWindowVisible.argtypes = (wintypes.HWND,)
+    user32.InternalGetWindowText.argtypes = (wintypes.HWND, wintypes.LPWSTR, ctypes.c_int)
+    proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    user32.EnumWindows.argtypes = (proc, wintypes.LPARAM)
     found = []
 
-    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     def each(hwnd, _):
         owner = wintypes.DWORD()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
         if owner.value == int(pid) and user32.IsWindowVisible(hwnd):
-            # InternalGetWindowText reads the title without sending WM_GETTEXT: GetWindowTextW blocks for minutes on
-            # a Desktop that is busy opening (measured)
+            # InternalGetWindowText reads the title without sending the window a message (GetWindowTextW does, and a
+            # Desktop busy opening may not answer it); a precaution - the cause of the slow first status call that was
+            # seen (3 min, and once 66 s after this change) is not established
             buf = ctypes.create_unicode_buffer(512)
             if user32.InternalGetWindowText(hwnd, buf, 512):
                 found.append(buf.value)
         return True
 
-    user32.EnumWindows(each, 0)
-    titles = [t for t in found if not t.lower().startswith("untitled")]
-    return titles[0] if titles else None
+    user32.EnumWindows(proc(each), 0)
+    titles = [t for t in found if is_report_title(t)]
+    if titles:
+        return titles[0]
+    # only measured on one Desktop build: a build that titles an open report '<name> - Power BI Desktop' would never
+    # count as ready - so a titled window that has existed for READY_AFTER seconds counts as ready anyway
+    if found and _process_age(pid) >= READY_AFTER:
+        return found[0]
+    return None
+
+
+READY_AFTER = 90   # seconds; a normal open showed its report title within 20-30 s (measured 12 Nov 2026)
+
+
+def _process_age(pid):
+    """seconds since the process started (Windows), 0 when unknown"""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        k32 = ctypes.WinDLL("kernel32")
+        k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        k32.OpenProcess.restype = wintypes.HANDLE
+        k32.GetProcessTimes.argtypes = (wintypes.HANDLE,) + (ctypes.POINTER(wintypes.FILETIME),) * 4
+        k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        k32.GetSystemTimeAsFileTime.argtypes = (ctypes.POINTER(wintypes.FILETIME),)
+        h = k32.OpenProcess(0x1000, False, int(pid))   # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return 0
+        t = [wintypes.FILETIME() for _ in range(4)]
+        ok = k32.GetProcessTimes(h, *[ctypes.byref(x) for x in t])
+        k32.CloseHandle(h)
+        now = wintypes.FILETIME()
+        k32.GetSystemTimeAsFileTime(ctypes.byref(now))
+        ft = lambda f: (f.dwHighDateTime << 32 | f.dwLowDateTime) / 1e7
+        return ft(now) - ft(t[0]) if ok else 0
+    except Exception:
+        return 0
+
+
+def is_report_title(title):
+    """a Desktop window title that shows an open report: the file name alone, not '<blank> - Power BI Desktop'"""
+    return bool(title.strip()) and not title.rstrip().lower().endswith("power bi desktop")
 
 
 def call(pid, method, args=None, wait=60):

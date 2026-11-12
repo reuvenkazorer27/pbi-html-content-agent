@@ -19,12 +19,14 @@ In measures.py
                                              # a white plate is added when the logo would not read on it
 
 What it does
-1. extract(path)       dominant colors of the logo with weights. SVG: every painted shape (rect, circle, ellipse,
-                       path, polygon, polyline, line, text) with its fill - an attribute, inline style, a <style> class
-                       rule, a gradient (its stops), or inherited from a <g> - or its stroke when it has no fill,
-                       weighted by rough area. Hex, rgb() and basic named colors. PNG/JPG (needs Pillow): opaque
-                       pixels. Colors are grouped in 20deg hue bins (anti-aliasing shades merge; the bin's most
-                       frequent exact color represents it); white / black / grays are the logo's ink, kept apart.
+1. extract(path)       dominant colors of the logo with weights. SVG (parsed as XML): every painted shape (rect,
+                       circle, ellipse, path, polygon, polyline, line, text) with its paint after the cascade -
+                       presentation attribute < <style> rule (tag / .class / #id, matched on the selector's last
+                       compound) < inline style, inherited from <g>; gradients by their stops, following href chains;
+                       its stroke when it has no fill; shapes in defs / clipPath / mask skipped; weighted by rough
+                       area. Hex, rgb() and basic named colors. PNG/JPG (needs Pillow): opaque pixels. Colors are
+                       grouped in 20deg hue bins (anti-aliasing shades merge; the bin's most frequent exact color
+                       represents it); white / black / grays are the logo's ink, kept apart.
 2. brand_accent(cols)  brand = the chromatic color with the largest area, accent = the largest one at least 35deg of
                        hue away (None for a one-hue logo). A logo with no chromatic color: brand = its darkest ink.
                        No color found at all is an error, never a made-up brand.
@@ -44,11 +46,37 @@ import json
 import os
 import re
 import sys
+import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)   # python -I drops the script folder from sys.path
-from palette import _lum, contrast  # noqa: E402  (one WCAG implementation for the whole kit)
-from styles import _hls  # noqa: E402
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)   # python -I drops the script folder from sys.path
+
+
+# one WCAG implementation for the whole kit - imported when first used, not at import time: palette imports styles,
+# whose "style": {"logo": true} imports this module, so a top-level import here would be circular (a measures.py
+# that imports logo first crashed with "module 'logo' has no attribute 'colors'")
+_F = {}
+
+
+def _fn(mod, name):
+    """the kit's own color function, imported once on first use"""
+    if name not in _F:
+        _F[name] = getattr(__import__(mod), name)
+    return _F[name]
+
+
+def _lum(c):
+    return _fn("palette", "_lum")(c)
+
+
+def contrast(a, b):
+    return _fn("palette", "contrast")(a, b)
+
+
+def _hls(c):
+    return _fn("styles", "_hls")(c)
+
 
 MAX_BYTES = 12_000
 SIGNIFICANT = 0.05   # a color covering at least 5% of the logo counts for the plate decision (a wordmark does)
@@ -56,6 +84,9 @@ HEX = re.compile(r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
 NAMED = {"black": "#000000", "white": "#FFFFFF", "red": "#FF0000", "green": "#008000", "blue": "#0000FF",
          "yellow": "#FFFF00", "orange": "#FFA500", "purple": "#800080", "gray": "#808080", "grey": "#808080",
          "navy": "#000080", "teal": "#008080", "maroon": "#800000"}
+SHAPES = ("rect", "circle", "ellipse", "path", "polygon", "polyline", "line", "text")
+HIDDEN = ("defs", "clipPath", "mask", "symbol", "pattern", "marker", "style", "title", "desc", "metadata")
+XLINK = "{http://www.w3.org/1999/xlink}href"
 
 
 def _norm(h):
@@ -106,8 +137,8 @@ def _bin(pairs):
 
 def _paints(value, grads):
     """a fill/stroke value -> list of hex colors ([] for none / transparent / unknown)"""
-    v = (value or "").strip()
-    m = re.match(r"url\(\s*['\"]?#([\w-]+)", v)
+    v = (value or "").replace("!important", "").strip()
+    m = re.match(r"url\(\s*['\"]?#([\w.-]+)", v)
     if m:
         return grads.get(m.group(1), [])
     if HEX.match(v):
@@ -118,59 +149,124 @@ def _paints(value, grads):
     return [NAMED[v.lower()]] if v.lower() in NAMED else []
 
 
-def _svg_pairs(txt):
-    # <style> rules: .cls-1, .cls-2 { fill: #..; stroke: .. }  (Illustrator / Figma exports)
-    css = {}
-    for sel, body in re.findall(r"([^{}]+)\{([^}]*)\}", " ".join(re.findall(r"<style[^>]*>(.*?)</style>", txt, re.S))):
-        props = dict((k.strip().lower(), v.strip()) for k, v in re.findall(r"([\w-]+)\s*:\s*([^;]+)", body))
+def _local(tag):
+    return tag.rsplit("}", 1)[-1] if isinstance(tag, str) else ""
+
+
+def _css_rules(root):
+    """[(compound selector, {fill/stroke})] in source order. A selector is matched on its last compound
+    (tag, .class, #id, combined): `svg path`, `g .cls-1`, `path.cls-1`, `#a`, `*` - an approximation that covers
+    logo exports; specificity is not modeled, the later rule wins."""
+    css = " ".join(el.text or "" for el in root.iter() if _local(el.tag) == "style")
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    rules = []
+    for sel, body in re.findall(r"([^{}@]+)\{([^{}]*)\}", css):
+        props = {k.strip().lower(): v.strip() for k, v in re.findall(r"([\w-]+)\s*:\s*([^;]+)", body)
+                 if k.strip().lower() in ("fill", "stroke")}
         for s in sel.split(","):
-            s = s.strip()
-            if s.startswith("."):
-                css.setdefault(s[1:], {}).update(props)
-    # gradients: id -> stop colors
-    grads = {}
-    for gid, body in re.findall(r"<(?:linear|radial)Gradient\b[^>]*\bid=['\"]([\w-]+)['\"][^>]*>(.*?)</(?:linear|radial)Gradient>",
-                                txt, re.S):
-        stops = re.findall(r"stop-color\s*[=:]\s*['\"]?\s*([^'\";>]+)", body)
-        grads[gid] = [c for s in stops for c in _paints(s, {})]
-    pairs, stack, hidden = [], [{"fill": "#000000", "stroke": None}], 0   # SVG default fill is black
-    for close, tag, body, selfclose in re.findall(r"<(/?)([a-zA-Z]+)\b([^>]*?)(/?)>", txt):
-        if tag in ("defs", "clipPath", "mask", "symbol", "pattern", "marker"):   # shapes in here are not painted as such
-            hidden += -1 if close else (0 if selfclose else 1)
+            last = re.split(r"[\s>+~]+", s.strip())[-1]
+            if props and re.fullmatch(r"[a-zA-Z*]*(?:[.#][\w-]+)*", last or "-"):
+                rules.append((last, props))
+    return rules
+
+
+def _css_for(el, rules):
+    tag, classes, eid, out = _local(el.tag), set(el.get("class", "").split()), el.get("id"), {}
+    for sel, props in rules:
+        t = re.match(r"[a-zA-Z*]*", sel).group()
+        if t not in ("", "*", tag):
             continue
-        if hidden:   # opening and closing tags inside defs / clipPath / mask touch neither the paint stack nor the colors
-            continue
-        if close:
-            if tag in ("g", "svg", "a") and len(stack) > 1:
-                stack.pop()
-            continue
-        attrs = dict(re.findall(r"([\w:-]+)\s*=\s*['\"]([^'\"]*)['\"]", body))
-        paint = dict(stack[-1])
-        for cls in attrs.get("class", "").split():
-            paint.update({k: v for k, v in css.get(cls, {}).items() if k in ("fill", "stroke")})
+        if all((n in classes) if k == "." else (n == eid) for k, n in re.findall(r"([.#])([\w-]+)", sel)):
+            out.update(props)
+    return out
+
+
+def _gradients(root):
+    """gradient id -> stop colors, following href chains (Illustrator: a stops gradient + gradients that reuse it)"""
+    raw = {}
+    for el in root.iter():
+        if _local(el.tag) in ("linearGradient", "radialGradient") and el.get("id"):
+            stops = []
+            for st in el:
+                if _local(st.tag) == "stop":
+                    m = re.search(r"stop-color\s*:\s*([^;]+)", st.get("style", ""))
+                    stops += _paints(m.group(1) if m else st.get("stop-color"), {})
+            ref = (el.get("href") or el.get(XLINK) or "").lstrip("#")
+            raw[el.get("id")] = (stops, ref)
+
+    def resolve(gid, seen=()):
+        stops, ref = raw.get(gid, ([], ""))
+        if stops or not ref or ref in seen:
+            return stops
+        return resolve(ref, seen + (gid,))
+    return {gid: resolve(gid) for gid in raw}
+
+
+def _svg_pairs(txt):
+    try:
+        root = ET.fromstring(txt)
+    except ET.ParseError as e:
+        raise SystemExit(f"logo SVG is not well-formed XML ({e}) - export it again")
+    rules, grads, pairs = _css_rules(root), _gradients(root), []
+    ids = {el.get("id"): el for el in root.iter() if el.get("id")}
+
+    def cascade(el, inherited):
+        paint = dict(inherited)
+        for k in ("fill", "stroke"):          # presentation attribute < CSS rule < inline style
+            if el.get(k) is not None:
+                paint[k] = el.get(k)
+        paint.update(_css_for(el, rules))
+        paint.update({k: v.strip() for k, v in re.findall(r"(fill|stroke)\s*:\s*([^;]+)", el.get("style", ""))})
         for k in ("fill", "stroke"):
-            if k in attrs:
-                paint[k] = attrs[k]
-        m = re.findall(r"(fill|stroke)\s*:\s*([^;]+)", attrs.get("style", ""))
-        paint.update({k: v.strip() for k, v in m})
-        if tag in ("g", "svg", "a"):
-            if not selfclose:
-                stack.append(paint)
-            continue
-        if tag not in ("rect", "circle", "ellipse", "path", "polygon", "polyline", "line", "text"):
-            continue
-        area = _area(tag, attrs)
-        fills = _paints(paint.get("fill"), grads) if tag != "line" else []
-        cols, w = (fills, area) if fills else (_paints(paint.get("stroke"), grads), area * 0.2)   # stroke-only line art
+            if (paint.get(k) or "").strip() == "inherit":
+                paint[k] = inherited.get(k)
+        return paint
+
+    def add(paint, area, line=False):
+        fills = [] if line else _paints(paint.get("fill"), grads)
+        cols, w = (fills, area) if fills else (_paints(paint.get("stroke"), grads), area * 0.2)   # line art
         for c in cols:
             pairs.append((c, w / len(cols)))
+
+    def walk(el, inherited, depth=0):
+        tag = _local(el.tag)
+        if tag in HIDDEN or depth > 20:   # shapes in defs / clipPath / mask are not painted as such
+            return
+        paint = cascade(el, inherited)
+        if tag == "use":   # <use href='#m'> paints a symbol / element defined elsewhere (sprite-style exports)
+            target = ids.get((el.get("href") or el.get(XLINK) or "").lstrip("#"))
+            if target is None:
+                return
+            if _local(target.tag) == "symbol":   # a symbol is HIDDEN where it is defined: paint its children here
+                for ch in target:
+                    walk(ch, cascade(target, paint), depth + 1)
+            else:                                # a <g> or a shape keeps its own paint (cascaded over the <use>'s)
+                walk(target, paint, depth + 1)
+            return
+        if tag == "text":   # a wordmark: weighted by font size, split over its <tspan>s by their share of letters
+            area = _area("text", el.attrib)
+            parts = [((el.text or "").strip(), paint)] + [((t.text or "").strip(), cascade(t, paint))
+                                                          for t in el if _local(t.tag) == "tspan"]
+            letters = sum(len(s) for s, _ in parts) or 1
+            for s, p in parts:
+                if s:
+                    add(p, area * len(s) / letters)
+            if not any(s for s, _ in parts):
+                add(paint, area)
+            return
+        if tag in SHAPES:
+            add(paint, _area(tag, el.attrib), line=tag == "line")
+        for ch in el:
+            walk(ch, paint, depth)
+
+    walk(root, {"fill": "#000000", "stroke": None})   # SVG default fill is black
     return pairs
 
 
 def extract(path):
     """[(hex, share)] largest first; [] when no color could be read"""
     if path.lower().endswith(".svg"):
-        return _bin(_svg_pairs(open(path, encoding="utf-8").read()))
+        return _bin(_svg_pairs(open(path, encoding="utf-8-sig").read()))   # -sig: a BOM is not part of the SVG
     try:
         from PIL import Image
     except ImportError:
@@ -218,10 +314,11 @@ def plate_needed(cols, bg):
 def _sanitize_svg(txt):
     txt = re.sub(r"<\?xml.*?\?>|<!--.*?-->|<!DOCTYPE[^\[>]*(\[.*?\])?\s*>", "", txt, flags=re.S)
     if re.search(r"<script|<foreignObject|\son\w+\s*=|(?:xlink:)?href\s*=\s*['\"](?!#)"
-                 r"|url\(\s*['\"]?\s*(?!#)|@import", txt, re.I):
-        raise SystemExit("logo SVG has a script, foreignObject, an event handler or an external reference (href, "
-                         "url(), @import) - export a clean SVG (the Secure edition strips them, and the whole element "
-                         "can go with them)")
+                 r"|url\(\s*['\"]?\s*[^\s'\"#)]|@import", txt, re.I):
+        raise SystemExit("logo SVG has a script, foreignObject, an event handler, or an href / url() / @import that "
+                         "points outside the SVG (another file, a web address or an embedded data: image) - export a "
+                         "clean vector SVG, or give the logo as a PNG (the Secure edition strips such parts, and the "
+                         "whole element can go with them)")
     txt = re.sub(r"\s+", " ", txt).strip()
     # the measures' add() rescales every 'font-size:NNpx' (FONT_SCALE); '.0px' keeps a wordmark's own size
     txt = re.sub(r"font-size\s*:\s*(\d+)px", r"font-size:\1.0px", txt)
@@ -234,7 +331,7 @@ def fragment(path, height, max_width=None, alt="logo", align="center", on=None, 
     st = f"height:{height}px;width:auto;{mw}display:block;flex:none"
     alt = alt.replace("'", "&#39;").replace('"', "&quot;")
     if path.lower().endswith(".svg"):
-        svg = _sanitize_svg(open(path, encoding="utf-8").read())
+        svg = _sanitize_svg(open(path, encoding="utf-8-sig").read())
         for _ in range(2):   # the root's own width / height go: the style sizes it, the viewBox keeps the ratio
             svg = re.sub(r"(<svg\b[^>]*?)\s(?:width|height)='[^']*'", r"\1", svg, count=1)
         if "viewBox" not in svg.split(">", 1)[0]:
@@ -301,7 +398,96 @@ def colors(p=None):
 
 
 # ---------------------------------------------------------------- check
+def selftest():
+    """the cases two code reviews found (12 Nov 2026), no model or Desktop needed: python -I logo.py selftest"""
+    import subprocess
+    import tempfile
+    d, fails = tempfile.mkdtemp(), []
+
+    def svg(name, body, vb="0 0 200 60", head=""):
+        p = os.path.join(d, name + ".svg")
+        open(p, "w", encoding="utf-8").write(head + "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/"
+                                             f"xlink' viewBox='{vb}'>{body}</svg>")
+        return p
+
+    def expect(label, cond):
+        print(("ok   " if cond else "FAIL ") + label)
+        if not cond:
+            fails.append(label)
+
+    def rejects(body):
+        try:
+            fragment(svg("r", body, "0 0 9 9"), 40)
+            return False
+        except SystemExit:
+            return True
+
+    tw = svg("tw", "<rect width='56' height='56' fill='#0B5D6B'/><circle cx='34' cy='20' r='9' fill='#F28C38'/>"
+                   "<text x='68' y='37' font-size='26' fill='#12343B'>Tidewell</text>")
+    cases = [
+        ("attributes", tw, "#0B5D6B", "#F28C38"),
+        ("class rules", svg("c", "<style>.a{fill:#0B5D6B}.b{fill:#F28C38}</style><rect class='a' width='56' height='56'/>"
+                                 "<circle class='b' cx='30' cy='20' r='9'/>"), "#0B5D6B", "#F28C38"),
+        ("element / descendant / id rules", svg("e", "<style>svg path{fill:#0B5D6B} g .b{fill:#F28C38}</style>"
+                                                     "<path d='M0 0 L100 0 L100 60 Z'/><g><circle class='b' cx='150' cy='30' r='12'/></g>"),
+         "#0B5D6B", "#F28C38"),
+        ("CSS rule beats fill attribute", svg("p", "<style>.t{fill:#0B5D6B}</style><rect class='t' fill='#000' width='99' height='60'/>"),
+         "#0B5D6B", None),
+        ("href-chained gradient", svg("g", "<defs><linearGradient id='b'><stop offset='0' stop-color='#1D4ED8'/></linearGradient>"
+                                           "<linearGradient id='a' xlink:href='#b'/></defs><rect width='99' height='60' fill='url(#a)'/>"
+                                           "<circle cx='150' cy='30' r='12' fill='rgb(234,88,12)'/>"), "#1D4ED8", "#EA580C"),
+        ("stroke-only line art", svg("s", "<path d='M10 10 L190 50' fill='none' stroke='#9333EA'/>"), "#9333EA", None),
+        ("<use> of a <symbol>", svg("u", "<symbol id='m'><rect width='60' height='60' fill='#0B5D6B'/></symbol><use href='#m'/>"),
+         "#0B5D6B", None),
+        ("<use> of a painted <g>", svg("ug", "<defs><g id='k' fill='#DC2626'><rect width='60' height='60'/></g></defs>"
+                                            "<use xlink:href='#k'/>"), "#DC2626", None),
+        ("two-color <tspan> wordmark", svg("t", "<rect width='20' height='20' fill='#0B5D6B'/><text font-size='40'><tspan fill='#0B5D6B'>Tide"
+                                                "</tspan><tspan fill='#F28C38'>well</tspan></text>"), "#0B5D6B", "#F28C38"),
+        ("BOM + XML declaration", svg("bom", "<rect width='9' height='9' fill='#0B5D6B'/>", "0 0 9 9",
+                                      "﻿<?xml version='1.0' encoding='UTF-8'?>"), "#0B5D6B", None),
+    ]
+    for label, p, brand, accent in cases:
+        try:
+            ba = colors(p)
+            expect(f"{label}: {ba['brand']} / {ba['accent']}", ba["brand"] == brand and (accent is None or ba["accent"] == accent))
+        except SystemExit as e:
+            expect(f"{label}: {e}", False)
+    try:
+        colors(svg("none", "<rect width='9' height='9' fill='none'/>"))
+        expect("no colors is an error", False)
+    except SystemExit:
+        expect("no colors is an error", True)
+    expect("quoted local url('#g') accepted", not rejects("<rect width='9' height='9' style=\"fill:url('#g')\"/>"))
+    expect("external url() rejected", rejects("<rect width='9' height='9' style='fill:url(\"https://x.org/a#g\")'/>"))
+    expect("@import rejected", rejects("<style>@import url(https://x.org/a.css);</style><rect width='9' height='9'/>"))
+    expect("event handler rejected", rejects("<rect width='9' height='9' onclick='x()'/>"))
+    expect("plate for a dark wordmark on navy", plate_needed([("#F97316", .6), ("#000000", .3)], "#0D2140"))
+    expect("no useless plate on white", not plate_needed([("#FACC15", .7), ("#1F2937", .3)], "#FFFFFF"))
+    frag = fragment(svg("fs", "<rect width='9' height='9' fill='#000'/><text style='font-size:22px'>A</text>"), 40)
+    expect("font-size survives FONT_SCALE", "font-size:22.0px" in frag)
+    expect("a logo never mirrors", "direction:ltr" in fragment(tw, 40))
+    expect("no BOM in the fragment", "﻿" not in fragment(os.path.join(d, "bom.svg"), 40))
+    # `import logo` before palette, with "style": {"logo": true}: was a circular-import crash
+    tmp = tempfile.mkdtemp()
+    for f in os.listdir(HERE):
+        if f.endswith(".py") and f != "pipeline.json":
+            open(os.path.join(tmp, f), "w", encoding="utf-8").write(open(os.path.join(HERE, f), encoding="utf-8").read())
+    json.dump({"project": "x", "table": "T", "page_id": "p", "backup_dir": "_b", "logo": {"path": tw},
+               "style": {"logo": True, "preset": "mint"}}, open(os.path.join(tmp, "pipeline.json"), "w"))
+    env = {k: v for k, v in os.environ.items() if k not in ("DASH_STYLE", "DASH_PALETTE")}
+    r = subprocess.run([sys.executable, "-I", "-c", f"import sys; sys.path.insert(0, {tmp!r}); import logo, palette; "
+                        "print(palette.P['primary'])"], capture_output=True, text=True, env=env, cwd=tmp)
+    expect("`import logo` first with a logo style", r.returncode == 0 and "#0B5D6B" in r.stdout.upper())
+    import bridge
+    expect("bridge: report title vs opening title",
+           bridge.is_report_title("sales-demo") and not bridge.is_report_title("Untitled - Power BI Desktop"))
+    print("SELFTEST OK" if not fails else f"SELFTEST FAIL ({len(fails)})")
+    return 0 if not fails else 1
+
+
 def main(argv):
+    if argv[:1] == ["selftest"]:
+        return selftest()
     if len(argv) < 2 or argv[0] != "check":
         print(__doc__.split("\n\n")[0])
         return 2
