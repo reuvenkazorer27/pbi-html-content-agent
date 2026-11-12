@@ -46,7 +46,9 @@ try:
         run([sys.executable, "-I", "gen_query.py", q] + ([flt] if flt else []))
         rq = run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "runq.ps1", "-QueryFile", q, "-OutFile", r, "-Port", PORT])
         if "rows: 1" not in rq.stdout:
-            print(f"{name:14} DAX ERROR {rq.stderr.strip()[:200]}"); fails += 1; continue
+            hint = (f" (pinned port {PORT}: if Desktop was reopened, the port changed - update \"port\" in pipeline.json)"
+                    if PORT != "0" else "")
+            print(f"{name:14} DAX ERROR {rq.stderr.strip()[:200]}{hint}"); fails += 1; continue
         run([sys.executable, "-I", "gen_preview.py", r, h])
         pages.append((name, h))
     # 2. all previews in ONE headless browser (one Edge start instead of one per scenario)

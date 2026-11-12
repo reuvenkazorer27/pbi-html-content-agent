@@ -200,12 +200,22 @@ _KNOWN_FALSE = {"PBIR_SLICER_HEIGHT_BELOW_FLOOR"}   # a 40px slicer with padding
 
 
 def _findings(node, out):
-    """every {code, severity/level, message} object anywhere in the validator's JSON"""
+    """every finding in the validator's JSON as {code, severity, message, file}. The CLI keys findings by code:
+    data.diagnostics = {CODE: {"severity": ..., "items": [{"message", "file"}, ...]}}; objects that carry their own
+    "code" field are taken as they are."""
     if isinstance(node, dict):
-        if "code" in node:
+        diag = node.get("diagnostics")
+        if isinstance(diag, dict):
+            for code, d in diag.items():
+                d = d if isinstance(d, dict) else {}
+                for it in (d.get("items") or [{}]):
+                    out.append({"code": code, "severity": d.get("severity"),
+                                "message": (it or {}).get("message"), "file": (it or {}).get("file")})
+        elif "code" in node:
             out.append(node)
-        for v in node.values():
-            _findings(v, out)
+        for k, v in node.items():
+            if not (k == "diagnostics" and isinstance(diag, dict)):
+                _findings(v, out)
     elif isinstance(node, list):
         for v in node:
             _findings(v, out)
@@ -218,9 +228,11 @@ if _cli:
     _r = _sp.run([_cli, "validate", os.path.join(_ROOT, f"{_P}.pbip")], capture_output=True, text=True, encoding="utf-8", errors="replace")
     _raw = (_r.stdout or "") + (_r.stderr or "")
     try:
-        _all = _findings(json.loads(_r.stdout[_r.stdout.index("{"):] if "{" in _r.stdout else _r.stdout), [])
+        _doc = json.loads(_r.stdout[_r.stdout.index("{"):] if "{" in _r.stdout else _r.stdout)
+        _all = _findings(_doc, [])
+        _failed = '"result": "failed"' in json.dumps(_doc) or '"result":"failed"' in _r.stdout
     except ValueError:
-        _all = None
+        _all, _failed = None, False
     if _all is None:
         print("powerbi-report-author validate (unparsed):", _raw.strip()[-800:] or f"exit {_r.returncode}")
     else:
@@ -228,6 +240,9 @@ if _cli:
         _sev = lambda f: str(f.get("severity") or f.get("level") or "").lower()
         _err = [f for f in _real if _sev(f) in ("error", "fatal")]
         _known = len(_all) - len(_real)
+        if _failed and not _all:   # the validator failed but nothing was parsed: never report OK on a format we cannot read
+            print("powerbi-report-author validate: WARNING - the validator reports 'failed' but no finding could be read:",
+                  _raw.strip()[-800:])
         print(f"powerbi-report-author validate: {'OK' if not _err else 'ERRORS'} - {len(_err)} error(s), "
               f"{len(_real) - len(_err)} other finding(s), {_known} known false positive(s) ignored")
         for f in _real[:12]:
