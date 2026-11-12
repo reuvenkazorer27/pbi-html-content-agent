@@ -177,8 +177,13 @@ def instances(project=None):
 
 
 def find_pid(project):
+    """the Desktop window whose open file is THIS project's .pbip (full path). A basename match picked the wrong
+    window when two projects with the same name were open (a lab copy next to the original) - measured."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from config import ROOT
+    want = os.path.normcase(os.path.normpath(os.path.join(ROOT, f"{project}.pbip")))
     for i in instances(project):
-        if os.path.basename(i.get("currentFilePath") or "").lower() == f"{project}.pbip".lower():
+        if os.path.normcase(os.path.normpath(i.get("currentFilePath") or "")) == want:
             return i["pid"]
     return None
 

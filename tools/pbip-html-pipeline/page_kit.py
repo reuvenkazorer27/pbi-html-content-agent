@@ -49,6 +49,15 @@ def fluid(html, design_w=1920, design_h=1080):
     return html
 
 
+def zoom_root_style(design_w=1920, design_h=1080):
+    """style for EVERY root <div> of a LIVE DAX page (incl. the empty-state branch): its px values are partly computed
+    in DAX (FORMAT(...) & "px"), so fluid() cannot convert them. The root keeps the design size and CSS zoom scales it
+    to the visual (measured in Desktop with the filter pane open: complete page, nothing clipped). Gate at the design
+    size, where zoom = 1 - at other sizes the fit gate reads scrollHeight in unzoomed units (false 'taller')."""
+    return (f"line-height:normal;font-size:16px;width:{design_w}px;height:{design_h}px;"
+            f"zoom:min(calc(100vw / {design_w}px),calc(100vh / {design_h}px))")
+
+
 def dax_literal(html, chunk=3000):
     parts = [html[i:i + chunk] for i in range(0, len(html), chunk)]
     return "\n& ".join('"' + p.replace('"', '""') + '"' for p in parts)

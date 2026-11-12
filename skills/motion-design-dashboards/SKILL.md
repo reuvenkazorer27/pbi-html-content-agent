@@ -83,12 +83,14 @@ Uiverse.io is an open-source library of HTML/CSS elements (github.com/uiverse-io
 4. **Into Power BI** (Pattern A, one fullscreen visual):
    - *Static study*: `page_kit.dax_literal(page_kit.fluid(html))` as the measure - renders exactly as gated, does not react to slicers. Say so.
    - *Live*: port the generator to DAX (CONCATENATEX over ranked VALUES / month series, every number via FORMAT). Acceptance: the unfiltered DAX output is byte-identical to the gated HTML; the stress scenarios each pass `page_check.py`.
+     Scaling: give EVERY root `<div>` in the DAX - the empty-state branch too - `style='{page_kit.zoom_root_style()}'` (design size + CSS `zoom`), because px computed in DAX escape `fluid()`. Gate the DAX outputs at the design size (zoom = 1). *(measured: complete page in Desktop with the filter pane open; a pin placed only on the first `<div` of the expression landed in the empty-state branch and the page was clipped)*
    - Then the normal loop (`reference/build-workflow.md`): `gen_pbip.py`, `versions.py snapshot`, reload, Calculate, Desktop screenshot.
 
 ## 7. Traps (measured unless marked)
 
 - **Desktop injects its own line-height / font-size into the visual** *(measured)*: a page that fit in the browser was clipped at the bottom in Desktop. `page_kit.fluid` pins both on the root.
-- **Fixed px vs the visual size** *(measured)*: `--u = min(100vw/W, 100vh/H)` is exactly 1 px at the design size (pixel-identical render) and scales the page with the visual.
+- **Fixed px vs the visual size** *(measured)*: `--u = min(100vw/W, 100vh/H)` is exactly 1 px at the design size (pixel-identical render) and scales the page with the visual. A live DAX page uses `page_kit.zoom_root_style()` instead (section 6).
+- **Desktop shrinks the page when the filter pane is open** *(measured)*: a fixed-px page that fit with the pane closed was clipped with it open - always ship a scaling page.
 - **clip-path from `inset()` to `none` does not interpolate** - it flips at 50 %. Always an explicit `to{clip-path:inset(0 0 0 0)}`.
 - **Stroke-dash draw with `vector-effect:non-scaling-stroke`**: Chromium ignores `pathLength` - the line never looks drawn. Clip wipe on a wrapper for time series.
 - **`animation` shorthand without `both`** shows the end state before the delay.
