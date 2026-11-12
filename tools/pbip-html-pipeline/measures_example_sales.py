@@ -11,6 +11,7 @@ _os.environ.setdefault("DASH_DIR", "ltr")
 _os.environ.setdefault("DASH_LANG", "en")
 from palette import P, resolve
 import styles as S
+import logo
 import components as K
 from config import TABLE
 
@@ -62,15 +63,20 @@ VAR _end = CALCULATE ( MAX ( {C('OrderDate')} ), ALLSELECTED ( {T} ) )
 RETURN CALCULATE ( [Revenue], KEEPFILTERS ( {C('OrderDate')} > _end - 60 && {C('OrderDate')} <= _end - 30 ) )""", "Measures", "#,0")
 
 # ---------------------------------------------------------------- header
+# pipeline.json "logo" puts the organization's logo at the start of the header, with a divider (logo.py; "" when none)
+LOGO = logo.html(40, on=P["surface"])
+if LOGO:
+    LOGO += "<div style='width:1px;height:36px;flex:none;background:@@border@@'></div>"
 add("HTML Header", ISO + f"""
 VAR _n = [Orders] + 0
 VAR _from = MIN ( {C('OrderDate')} )
 VAR _to = MAX ( {C('OrderDate')} )
 RETURN
     "<div dir='@@dir@@' lang='@@lang@@' style='{CARD};padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px'>"
+        & "<div style='display:flex;align-items:center;gap:16px;min-width:0'>{LOGO}"
         & "<div style='min-width:0'><div style='font-size:22px;font-weight:700;white-space:nowrap'>Sales overview</div>"
         & "<div style='font-size:12px;color:{FG2};white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>Invented sample data · "
-        & IF ( _n = 0, "no orders in the selection", FORMAT ( _from, "mmm yyyy" ) & " – " & FORMAT ( _to, "mmm yyyy" ) & " · " & FORMAT ( _n, "#,0" ) & " orders" ) & "</div></div>"
+        & IF ( _n = 0, "no orders in the selection", FORMAT ( _from, "mmm yyyy" ) & " – " & FORMAT ( _to, "mmm yyyy" ) & " · " & FORMAT ( _n, "#,0" ) & " orders" ) & "</div></div></div>"
     & "</div>\"""", "HTML")
 
 

@@ -25,6 +25,7 @@ def lit(v):
 
 # ---------------------------------------------------------------- before writing
 # Desktop with unsaved changes may not offer "Apply external changes" and a later save overwrites these files
+# (bridge.instances() never contacts a Desktop that is still opening, and every bridge request has a timeout)
 try:
     import bridge as _br
     from config import PROJECT as _PROJECT
@@ -32,8 +33,8 @@ try:
         if os.path.basename(_i.get("currentFilePath") or "").lower() == f"{_PROJECT}.pbip".lower() and _i.get("hasUnsavedChanges"):
             print(f"WARNING: Desktop (pid {_i['pid']}) has unsaved changes in {_PROJECT}.pbip - the Apply banner may not show, "
                   "and saving in Desktop now would overwrite what is written here. See reference/build-workflow.md §1.")
-except Exception:
-    pass   # no bridge: nothing to check
+except (Exception, SystemExit):
+    pass   # no bridge, or it did not answer: nothing to check
 
 
 def _strip_generated(text):
@@ -97,6 +98,47 @@ rep = json.load(open(rp, encoding="utf-8"))
 pcv = rep.setdefault("publicCustomVisuals", [])
 if HTML_GUID not in pcv:
     pcv.append(HTML_GUID)
+
+# ---------------------------------------------------------------- optional: the style as the report's theme
+# pipeline.json "report_theme": true -> native visuals (slicers, any built-in chart) and the --pbi-theme-* variables
+# follow the style. A report that already has another custom theme keeps it unless "report_theme": "replace" (it may be
+# the organization's own theme - ask before replacing it).
+from config import CFG as _CFG
+_rt = _CFG.get("report_theme")
+if _rt:
+    import palette as _pal
+    _theme = _pal.theme_json()
+    _fname = f"{_theme['name']}.json"
+    # powerbi-report-author validate: customTheme.name, the resource item name/path AND the theme file's own "name"
+    # must all be the same string with ".json" (a bare name mis-applies the theme in the Service)
+    _theme["name"] = _fname
+    _tc = rep.get("themeCollection") or {}
+    _cur = _tc.get("customTheme")
+    _curname = (_cur or {}).get("name") or ""
+    _base = _tc.get("baseTheme") or {}
+    if not _base.get("reportVersionAtImport"):   # nothing to copy the version from: skip, never crash mid-write
+        print("report theme: skipped - report.json has no baseTheme to take reportVersionAtImport from "
+              "(apply the theme in Desktop: View > Themes > Browse, `python -I palette.py theme out.json`)")
+    elif _cur and _curname != _fname and not _curname.startswith("pbi-html-") and _rt != "replace":
+        print(f"report theme: kept the report's own custom theme {_curname} (\"report_theme\": \"replace\" overrides it)")
+    else:
+        _dst = os.path.join(REPORT_DIR, "StaticResources", "RegisteredResources")
+        os.makedirs(_dst, exist_ok=True)
+        if _curname != _fname and _curname.startswith("pbi-html-"):
+            try:
+                os.remove(os.path.join(_dst, os.path.basename(_curname)))   # our previous theme file, superseded
+            except OSError:
+                pass
+        json.dump(_theme, open(os.path.join(_dst, _fname), "w", encoding="utf-8"), indent=2)
+        rep["themeCollection"]["customTheme"] = {"name": _fname, "reportVersionAtImport": _base["reportVersionAtImport"],
+                                                 "type": "RegisteredResources"}
+        _pk = [x for x in rep.get("resourcePackages", []) if x.get("name") != "RegisteredResources"]
+        _old = next((x for x in rep.get("resourcePackages", []) if x.get("name") == "RegisteredResources"), None)
+        _items = [i for i in (_old or {}).get("items", []) if i.get("type") != "CustomTheme"]
+        _items.append({"name": _fname, "path": _fname, "type": "CustomTheme"})
+        _pk.append({"name": "RegisteredResources", "type": "RegisteredResources", "items": _items})
+        rep["resourcePackages"] = _pk
+        print(f"report theme: {_fname}")
 json.dump(rep, open(rp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
 # ---------------------------------------------------------------- page.json

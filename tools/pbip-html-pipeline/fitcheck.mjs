@@ -72,6 +72,9 @@ const CONTRAST_JS = `
     var d=f.contentDocument, w=f.contentWindow; if(!d) return; var worst=null;
     d.querySelectorAll('body *').forEach(function(el){
       var own=[].some.call(el.childNodes,function(n){return n.nodeType===3&&n.textContent.trim().length>1}); if(!own) return;
+      // a logo's wordmark is exempt from text contrast (WCAG 1.4.3, logotypes); logo.py gates the logo at 3:1 with a
+      // plate instead. (An SVG <text> also paints with 'fill', not 'color', so reading 'color' here would be wrong.)
+      if(el.closest && el.closest('[role=img]')) return;
       var cs=w.getComputedStyle(el), fg=rgb(cs.color); if(!fg||cs.visibility==='hidden'||parseFloat(cs.opacity)<0.2) return;
       var bg=bgOf(el,w), l1=lum(fg), l2=lum(bg), ratio=(Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);
       var size=parseFloat(cs.fontSize), bold=parseInt(cs.fontWeight)>=700, large=size>=24||(bold&&size>=18.66), need=large?3:4.5;

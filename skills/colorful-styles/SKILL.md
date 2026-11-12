@@ -1,6 +1,6 @@
 ---
 name: colorful-styles
-description: Make an HTML Content dashboard colorful and still premium and consistent - fit a style to the user's brand, data and audience with tools/pbip-html-pipeline/styles.py, give every card a role, and gate contrast in every filter state. Use when the user asks for a colorful, branded, dark, warm, "more alive" or "less boring" dashboard, or when KPI cards and chart cards look like two different products.
+description: Make an HTML Content dashboard colorful and still premium and consistent - fit a style to the user's brand, data and audience with tools/pbip-html-pipeline/styles.py, give every card a role, and gate contrast in every filter state. Use when the user asks for a colorful, branded, dark, warm, "more alive" or "less boring" dashboard, when KPI cards and chart cards look like two different products, or when the user brings an existing report and/or the organization's logo ("brand it", "our colors", "add our logo").
 ---
 
 # Colorful dashboards with styles
@@ -28,6 +28,7 @@ From `reference/design-system.md` §4:
    If there are no answers, start from a preset.
 2. **Pick or build the style.** Show 2-3 options as real previews before writing the PBIP: render each through the pipeline and send the screenshots.
    - Preset: `DASH_STYLE=accent | tonal | midnight | sand | ocean | duotone | sunset | mint`. `accent` is the default.
+   - From the logo: `"style": {"logo": true}` (add `"preset": ...` to keep a preset's look). See "An existing report and a logo" below.
    - From the brand: `make_style(brand, accent=None, mode="light"|"dark", mechanism="bar"|"start-bar"|"tint"|"tint-strong"|"chip", hero=True, colors={...})`.
    - Make it the project default in `pipeline.json`: `"style": "accent"` or `"style": {"brand": "#0E7490", "mode": "dark", "mechanism": "tint", "hero": false}`.
    - Try one in a single build: `DASH_STYLE='{"brand": "#0E7490", "mode": "dark"}'`.
@@ -51,7 +52,27 @@ From `reference/design-system.md` §4:
 
 Dark + tint: `mode="dark"` with `mechanism="tint"` / `"tint-strong"` tints dark card surfaces in each role's hue (text pushed toward white), not light pastels on a dark page.
 
-A preset with some inputs changed: `"style": {"preset": "accent", "hero": false}` (or `"page": "#..."` for a colored page) - no need to copy the preset's colors.
+A preset with some inputs changed: `"style": {"preset": "accent", "hero": false}` (or `"page": "#..."` for a colored page) - no need to copy the preset's colors. A `"brand"` / `"accent"` given with a preset takes the `brand`/`c1` and `c2` roles, and the preset's other hues stay (in 1.1.0 a brand given with a preset was silently ignored).
+
+## An existing report and a logo
+
+Measured 12 Nov 2026 on copies of a kit-built sales report with an invented two-color logo: each of the three paths below was built with live DAX, the fit/contrast/stress gates and a Desktop screenshot (LTR English, light). RTL, dark and a report of native visuals are not run yet.
+
+**Ask first, in the same one round as the style questions:**
+1. Do others already use this report - bookmarks, drillthrough, other pages or habits that depend on where visuals are?
+2. Is it built with this kit (HTML Content) or with native visuals?
+3. What is the request: "our colors and logo", or "the look / structure does not work"?
+4. The logo file (SVG preferred), and whether a brand guide gives official hex values - they win over extracted ones.
+
+**Then pick one path:**
+
+| Path | When | What changes | Risk to the existing report |
+| --- | --- | --- | --- |
+| **Preset + logo (default)** | A kit-built report, the request is branding | Layout and measures stay. `"style": {"logo": true, "preset": "<closest>"}`: the logo's main color takes the `brand`/`c1` roles, its second color `c2`, and the preset keeps its curated hues and look. Logo in the header, `"report_theme": true` | Low - positions and visuals are untouched, only colors change |
+| **Colors only** | The user says "keep everything, only our colors", or the report is native visuals | Kit report: `"style": {"logo": true, ...}` keeping the report's own character (e.g. `"page": "<brand-dark>"` for a colored page, with `"hero": false` when the page is the brand color). Native report: the report theme (`"report_theme"` or `palette.py theme`) plus an HTML Content header with the logo | Low. `make_style()` derives the other category hues by rotating the brand hue, so some fall outside the brand - prefer the preset path when that shows |
+| **Redesign** | The user asks for a new look, the layout fails the fit/fill gates, or there is no room for the logo | A new `LAYOUT`, e.g. a full-height rail with the logo, title and filters (`logo.html(48, align="flex-start")`) and one hero KPI | High - visuals are removed and moved, so bookmarks and drillthrough break. Build it as a **new page** (or a copy) next to the old one, never over a page in use |
+
+**Logo:** `pipeline.json` `"logo": {"path": "../brand/logo.svg", "height": 40, "alt": "<org>"}`, and `LOGO = logo.html(40, on=<card color>)` in the header (the sales example does this). Run `python -I logo.py check <file>` first: it proposes brand + accent, checks the fragment size and runs `style_check` on the styles it implies. Show the two proposed colors to the user - extraction proposes, the user (or the brand guide) decides. The rules a logo follows are in `reference/design-system.md` §4.
 
 ## Choosing a mechanism
 

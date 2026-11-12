@@ -206,6 +206,8 @@ STYLE = ""
 assert all(set(v) == set(PALETTES["ocean"]) for v in PALETTES.values()), "every palette must define every token"
 # a colorful style (styles.py: DASH_STYLE / pipeline.json "style", default "accent") replaces the choice above:
 # styles.py registers PALETTES["style"] and sets ACTIVE, P and STYLE here. Works in either import order.
+import sys as _sys  # noqa: E402
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python -I drops the script folder from sys.path
 import styles as _styles  # noqa: E402
 
 
@@ -214,7 +216,7 @@ def theme_json(palette=None, name=None):
     --pbi-theme-* variables match the palette."""
     p = PALETTES[palette] if palette else P
     return {
-        "name": name or f"pbi-html-{palette or ACTIVE}",
+        "name": name or f"pbi-html-{palette or (f'style-{STYLE}' if ACTIVE == 'style' else ACTIVE)}",
         "dataColors": [p["primary"], p["maint"], p["design"], p["series4"], p["done"], p["series3"], p["bad"], p["muted"]],
         "background": p["surface"], "foreground": p["fg"], "tableAccent": p["primary"],
         "good": p["done"], "bad": p["bad"], "neutral": p["muted"],
@@ -223,9 +225,12 @@ def theme_json(palette=None, name=None):
 
 if __name__ == "__main__":      # python -I palette.py theme out.json  -> write the active palette as a report theme
     import json, sys
+    # the active style registered itself in the *module* palette, not in this __main__ copy: ask the module
+    import palette as _pal
     if len(sys.argv) > 2 and sys.argv[1] == "theme":
-        json.dump(theme_json(), open(sys.argv[2], "w", encoding="utf-8"), indent=2)
-        print(f"theme written: {sys.argv[2]} ({ACTIVE})")
+        th = _pal.theme_json()
+        json.dump(th, open(sys.argv[2], "w", encoding="utf-8"), indent=2)
+        print(f"theme written: {sys.argv[2]} ({th['name']})")
 
 
 def resolve(text, palette=None):
