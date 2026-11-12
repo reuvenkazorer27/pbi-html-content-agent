@@ -290,10 +290,12 @@ def resolve_style(spec):
         args = dict(PRESETS[name]["inputs"])
         args.update({k: v for k, v in spec.items() if k != "preset"})
         if ("brand" in spec or "accent" in spec) and "colors" not in spec:
-            # a preset's colors pin every role, so a new brand alone used to change nothing: the brand takes the
-            # brand and c1 roles, the accent c2; the preset's other hues stay (its curated palette)
-            args["colors"] = dict(args["colors"], brand=args["brand"], c1=args["brand"],
-                                  **({"c2": spec["accent"]} if spec.get("accent") else {}))
+            # a preset's colors pin every role, so a new brand alone used to change nothing: a given brand takes the
+            # brand and c1 roles, a given accent c2; every role not given keeps the preset's hue (its curated palette)
+            pin = {"brand": spec["brand"], "c1": spec["brand"]} if spec.get("brand") else {}
+            if spec.get("accent"):
+                pin["c2"] = spec["accent"]
+            args["colors"] = dict(args["colors"], **pin)
         return make_style(**args)
     if isinstance(spec, dict):
         return make_style(**spec)

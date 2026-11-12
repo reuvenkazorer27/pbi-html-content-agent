@@ -76,8 +76,9 @@ The pipeline ships this as a tool, not a theme: `tools/pbip-html-pipeline/styles
 
 Measured in Desktop (Secure edition, 12 Nov 2026): an inline `<svg>` and an `<img>` with a base64 PNG both render in the header of an HTML Content card. `tools/pbip-html-pipeline/logo.py` builds the fragment and enforces these rules:
 
-- **Never recolor a logo.** Its colors feed the style (brand + accent), not the other way round. When its main color is under 3:1 on the surface it sits on, and a white plate fixes that, it sits on a white plate.
-- **SVG inline first; PNG only small.** The SVG is sanitized (no script, `foreignObject`, `on*=` or external `href`) and needs a `viewBox`; a PNG is resized to 2x its display height and palette-quantized. **Must:** the fragment stays at most 12 KB - every card that shows the logo carries it in its measure.
+- **Never recolor a logo.** Its colors feed the style (brand + accent), not the other way round. When any significant color of it (the mark or the wordmark) is under 3:1 on the surface it sits on, and a white plate fixes that, it sits on a white plate. Its wordmark is exempt from the 4.5:1 text gate (WCAG 1.4.3 logotypes) - `fitcheck.mjs` skips `role='img'`; the plate rule is its gate.
+- **A logo never mirrors.** In an RTL card an SVG `<text>` wordmark inherits `direction:rtl` and runs from the wrong end over the mark (measured; the fit and contrast gates did not catch it, the screenshot did) - the fragment carries `direction:ltr`.
+- **SVG inline first; PNG only small.** The SVG is sanitized (no script, `foreignObject`, `on*=` or external `href`) and needs a `viewBox`; a PNG is resized to 2x its display height and palette-quantized. **Must:** the fragment stays at most 12 KB - every card that shows the logo carries it in its measure. A `font-size:NNpx` inside the SVG is written `NN.0px` so the measures' `FONT_SCALE` does not resize the wordmark.
 - **One place: the start of the header** (or the top of a side rail), 40px high in an 80px header at 1920×1080. It mirrors with the reading direction like any flex item. In a flex column give it `align="flex-start"`: a stretched `<svg>` centers its drawing.
 - **Extracted colors are a proposal.** A flat logo gives its colors exactly; official brand hex values win.
 

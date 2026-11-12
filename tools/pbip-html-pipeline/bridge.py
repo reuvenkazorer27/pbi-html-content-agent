@@ -14,19 +14,18 @@
                                                   (measured: 15s was not always enough) shows empty cards
 Without --pid the Desktop whose open file is <project>.pbip (pipeline.json) is used. Exit 2 = no bridge (fall back to
 Apply external changes + Refresh + a manual screenshot)."""
-import base64, glob, json, os, sys, time
+import base64, glob, json, os, sys, threading, time
 
 PIPE = r"\\.\pipe\pbi-desktop-bridge-"
 
 
-def call(pid, method, args=None, wait=60):
-    """one request per connection; the pipe is busy while another client talks to it -> retry until `wait` seconds"""
-    msg = {"jsonrpc": "2.0", "id": 1, "method": method, "params": {"client": "pbi-html-pipeline", "args": args or {}}}
-    if method == "bridge.manifest":
-        msg["params"] = {}
-    body = json.dumps(msg).encode("utf-8")
-    end = time.time() + wait
-    while True:
+def _exchange(pid, body, timeout):
+    """one request/response on the pipe, in a worker thread: a pipe read has no timeout of its own, and a Desktop that
+    is busy or stuck opening can accept the connection and never answer (measured) - the caller must not hang"""
+    box = {}
+
+    def run():
+        box["tid"] = threading.get_native_id()
         try:
             with open(PIPE + str(pid), "r+b", buffering=0) as f:
                 f.write(b"Content-Length: %d\r\n\r\n" % len(body) + body)
@@ -40,7 +39,71 @@ def call(pid, method, args=None, wait=60):
                 data = b""
                 while len(data) < n:
                     data += f.read(n - len(data))
-            out = json.loads(data)
+            box["data"] = data
+        except BaseException as e:   # handed over to the caller's thread
+            box["err"] = e
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        # cancel the pending pipe read: a handle with pending synchronous I/O cannot be closed, so the process would
+        # hang at exit (measured)
+        try:
+            import ctypes
+            k32 = ctypes.windll.kernel32
+            h = k32.OpenThread(0x0001, False, box.get("tid", 0))   # THREAD_TERMINATE: required by CancelSynchronousIo
+            if h:
+                k32.CancelSynchronousIo(h)
+                k32.CloseHandle(h)
+            t.join(2)
+        except (ImportError, AttributeError, OSError):
+            pass
+        raise SystemExit(f"bridge did not answer in {timeout:.0f} s for pid {pid} - Desktop busy or still opening")
+    if "err" in box:
+        raise box["err"]
+    return box["data"]
+
+
+def report_window(pid):
+    """the title of the Desktop window of `pid` once it shows a report; None while it has no titled window or only
+    'Untitled' (still opening) - a bridge request before that can leave Desktop windowless (observed twice).
+    Off Windows (no user32) it does not block: returns ''."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+    except (ImportError, AttributeError, OSError):
+        return ""
+    found = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def each(hwnd, _):
+        owner = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+        if owner.value == int(pid) and user32.IsWindowVisible(hwnd):
+            # InternalGetWindowText reads the title without sending WM_GETTEXT: GetWindowTextW blocks for minutes on
+            # a Desktop that is busy opening (measured)
+            buf = ctypes.create_unicode_buffer(512)
+            if user32.InternalGetWindowText(hwnd, buf, 512):
+                found.append(buf.value)
+        return True
+
+    user32.EnumWindows(each, 0)
+    titles = [t for t in found if not t.lower().startswith("untitled")]
+    return titles[0] if titles else None
+
+
+def call(pid, method, args=None, wait=60):
+    """one request per connection; the pipe is busy while another client talks to it -> retry until `wait` seconds"""
+    msg = {"jsonrpc": "2.0", "id": 1, "method": method, "params": {"client": "pbi-html-pipeline", "args": args or {}}}
+    if method == "bridge.manifest":
+        msg["params"] = {}
+    body = json.dumps(msg).encode("utf-8")
+    end = time.time() + wait
+    while True:
+        try:
+            out = json.loads(_exchange(pid, body, max(5.0, end - time.time())))
             if "error" in out:
                 err = out["error"]
                 info = err.get("data") or {}
@@ -62,6 +125,9 @@ def instances():
     out = []
     for p in glob.glob(PIPE + "*"):
         pid = p.rsplit("-", 1)[1]
+        if report_window(pid) is None:   # still opening: do not touch it (a request now can wedge it)
+            out.append({"pid": int(pid), "error": "no report window yet (Desktop still opening) - not contacted"})
+            continue
         try:
             st = call(pid, "application.state.get/v1", wait=10)
         except (SystemExit, RuntimeError) as e:

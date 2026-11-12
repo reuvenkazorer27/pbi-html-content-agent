@@ -25,30 +25,16 @@ def lit(v):
 
 # ---------------------------------------------------------------- before writing
 # Desktop with unsaved changes may not offer "Apply external changes" and a later save overwrites these files
-def _unsaved_warning():
+# (bridge.instances() never contacts a Desktop that is still opening, and every bridge request has a timeout)
+try:
     import bridge as _br
     from config import PROJECT as _PROJECT
     for _i in _br.instances():
         if os.path.basename(_i.get("currentFilePath") or "").lower() == f"{_PROJECT}.pbip".lower() and _i.get("hasUnsavedChanges"):
             print(f"WARNING: Desktop (pid {_i['pid']}) has unsaved changes in {_PROJECT}.pbip - the Apply banner may not show, "
                   "and saving in Desktop now would overwrite what is written here. See reference/build-workflow.md §1.")
-
-
-# a Desktop that is stuck opening can keep the bridge pipe open without ever answering (measured): never let the
-# check block the write - give it 15 s in a background thread
-def _safe():
-    try:
-        _unsaved_warning()
-    except Exception:
-        pass   # no bridge: nothing to check
-
-
-import threading as _th  # noqa: E402
-_t = _th.Thread(target=_safe, daemon=True)
-_t.start()
-_t.join(15)
-if _t.is_alive():
-    print("note: the Desktop Bridge did not answer in 15 s (Desktop busy or stuck opening) - unsaved-changes check skipped")
+except (Exception, SystemExit):
+    pass   # no bridge, or it did not answer: nothing to check
 
 
 def _strip_generated(text):
@@ -126,19 +112,24 @@ if _rt:
     # powerbi-report-author validate: customTheme.name, the resource item name/path AND the theme file's own "name"
     # must all be the same string with ".json" (a bare name mis-applies the theme in the Service)
     _theme["name"] = _fname
-    _cur = (rep.get("themeCollection") or {}).get("customTheme")
-    if _cur and _cur.get("name") != _fname and not _cur["name"].startswith("pbi-html-") and _rt != "replace":
-        print(f"report theme: kept the report's own custom theme {_cur['name']} (\"report_theme\": \"replace\" overrides it)")
+    _tc = rep.get("themeCollection") or {}
+    _cur = _tc.get("customTheme")
+    _curname = (_cur or {}).get("name") or ""
+    _base = _tc.get("baseTheme") or {}
+    if not _base.get("reportVersionAtImport"):   # nothing to copy the version from: skip, never crash mid-write
+        print("report theme: skipped - report.json has no baseTheme to take reportVersionAtImport from "
+              "(apply the theme in Desktop: View > Themes > Browse, `python -I palette.py theme out.json`)")
+    elif _cur and _curname != _fname and not _curname.startswith("pbi-html-") and _rt != "replace":
+        print(f"report theme: kept the report's own custom theme {_curname} (\"report_theme\": \"replace\" overrides it)")
     else:
         _dst = os.path.join(REPORT_DIR, "StaticResources", "RegisteredResources")
         os.makedirs(_dst, exist_ok=True)
-        if _cur and _cur.get("name") != _fname and _cur["name"].startswith("pbi-html-"):
+        if _curname != _fname and _curname.startswith("pbi-html-"):
             try:
-                os.remove(os.path.join(_dst, _cur["name"]))   # our previous theme file, superseded
+                os.remove(os.path.join(_dst, os.path.basename(_curname)))   # our previous theme file, superseded
             except OSError:
                 pass
         json.dump(_theme, open(os.path.join(_dst, _fname), "w", encoding="utf-8"), indent=2)
-        _base = rep["themeCollection"]["baseTheme"]
         rep["themeCollection"]["customTheme"] = {"name": _fname, "reportVersionAtImport": _base["reportVersionAtImport"],
                                                  "type": "RegisteredResources"}
         _pk = [x for x in rep.get("resourcePackages", []) if x.get("name") != "RegisteredResources"]
