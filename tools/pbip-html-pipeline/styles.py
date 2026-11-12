@@ -271,16 +271,29 @@ def _from_config():
 
 
 def resolve_style(spec):
-    """a preset name, a make_style() argument dict, {"preset": name, ...changed inputs}, or None/"none" -> a style dict"""
+    """a preset name, a make_style() argument dict, {"preset": name, ...changed inputs}, {"logo": true, ...} (brand and
+    accent from the logo in pipeline.json, with or without a preset), or None/"none" -> a style dict"""
     if spec in (None, "", "none"):
         return None
     if isinstance(spec, str) and spec.lstrip().startswith("{"):   # DASH_STYLE='{"brand": "#0E7490", "mode": "dark"}'
         spec = json.loads(spec)
+    if isinstance(spec, dict) and spec.get("logo"):   # brand + accent from pipeline.json "logo" (logo.py)
+        import logo as _logo
+        ba = _logo.colors(spec["logo"] if isinstance(spec["logo"], str) else None)
+        spec = {k: v for k, v in spec.items() if k != "logo"}
+        spec.setdefault("brand", ba["brand"])          # an official brand hex given here wins over the extracted one
+        if ba["accent"] and "accent" not in spec:
+            spec["accent"] = ba["accent"]
     if isinstance(spec, dict) and "preset" in spec:   # a preset with some inputs changed
         name = spec["preset"]
         assert name in PRESETS, f"unknown preset {name!r}: use one of {', '.join(PRESETS)}"
         args = dict(PRESETS[name]["inputs"])
         args.update({k: v for k, v in spec.items() if k != "preset"})
+        if ("brand" in spec or "accent" in spec) and "colors" not in spec:
+            # a preset's colors pin every role, so a new brand alone used to change nothing: the brand takes the
+            # brand and c1 roles, the accent c2; the preset's other hues stay (its curated palette)
+            args["colors"] = dict(args["colors"], brand=args["brand"], c1=args["brand"],
+                                  **({"c2": spec["accent"]} if spec.get("accent") else {}))
         return make_style(**args)
     if isinstance(spec, dict):
         return make_style(**spec)

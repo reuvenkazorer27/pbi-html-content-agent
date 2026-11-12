@@ -72,6 +72,15 @@ The pipeline ships this as a tool, not a theme: `tools/pbip-html-pipeline/styles
 | `sunset` | warm cream | white | 6px start-side bar (mirrors with direction), warm hues | no |
 | `mint` | pale green-gray | strong tint, no border, radius 18 | the tint | no |
 
+### The organization's logo
+
+Measured in Desktop (Secure edition, 12 Nov 2026): an inline `<svg>` and an `<img>` with a base64 PNG both render in the header of an HTML Content card. `tools/pbip-html-pipeline/logo.py` builds the fragment and enforces these rules:
+
+- **Never recolor a logo.** Its colors feed the style (brand + accent), not the other way round. When its main color is under 3:1 on the surface it sits on, and a white plate fixes that, it sits on a white plate.
+- **SVG inline first; PNG only small.** The SVG is sanitized (no script, `foreignObject`, `on*=` or external `href`) and needs a `viewBox`; a PNG is resized to 2x its display height and palette-quantized. **Must:** the fragment stays at most 12 KB - every card that shows the logo carries it in its measure.
+- **One place: the start of the header** (or the top of a side rail), 40px high in an 80px header at 1920×1080. It mirrors with the reading direction like any flex item. In a flex column give it `align="flex-start"`: a stretched `<svg>` centers its drawing.
+- **Extracted colors are a proposal.** A flat logo gives its colors exactly; official brand hex values win.
+
 Legacy palettes (`DASH_PALETTE=ocean|midnight|berry|vivid|...`) still build; an explicit `DASH_PALETTE` selects them. Every `components.py` builder takes the style's card material when a style is active. Both examples use roles.
 
 ## 5. Lists, slicers and interactivity
