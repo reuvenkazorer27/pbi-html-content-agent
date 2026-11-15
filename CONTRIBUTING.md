@@ -7,6 +7,7 @@ Work happens through pull requests: one branch per change, a review on the PR, m
 Users get a change only when the version changes, so bump `version` in both `package.json` and `.claude-plugin/plugin.json` (same number) after a change is merged.
 - Claude Code users pick it up through `/plugin update`.
 - For npm, run `npm publish` from `main`. Check the package first with `npm pack --dry-run`: no `__pycache__`, no video, about 200 KB.
+- Tag the merged release commit `vX.Y.Z` and push the tag (`git tag vX.Y.Z && git push origin vX.Y.Z`), so every published version has a point to diff against and roll back to. The release PR lists what changed.
 
 ## Keeping the kit right
 

@@ -40,7 +40,7 @@ Usage
       --style <preset>   ${STYLES.join(' | ')} (default: accent)
       --yes              take the defaults / the only choice without asking
       --force            overwrite an existing _build/ and kit copy
-  npx ${PKG.name} doctor          check Python, Node, Edge and Power BI Desktop
+  npx ${PKG.name} doctor          check Python, Node, Edge, Power BI Desktop (and Pillow, optional: PNG logos)
 
 After init, open the folder in your agent (Claude Code, Cursor, Codex, ...) and ask for the dashboard.
 Docs: ${PKG.homepage}`);
@@ -51,12 +51,16 @@ function run(cmd, a) {
   return r.status === 0 ? (r.stdout || r.stderr || '').trim() : null;
 }
 
+// project settings init --force carries over from the previous pipeline.json (style separately: a --style flag wins)
+const KEEP = ['stress', 'port', 'lang', 'dir', 'lineage_namespace', 'partition_m', 'logo', 'report_theme'];
+
 function doctor() {
   const py = run('python', ['--version']) || run('py', ['-3', '--version']);
   const edgePaths = [process.env.EDGE_PATH, 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
     'C:/Program Files/Microsoft/Edge/Application/msedge.exe'].filter(Boolean);
   const edge = edgePaths.find((p) => existsSync(p));
   const major = Number(process.versions.node.split('.')[0]);
+  const pil = py ? (run('python', ['-I', '-c', 'import PIL; print(PIL.__version__)']) || run('py', ['-3', '-I', '-c', 'import PIL; print(PIL.__version__)'])) : null;
   const desktop = process.platform === 'win32' ? (run('tasklist', ['/FI', 'IMAGENAME eq PBIDesktop.exe']) || '') : '';
   const rows = [
     ['Windows', process.platform === 'win32', process.platform],
@@ -64,6 +68,7 @@ function doctor() {
     ['Python 3', !!py && /Python 3/.test(py), py || 'not found (install from python.org)'],
     ['Microsoft Edge', !!edge, edge || 'not found (set EDGE_PATH)'],
     ['Power BI Desktop running', /PBIDesktop/i.test(desktop), /PBIDesktop/i.test(desktop) ? 'yes' : 'not running (open your .pbip before the live DAX test)'],
+    ['Pillow (optional)', !!pil, pil ? `Pillow ${pil}` : 'not installed - only a PNG/JPG logo needs it (pip install pillow); SVG logos do not'],
   ];
   for (const [n, ok, v] of rows) say(`  ${ok ? 'OK ' : '-- '} ${n.padEnd(26)} ${v}`);
   return rows.slice(0, 4).every((r) => r[1]);
@@ -139,7 +144,8 @@ async function init() {
     // 2. the pipeline, next to the PBIP
     const build = join(dir, '_build');
     if (existsSync(build) && !has('force')) fail(`${build} exists - keep it, or rerun with --force to overwrite the pipeline files`);
-    // --force refreshes the pipeline files, never the project's own settings (stress scenarios, port, style, language)
+    // --force refreshes the pipeline files, never the project's own settings (stress scenarios, port, style, language,
+    // logo, report theme) - an upgrade must not drop a setting the style depends on ("style": {"logo": true} needs "logo")
     const prevCfgPath = join(build, 'pipeline.json');
     const prevCfg = existsSync(prevCfgPath) ? (() => { try { return JSON.parse(readFileSync(prevCfgPath, 'utf8')); } catch { return {}; } })() : {};
     cpSync(PIPE, build, { recursive: true });
@@ -161,10 +167,10 @@ async function init() {
       partition_m: null, lineage_namespace: 'pbi-html-dashboard', style, dir: lang === 'en' ? 'ltr' : 'rtl', lang };
     say(`\nlanguage:        ${lang} (${cfg.dir}) - from the names in ${table.name}; change "lang"/"dir" in pipeline.json if the dashboard should differ`);
     if (table.id !== `${table.name}.tmdl`) cfg.tmdl_file = table.id;
-    for (const k of ['stress', 'port', 'lang', 'dir', 'lineage_namespace', 'partition_m'])
+    for (const k of KEEP)
       if (prevCfg[k] !== undefined && prevCfg[k] !== null) cfg[k] = prevCfg[k];
     if (flag('style') === undefined && prevCfg.style !== undefined) cfg.style = prevCfg.style;
-    if (Object.keys(prevCfg).length) say('kept from the previous pipeline.json: ' + ['stress', 'port', 'style', 'lang', 'dir'].filter((k) => prevCfg[k] !== undefined).join(', '));
+    if (Object.keys(prevCfg).length) say('kept from the previous pipeline.json: ' + [...KEEP, ...(flag('style') === undefined ? ['style'] : [])].filter((k) => prevCfg[k] !== undefined && prevCfg[k] !== null).join(', '));
     writeFileSync(join(build, 'pipeline.json'), JSON.stringify(cfg, null, 2) + '\n', 'utf8');
     say(`config written:  ${join(build, 'pipeline.json')}`);
 
