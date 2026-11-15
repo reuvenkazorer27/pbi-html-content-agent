@@ -230,8 +230,11 @@ def write_page(pg):
                 "drillFilterOtherVisuals": True,
             },
         })
-    for j, (name, col, x, y, w, h) in enumerate(slicers):
+    # a SLICERS entry may carry a 7th item, an options dict: {"single": True} = single-select (selector tables such as
+    # 'As Of'[Month] or 'View'[View] - skills/motion-design-dashboards/interactive-ops.md)
+    for j, (name, col, x, y, w, h, *opt) in enumerate(slicers):
         ent, col = _slicer_field(col)
+        opt = opt[0] if opt else {}
         write_visual(name, {
             "$schema": VC_SCHEMA,
             "name": name,
@@ -247,6 +250,9 @@ def write_page(pg):
                 "objects": {
                     "data": [{"properties": {"mode": lit("'Dropdown'")}}],
                     "header": [{"properties": {"show": lit("false")}}],
+                    # property names from `powerbi-report-author formatting describe-object slicer selection`
+                    **({"selection": [{"properties": {"singleSelect": lit("true"), "strictSingleSelect": lit("true")}}]}
+                       if opt.get("single") else {}),
                     # palette-driven so a dark page never gets a white dropdown (verified names: items.fontColor / items.background)
                     "items": [{"properties": {
                         "fontColor": {"solid": {"color": lit(f"'{PAL['slicer_fg']}'")}},

@@ -29,7 +29,7 @@ def check(layout, slicers, page_w=1920, page_h=1080):
     bad = []
     page = (0, 0, page_w, page_h)
     html = [(n, (x, y, w, h)) for n, _m, x, y, w, h in layout]
-    sl = [(n, (x, y, w, h)) for n, _c, x, y, w, h in slicers]
+    sl = [(n, (x, y, w, h)) for n, _c, x, y, w, h, *_opt in slicers]
     for n, r in html + sl:
         if not _inside(r, page):
             bad.append(f"{n} {r} is outside the {page_w}x{page_h} page")

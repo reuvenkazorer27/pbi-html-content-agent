@@ -48,6 +48,8 @@ A design language = material + type + colour logic + **one hero data device** + 
 
 Every language: one hero accent plus semantic up / down / warning; WCAG AA text contrast on the real background; one hero device; the grid follows section 1.
 
+**Interactive operations mode** (`interactive-ops.md` in this folder): when the subject is something that is operated (a site, a fleet, a store network, a process, a portfolio with a target), add languages 11-13 (digital twin, operations console, mix map) and the four interaction recipes - as-of replay, view toggle, drill on select, rich tooltips - with motion from the previous state and a computed insight rail. Read it before you choose a language for such a request.
+
 ## 3. Recipes
 
 - **Seamless glass (language 5).** One stage gradient sized to the page (e.g. 1920 x 1080). Each panel paints the same layers with `background-size:` the page size and `background-position: -x -y` (its own page position), under a white veil gradient, plus `background-color` = the lightest blend for the contrast gate. Do not use `background-attachment:fixed` (breaks under transforms). In a fluid page write the sizes in `var(--u)`.
