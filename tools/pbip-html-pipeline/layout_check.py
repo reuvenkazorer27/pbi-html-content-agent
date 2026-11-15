@@ -40,7 +40,8 @@ def check(layout, slicers, page_w=1920, page_h=1080):
             if _overlap(r1, r2):
                 bad.append(f"{n1} {r1} overlaps {n2} {r2}")
     # Pattern A (one fullscreen HTML visual): the page visual itself hosts the slicers and nav buttons
-    pool = body if body else [(n, r) for n, r in html if n in layers]
+    # (several full-page layers - a background plus the page: the top-most one, the last in LAYOUT, is the host)
+    pool = body if body else [[(n, r) for n, r in html if n in layers][-1]] if layers else []
     for i, (n, r) in enumerate(sl):
         hosts = [hn for hn, hr in pool if _inside(r, hr)]
         hits = [hn for hn, hr in pool if _overlap(r, hr) and hn not in hosts]

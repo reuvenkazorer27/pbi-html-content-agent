@@ -20,9 +20,15 @@ FORBIDDEN = [(r"<script", "script"), (r"\son[a-z]+\s*=", "inline on* handler"), 
              (r"prefers-reduced-motion", "prefers-reduced-motion query (Desktop reports 'reduce' when Windows animation effects are off and the query hid all motion)")]
 
 
+def _code(html):
+    """the markup and CSS only (tags + <style> bodies), so page text such as 'infinite scroll' or ' on = ' never trips lint"""
+    return " ".join(re.findall(r"<[^>]+>", html) + re.findall(r"<style[^>]*>(.*?)</style>", html, re.S))
+
+
 def lint(html):
-    bad = [label for pat, label in FORBIDDEN if re.search(pat, html, re.I)]
-    if re.search(r"\binfinite\b", html):
+    code = _code(html)
+    bad = [label for pat, label in FORBIDDEN if re.search(pat, code, re.I)]
+    if re.search(r"\binfinite\b", code):
         bad.append("infinite animation (every loop must stop: finite iteration counts, done by ~6 s)")
     if html.count("<style") > 1:
         bad.append("more than one <style> (one per measure)")
@@ -33,7 +39,10 @@ def fluid(html, design_w=1920, design_h=1080):
     if "zoom:min(calc(100vw" in html:   # a live-DAX page scaled by zoom_root_style(): already scales, leave it as it is
         return html
     if "var(--u)" not in html:
-        html = re.sub(r"(?<![\w#.-])(-?\d*\.?\d+)px", lambda m: f"calc({m.group(1)}*var(--u))", html)
+        px = lambda t: re.sub(r"(?<![\w#.-])(-?\d*\.?\d+)px", lambda m: f"calc({m.group(1)}*var(--u))", t)
+        # only CSS: <style> bodies and style='...' attributes - never visible text or other attribute values
+        html = re.sub(r"(<style[^>]*>)(.*?)(</style>)", lambda m: m.group(1) + px(m.group(2)) + m.group(3), html, flags=re.S)
+        html = re.sub(r"""(\sstyle=)(['"])(.*?)\2""", lambda m: m.group(1) + m.group(2) + px(m.group(3)) + m.group(2), html, flags=re.S)
         html = html.replace("<style>", f"<style>:root{{--u:min(calc(100vw/{design_w}),calc(100vh/{design_h}))}}", 1)
     if "data-lh='1'" not in html:
         # merge into the root's own style attribute: a second style attribute is dropped by the browser, and a wrapper

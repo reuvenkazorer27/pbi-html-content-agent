@@ -14,11 +14,14 @@ from layout_check import check as _layout_check
 # Without PAGES: one page from LAYOUT / SLICERS (+ optional measures.NAV), exactly as before.
 PAGES = getattr(_ms, "PAGES", None) or [{"id": PAGE_ID, "name": PAGE_DISPLAY_NAME, "LAYOUT": LAYOUT, "SLICERS": SLICERS,
                                          "NAV": getattr(_ms, "NAV", [])}]
-_ids = {p["id"] for p in PAGES}
+if PAGES[0]["id"] != PAGE_ID:
+    raise SystemExit(f"PAGES[0] must be pipeline.json page_id {PAGE_ID!r} (got {PAGES[0]['id']!r}) - nothing written")
+_pdir = os.path.join(REPORT_DIR, "definition", "pages")
+_ids = {p["id"] for p in PAGES} | {d for d in os.listdir(_pdir) if os.path.isdir(os.path.join(_pdir, d))}
 for _p in PAGES:
     for _n, _t, *_r in _p.get("NAV", []):
         if _t not in _ids:
-            raise SystemExit(f"nav button {_n} on page {_p['id']} points to page {_t!r}, which is not in PAGES (nothing written)")
+            raise SystemExit(f"nav button {_n} on page {_p['id']} points to page {_t!r}, which is neither in PAGES nor in the report (nothing written)")
     _problems = _layout_check(_p["LAYOUT"], list(_p.get("SLICERS", [])) + [(n, t, *r) for n, t, *r in _p.get("NAV", [])],
                               getattr(_ms, "PAGE_W", 1920), getattr(_ms, "PAGE_H", 1080))
     if _problems:   # never place a visual on top of another - fix LAYOUT / SLICERS / NAV first
@@ -284,13 +287,25 @@ def write_page(pg):
 
 
 _count = sum(write_page(pg) for pg in PAGES)
-# pages.json: every generated page in order, the first one opens
+# pages.json: only pages that are not listed yet are appended (in PAGES order, after the first generated page); the
+# report's own order and active page are kept - a user report with other pages must not be reshuffled
 _pj = os.path.join(PAGES_DIR, "pages.json")
 _pages = json.load(open(_pj, encoding="utf-8"))
-_order = [p["id"] for p in PAGES]
-_pages["pageOrder"] = _order + [p for p in _pages.get("pageOrder", []) if p not in _order]
-_pages["activePageName"] = _order[0]
-json.dump(_pages, open(_pj, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+_order = list(_pages.get("pageOrder", []))
+_new = [p["id"] for p in PAGES if p["id"] not in _order]
+if _new:
+    _at = _order.index(PAGES[0]["id"]) + 1 if PAGES[0]["id"] in _order else len(_order)
+    _order[_at:_at] = [i for i in _new if i != PAGES[0]["id"]]
+    if PAGES[0]["id"] not in _order:
+        _order.insert(0, PAGES[0]["id"])
+    _pages["pageOrder"] = _order
+    _pages.setdefault("activePageName", _order[0])
+    json.dump(_pages, open(_pj, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+# a page that holds generated visuals but is no longer in PAGES would show visuals bound to removed measures
+for _d in sorted(os.listdir(PAGES_DIR)):
+    _v = os.path.join(PAGES_DIR, _d, "visuals")
+    if _d not in {p["id"] for p in PAGES} and os.path.isdir(_v) and any(x[:2] in ("hc", "sl", "nv") for x in os.listdir(_v)):
+        print(f"WARNING: page {_d} has generated visuals but is not in PAGES - delete the page in Desktop or add it back")
 print("pages:", len(PAGES), "| visuals:", _count)
 
 # Microsoft's PBIR validator, when installed (doc: reference/build-workflow.md §1b) - e.g. an unregistered custom visual
