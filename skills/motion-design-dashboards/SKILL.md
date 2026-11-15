@@ -62,7 +62,8 @@ Every language: one hero accent plus semantic up / down / warning; WCAG AA text 
 - **Meaning first** (`skills/motion`): animate the change (roll from the previous value, bars grow from the comparison value, gained / lost ticks), the exception (a flag, a ring that pulses at most twice), the rank (walk-in order), the freshness. Decoration (sheen, drift) once and only on the hero.
 - **One clock for the page.** Every delay = beat + offset. Order: frame/grid -> header -> KPI row -> hero device -> panels (reading order) -> data marks -> exception flag -> optional coda. Each element enters once.
 - **Three curves**: settle `cubic-bezier(.16,1,.3,1)` (arriving), pen `cubic-bezier(.45,0,.25,1)` (lines and wipes), soft `cubic-bezier(.25,.46,.45,.94)` (fades). Overshoot (`cubic-bezier(.34,1.56,.64,1)`) only on chips and dots, never on data lengths.
-- **Budget**: the page settles by ~6 s; data entrances under ~1.6 s per element; alerts at most 2 cycles; no `infinite`. The entrance replays on every filter change and refresh.
+- **Nothing fades in from transparent.** The root, the header, the KPI cards, the panels and every label are fully visible from the first frame: no `opacity:0` start on them (no root fade, no panel "rise and fade"). Only data marks move - bars grow, lines draw, numbers roll, rings sweep, the exception flag wipes in - and a moving device (e.g. modules flying out of a core) moves without fading. *(reported from the Power BI Service: the entrance replays on every re-render - first load, resize to the browser, opening the filter pane, every slicer change - so a page that fades in reads as a page that keeps fading; the rest state was identical to Desktop)*
+- **Budget**: the page settles by ~6 s; data entrances under ~1.6 s per element; alerts at most 2 cycles; no `infinite`. The entrance replays on every filter change and refresh - keep it short.
 - **Devices**: mask rise, odometer (start at the previous value's digit), pen draw (clip wipe on a wrapper for time series; `pathLength` dash only on a non-distorted SVG), fill follows the pen ~0.2 s behind, tick sweep, rank walk-in, ring assembly (3D), develop, flag wipe. Animated `filter:blur()` is untested in Desktop - keep blur static at rest and small.
 
 ## 5. Materials from Uiverse.io (optional, MIT)
@@ -83,7 +84,7 @@ Uiverse.io is an open-source library of HTML/CSS elements (github.com/uiverse-io
 4. **Into Power BI** (Pattern A, one fullscreen visual):
    - *Static study*: `page_kit.dax_literal(page_kit.fluid(html))` as the measure - renders exactly as gated, does not react to slicers. Say so.
    - *Live*: port the generator to DAX (CONCATENATEX over ranked VALUES / month series, every number via FORMAT). Acceptance: the unfiltered DAX output is byte-identical to the gated HTML; the stress scenarios each pass `page_check.py`.
-     Scaling: give EVERY root `<div>` in the DAX - the empty-state branch too - `style='{page_kit.zoom_root_style()}'` (design size + CSS `zoom`), because px computed in DAX escape `fluid()`. Gate the DAX outputs at the design size (zoom = 1). *(measured: complete page in Desktop with the filter pane open; a pin placed only on the first `<div` of the expression landed in the empty-state branch and the page was clipped)*
+     Scaling: give EVERY root `<div>` in the DAX - the empty-state branch too - `style='{page_kit.zoom_root_style()}'` (design size + CSS `zoom`), because px computed in DAX escape `fluid()`. Gate the DAX outputs at the design size (zoom = 1); `page_kit.fluid()` leaves a zoom-root page unchanged. *(measured: complete page in Desktop with the filter pane open; a pin placed only on the first `<div` of the expression landed in the empty-state branch and the page was clipped)*
    - Then the normal loop (`reference/build-workflow.md`): `gen_pbip.py`, `versions.py snapshot`, reload, Calculate, Desktop screenshot.
 
 ## 7. Side menu across pages, and native slicers
@@ -95,6 +96,9 @@ A motion-designed page is still a Power BI page: navigation and filtering are na
 - **Native slicers**: the HTML draws a filter panel with a label and a `data-fill='slot'` box per slicer; the native dropdown slicer sits exactly on the slot (`SLICERS` entry: `(name, column, x, y, w, h)`, 40 px high). The slicer colours come from the pipeline palette - pick the pipeline `style` (light / dark) that matches the page. Panels that hold slots never animate (slicers would float).
 - **The page must react to the slicers**: that needs live DAX measures (section 6 step 4). A static study cannot be tested with slicers - say so. Show the active filter in the HTML (e.g. "Region: Europe" from `SELECTEDVALUE` / `ISFILTERED`) so the page states its own context.
 - **Both pages share the slicers' state** only if the slicers are synced (View > Sync slicers) - otherwise each page keeps its own; say which in the deliverable.
+- **The empty-state branch keeps the frame**: the rail with its menu items and the slicer slots (and the header) are drawn in every branch of the measure, so the native slicers never float over nothing and the user can always clear the filter or change page.
+- **Every page carries every nav button** (also the one over its own item - it navigates to itself); the rail never animates, like the slot panels.
+- **DAX under slicers**: iterating `ALL ( 'T'[Col] )` and evaluating a measure per row OVERRIDES the slicer on that column - filtered-out members come back with their real numbers. Iterate `VALUES` / `ALLSELECTED`, or keep `ALL` for the axis and blank the value with `IF ( 'T'[Col] IN VALUES ( 'T'[Col] ), ... )`. Comparisons across time remove only the date filter (`REMOVEFILTERS ( 'T'[Date] )`); anchor a YTD basis to the latest date in view and label it.
 - `measures.py`: `PAGES = [{"id": "<page folder>", "name": "Overview", "LAYOUT": [(...)], "SLICERS": [(...)], "NAV": [(...)]}, ...]` - the first page is `pipeline.json`'s `page_id`; `gen_pbip.py` creates the other page folders, `pages.json` order and the buttons, and `layout_check` requires every slicer and button to sit inside exactly one HTML visual.
 
 ## 8. Traps (measured unless marked)
@@ -105,7 +109,7 @@ A motion-designed page is still a Power BI page: navigation and filtering are na
 - **clip-path from `inset()` to `none` does not interpolate** - it flips at 50 %. Always an explicit `to{clip-path:inset(0 0 0 0)}`.
 - **Stroke-dash draw with `vector-effect:non-scaling-stroke`**: Chromium ignores `pathLength` - the line never looks drawn. Clip wipe on a wrapper for time series.
 - **`animation` shorthand without `both`** shows the end state before the delay.
-- **Never translate / scale the visual's root** *(measured)*: Desktop kept a horizontal scrollbar. Animate the root's opacity and its children's position.
+- **Never animate the visual's root** *(measured)*: translating / scaling it left a horizontal scrollbar in Desktop, and fading it made the page flash on every re-render. Animate data marks inside the panels only.
 - **A 1 px line of the fallback `background-color` at the visual edge** *(measured)* when the page is scaled: clip the colour with a final transparent layer, `background-clip:content-box`.
 - **Native slicers cannot join an HTML entrance** *(measured)*: keep slicer panels still.
 - **The contrast gate reads `background-color` only, and samples mid-animation**: honest solid colours under translucent / gradient surfaces (opacity >= 0.5), animate an overlay's opacity instead of the background under text, keep "dim" start colours >= 3:1.

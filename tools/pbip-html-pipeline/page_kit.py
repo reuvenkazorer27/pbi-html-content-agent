@@ -30,6 +30,8 @@ def lint(html):
 
 
 def fluid(html, design_w=1920, design_h=1080):
+    if "zoom:min(calc(100vw" in html:   # a live-DAX page scaled by zoom_root_style(): already scales, leave it as it is
+        return html
     if "var(--u)" not in html:
         html = re.sub(r"(?<![\w#.-])(-?\d*\.?\d+)px", lambda m: f"calc({m.group(1)}*var(--u))", html)
         html = html.replace("<style>", f"<style>:root{{--u:min(calc(100vw/{design_w}),calc(100vh/{design_h}))}}", 1)

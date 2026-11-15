@@ -41,7 +41,9 @@ try:
     import bridge as _br
     from config import PROJECT as _PROJECT
     _all = _br.instances(_PROJECT)   # [] when no Desktop has the bridge: nothing to check, nothing to say
-    _mine = [i for i in _all if os.path.basename(i.get("currentFilePath") or "").lower() == f"{_PROJECT}.pbip".lower()]
+    from config import ROOT as _R0   # full path: a basename match warned about other projects with the same name
+    _want = os.path.normcase(os.path.normpath(os.path.join(_R0, f"{_PROJECT}.pbip")))
+    _mine = [i for i in _all if os.path.normcase(os.path.normpath(i.get("currentFilePath") or "")) == _want]
     for _i in _mine:
         if _i.get("hasUnsavedChanges"):
             print(f"WARNING: Desktop (pid {_i['pid']}) has unsaved changes in {_PROJECT}.pbip - the Apply banner may not show, "
