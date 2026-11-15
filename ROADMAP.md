@@ -28,7 +28,8 @@ Rule for every step: **the dashboard and the fit between its parts come first.**
 | 10 | Text-safe status colors (`*_text`) separate from fill colors | ✅ | `palette.py`, measures `_txt()` |
 | 11 | Page background + slicer colors from the palette (no white dropdown on a dark page) | ✅ measured in Desktop | `gen_pbip.py` |
 | 12 | Colorful page: gradient background layer (full-page HTML visual) + filled KPI cards, palette `vivid` | ✅ measured in Desktop; wallpaper *image* via RegisteredResources still 📋 | `palette.py`, `reference/design-system.md` §4 |
-| 13 | Generated custom theme from the palette, so `--pbi-theme-*` and native visuals match | ✅ theme JSON export (`palette.py theme`); 📋 automatic registration in `report.json` | `palette.py`, reference/pbir-visual-json.md |
+| 13 | Generated custom theme from the palette, so `--pbi-theme-*` and native visuals match | ✅ theme JSON export (`palette.py theme`) and registration in `report.json` (`"report_theme"`, 1.2.0) | `palette.py`, `gen_pbip.py` |
+| 13a | The organization's logo: brand + accent extracted from an SVG/PNG, the logo in the header or rail (never recolored or mirrored, plate at 3:1), and a rule for restyling vs redesigning an existing report | ✅ measured in Desktop, LTR light + RTL dark (1.2.0); a report of native visuals not run | `logo.py`, `skills/colorful-styles/SKILL.md` |
 | 13b | Direction (LTR/RTL, mirrored layout) and UI language (display-string translation with protected data literals) | ✅ | `measures_example_projects.py`, `labels.py` |
 | 14 | High-contrast mode fallbacks (`#htmlContent.pbi-theme-hc`) in every card | 📋 | capabilities.md |
 

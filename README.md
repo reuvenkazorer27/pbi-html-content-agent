@@ -22,13 +22,13 @@
 
 ## Requirements
 
-**Required** (`npx pbi-html-content-agent doctor` checks Windows, Python, Node, Edge and that Desktop is running):
+**Required** (`npx pbi-html-content-agent doctor` checks Windows, Python, Node, Edge and that Desktop is running, and reports the optional Pillow):
 
 | What | Why | Notes |
 | --- | --- | --- |
 | **Windows** | Power BI Desktop and the gates (PowerShell, Edge) are Windows-only | |
 | **Power BI Desktop**, report saved as a **Power BI Project (`.pbip`) with PBIR + TMDL** | the kit writes TMDL measures and PBIR `visual.json` files | File → Save as → *Power BI project files*. The model must exist (tables loaded); creating it is not the kit's job - see [`build-workflow.md`](reference/build-workflow.md) §0 |
-| **Python 3** | the pipeline (`_build/*.py`) | standard library only, no pip packages |
+| **Python 3** | the pipeline (`_build/*.py`) | standard library only, no pip packages - except **Pillow** if your logo is a PNG/JPG (`pip install pillow`; an SVG logo needs nothing) |
 | **Node.js 22+** | `npx ... init`, the headless gates (`fitcheck.mjs`) | built-in WebSocket/fetch only, no npm packages |
 | **Microsoft Edge** | headless fit / contrast / stress rendering | `EDGE_PATH` if it is not in the default location |
 | **Windows PowerShell** | `runq.ps1` runs the DAX on the open model through Desktop's own AdomdClient | run it with `-ExecutionPolicy Bypass` (the scripts do) |
@@ -89,6 +89,7 @@ Everything on the page is HTML Content except the slicers: header, KPI cards (ea
 
 - **Gated card builders** ([`components.py`](tools/pbip-html-pipeline/components.py)): KPI card, data table, waterfall, heat matrix, lift bars, small multiples, scatter, treemap and decomposition tree. Each is parameterized by your tables, columns and measures, and each one's DAX is evaluated on a live model and passed the fit, contrast and stress gates before it ships.
 - **Colorful styles** ([`styles.py`](tools/pbip-html-pipeline/styles.py), [skill](skills/colorful-styles/SKILL.md)): a style is generated from your brand and fitted to your cards' roles.
+- **Your logo** ([`logo.py`](tools/pbip-html-pipeline/logo.py), [skill](skills/colorful-styles/SKILL.md#an-existing-report-and-a-logo)): the style's brand and accent come from an SVG or PNG logo, and the logo goes into the header or side rail (inline SVG or a small PNG, Secure edition; never recolored or mirrored). For an existing report the agent asks first and keeps your layout by default.
 - **Motion** ([skill](skills/motion/SKILL.md)): every builder takes `motion=` and `alert=`. With motion off, the output is byte-identical.
 - **LTR and RTL**: `DASH_DIR=ltr|rtl` flips the layout. RTL gets bidi isolation of numbers, currency and dates.
 - **UI language**: `DASH_LANG` translates display strings and protects data values and model names, so filters never break.
@@ -109,6 +110,7 @@ make_style(brand="#0E7490", accent="#F59E0B", mode="light" | "dark",
 - **Choose a style.** Put it in `pipeline.json` (`"style": "accent"` or a `make_style()` dict), or pass it per build with `DASH_STYLE=<preset>` or `DASH_STYLE='{"brand": "#0E7490", "mode": "dark"}'`.
 - **Give each card a role:** `neutral`, `hero`, `brand`, `good` / `bad` / `warn` or `c1`..`c6`. A KPI and the chart about the same category share a role, so they share a color.
 - **Check a style without a model:** `python -I style_check.py` checks every preset and 800 generated styles.
+- **From your logo:** `"logo": {"path": "../brand/logo.svg"}` and `"style": {"logo": true, "preset": "mint"}` in `pipeline.json`; `python -I logo.py check <file>` shows the colors it proposes. An official brand hex (`"brand": "#..."`) wins. `"report_theme": true` also writes the style as the report's theme.
 - **Presets:** eight worked examples. `accent` (the default) has white cards with a top bar and one hero. The others are `tonal`, `midnight`, `sand`, `ocean`, `duotone`, `sunset` and `mint`; the table is in [`design-system.md`](reference/design-system.md) §4.
 - **Legacy palettes** still build with `DASH_PALETTE`.
 

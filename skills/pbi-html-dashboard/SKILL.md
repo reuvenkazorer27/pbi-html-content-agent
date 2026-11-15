@@ -1,6 +1,6 @@
 ---
 name: pbi-html-dashboard
-description: Start here for any Power BI dashboard built on the HTML Content visual - KPI cards, charts, tables and panels in a PBIP/PBIR report, in LTR or RTL, plain, colorful or with motion. Use when the user asks to build, redesign or extend a Power BI dashboard or report page, to set this kit up next to their report, or mentions HTML Content, PBIP, PBIR or DAX measures that return HTML.
+description: Start here for any Power BI dashboard built on the HTML Content visual - KPI cards, charts, tables and panels in a PBIP/PBIR report, in LTR or RTL, plain, colorful or with motion. Use when the user asks to build, redesign or extend a Power BI dashboard or report page, to set this kit up next to their report, or mentions HTML Content, PBIP, PBIR or DAX measures that return HTML. Also when the user brings an existing report and/or the organization's logo to brand it.
 ---
 
 # Power BI HTML Content dashboards: start here
@@ -27,8 +27,9 @@ The pipeline runs next to the PBIP, not inside the installed plugin.
    - `page_display_name`.
    - `backup_dir`: relative to the project folder.
    - `style`: ask for brand colors and light/dark (see `colorful-styles`). The default is `"accent"`.
+   - `logo`: if the user has one (SVG preferred). If they bring an **existing report**, follow `colorful-styles` "An existing report and a logo" before changing anything: by default keep the layout and restyle; redesign only on request, and as a new page.
 5. Start `_build/measures.py` from `measures_example_projects.py` (or `measures_example_sales.py`). Replace its tables, columns, texts and `LAYOUT` with the user's model. Never invent measures without naming the tables and columns you assumed.
-6. Requirements: Windows, Power BI Desktop with the project open, Python 3, Node 22+ and Microsoft Edge. No pip or npm packages are needed.
+6. Requirements: Windows, Power BI Desktop with the project open, Python 3, Node 22+ and Microsoft Edge. No pip or npm packages are needed, except Pillow for a PNG/JPG logo.
 
 ## 3. The loop (every iteration)
 
