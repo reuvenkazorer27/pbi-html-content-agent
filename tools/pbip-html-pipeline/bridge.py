@@ -176,14 +176,27 @@ def instances(project=None):
     return out
 
 
-def find_pid(project):
-    """the Desktop window whose open file is THIS project's .pbip (full path). A basename match picked the wrong
-    window when two projects with the same name were open (a lab copy next to the original) - measured."""
+def is_project_file(path, project):
+    """True when a Desktop window's currentFilePath is THIS project's .pbip. Compared as the same file on disk, not
+    as text: a basename match picked the wrong window when two projects with the same name were open (a lab copy next
+    to the original - measured), and a plain string compare misses the same file reached through a junction, an 8.3
+    short name or a redirected Desktop folder."""
+    if not path:
+        return False
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from config import ROOT
-    want = os.path.normcase(os.path.normpath(os.path.join(ROOT, f"{project}.pbip")))
+    want = os.path.join(ROOT, f"{project}.pbip")
+    try:
+        return os.path.samefile(path, want)
+    except OSError:   # one side missing / not reachable: fall back to the resolved path text
+        norm = lambda p: os.path.normcase(os.path.realpath(p))
+        return norm(path) == norm(want)
+
+
+def find_pid(project):
+    """the Desktop window whose open file is THIS project's .pbip"""
     for i in instances(project):
-        if os.path.normcase(os.path.normpath(i.get("currentFilePath") or "")) == want:
+        if is_project_file(i.get("currentFilePath"), project):
             return i["pid"]
     return None
 

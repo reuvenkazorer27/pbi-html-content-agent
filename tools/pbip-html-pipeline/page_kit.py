@@ -43,7 +43,11 @@ def fluid(html, design_w=1920, design_h=1080):
         # only CSS: <style> bodies and style='...' attributes - never visible text or other attribute values
         html = re.sub(r"(<style[^>]*>)(.*?)(</style>)", lambda m: m.group(1) + px(m.group(2)) + m.group(3), html, flags=re.S)
         html = re.sub(r"""(\sstyle=)(['"])(.*?)\2""", lambda m: m.group(1) + m.group(2) + px(m.group(3)) + m.group(2), html, flags=re.S)
-        html = html.replace("<style>", f"<style>:root{{--u:min(calc(100vw/{design_w}),calc(100vh/{design_h}))}}", 1)
+        root_u = f":root{{--u:min(calc(100vw/{design_w}),calc(100vh/{design_h}))}}"
+        # every converted px needs --u: a <style> with attributes, or a page with inline styles only, left it undefined
+        html, n = re.subn(r"(<style[^>]*>)", lambda m: m.group(1) + root_u, html, count=1)
+        if not n:
+            html = f"<style>{root_u}</style>" + html
     if "data-lh='1'" not in html:
         # merge into the root's own style attribute: a second style attribute is dropped by the browser, and a wrapper
         # element makes the fit gate treat the real root as a child touching the edge (both caught on a real page)

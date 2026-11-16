@@ -25,7 +25,7 @@ function panelCheck(){
   var out=[];
   document.querySelectorAll('iframe[data-name]').forEach(function(f){
     var d=f.contentDocument, w=f.contentWindow; if(!d) return;
-    var anims=d.getAnimations(), saved=anims.map(function(a){return a.currentTime});
+    var anims=d.getAnimations();
     anims.forEach(function(a){try{var t=a.effect.getComputedTiming(); a.pause(); a.currentTime=t.endTime-1;}catch(e){}});
     d.querySelectorAll('[data-panel]').forEach(function(p){
       var pr=p.getBoundingClientRect(), name=p.getAttribute('data-panel')||p.className||'panel', cs=w.getComputedStyle(p);
@@ -46,7 +46,10 @@ function panelCheck(){
       var band=pr.bottom-parseFloat(cs.paddingBottom)-low, lim=Math.max(40,0.15*pr.height);
       if(!free&&band>lim) out.push(f.dataset.name+': panel "'+name+'" has '+Math.round(band)+'px empty at the bottom (limit '+Math.round(lim)+'px)');
     });
-    anims.forEach(function(a,i){try{a.currentTime=saved[i]; a.play();}catch(e){}});
+    /* leave every animation at its end: CONTRAST runs right after this and must read the rest state (the colours
+       the user sees), like the reference screenshot; play() on a finished animation would rewind it to 0.
+       Motion is checked separately on a fresh load (motion_frames.mjs). */
+    anims.forEach(function(a){try{a.finish();}catch(e){}});
   });
   return out;
 }

@@ -44,9 +44,7 @@ try:
     import bridge as _br
     from config import PROJECT as _PROJECT
     _all = _br.instances(_PROJECT)   # [] when no Desktop has the bridge: nothing to check, nothing to say
-    from config import ROOT as _R0   # full path: a basename match warned about other projects with the same name
-    _want = os.path.normcase(os.path.normpath(os.path.join(_R0, f"{_PROJECT}.pbip")))
-    _mine = [i for i in _all if os.path.normcase(os.path.normpath(i.get("currentFilePath") or "")) == _want]
+    _mine = [i for i in _all if _br.is_project_file(i.get("currentFilePath"), _PROJECT)]   # same file, not same name
     for _i in _mine:
         if _i.get("hasUnsavedChanges"):
             print(f"WARNING: Desktop (pid {_i['pid']}) has unsaved changes in {_PROJECT}.pbip - the Apply banner may not show, "
@@ -294,10 +292,10 @@ _pages = json.load(open(_pj, encoding="utf-8"))
 _order = list(_pages.get("pageOrder", []))
 _new = [p["id"] for p in PAGES if p["id"] not in _order]
 if _new:
+    # right after the first generated page when the report lists it; otherwise the whole generated block (first
+    # page included) at the end - never split around the user's own pages
     _at = _order.index(PAGES[0]["id"]) + 1 if PAGES[0]["id"] in _order else len(_order)
-    _order[_at:_at] = [i for i in _new if i != PAGES[0]["id"]]
-    if PAGES[0]["id"] not in _order:
-        _order.insert(0, PAGES[0]["id"])
+    _order[_at:_at] = _new
     _pages["pageOrder"] = _order
     _pages.setdefault("activePageName", _order[0])
     json.dump(_pages, open(_pj, "w", encoding="utf-8"), ensure_ascii=False, indent=2)

@@ -39,12 +39,15 @@ def check(layout, slicers, page_w=1920, page_h=1080):
         for n2, r2 in body[i + 1:]:
             if _overlap(r1, r2):
                 bad.append(f"{n1} {r1} overlaps {n2} {r2}")
-    # Pattern A (one fullscreen HTML visual): the page visual itself hosts the slicers and nav buttons
-    # (several full-page layers - a background plus the page: the top-most one, the last in LAYOUT, is the host)
-    pool = body if body else [[(n, r) for n, r in html if n in layers][-1]] if layers else []
+    # Pattern A (one fullscreen HTML visual): the page visual itself hosts the slicers and nav buttons that are not in
+    # a smaller HTML panel - also when the page has other small HTML visuals (a logo strip). Several full-page layers
+    # (a background plus the page): the top-most one, the last in LAYOUT, is the host.
+    top = [(n, r) for n, r in html if n in layers][-1:]
     for i, (n, r) in enumerate(sl):
-        hosts = [hn for hn, hr in pool if _inside(r, hr)]
-        hits = [hn for hn, hr in pool if _overlap(r, hr) and hn not in hosts]
+        hosts = [hn for hn, hr in body if _inside(r, hr)]
+        if not hosts:
+            hosts = [hn for hn, hr in top if _inside(r, hr)]
+        hits = [hn for hn, hr in body if _overlap(r, hr) and hn not in hosts]
         if len(hosts) != 1:
             bad.append(f"slicer {n} {r} must sit inside exactly one HTML panel (found {hosts or 'none'})")
         if hits:
