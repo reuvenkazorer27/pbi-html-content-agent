@@ -48,7 +48,7 @@
 
 On older versions, run `/plugin marketplace add reuvenkazorer27/pbi-html-content-agent` and then `/plugin install pbi-html-content-agent@pbi-html-content-agent`.
 
-- **What you get:** the whole kit (instructions, references, the pipeline) and 8 skills. The entry skill, `pbi-html-dashboard`, starts any dashboard request.
+- **What you get:** the whole kit (instructions, references, the pipeline) and 9 skills. The entry skill, `pbi-html-dashboard`, starts any dashboard request.
 - **Update:** run `/plugin marketplace update pbi-html-content-agent`, then `/plugin update pbi-html-content-agent@pbi-html-content-agent`.
 - **No GitHub SSH key:** set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` before you add the marketplace.
 
@@ -91,6 +91,7 @@ Everything on the page is HTML Content except the slicers: header, KPI cards (ea
 - **Colorful styles** ([`styles.py`](tools/pbip-html-pipeline/styles.py), [skill](skills/colorful-styles/SKILL.md)): a style is generated from your brand and fitted to your cards' roles.
 - **Your logo** ([`logo.py`](tools/pbip-html-pipeline/logo.py), [skill](skills/colorful-styles/SKILL.md#an-existing-report-and-a-logo)): the style's brand and accent come from an SVG or PNG logo, and the logo goes into the header or side rail (inline SVG or a small PNG, Secure edition; never recolored or mirrored). For an existing report the agent asks first and keeps your layout by default.
 - **Motion** ([skill](skills/motion/SKILL.md)): every builder takes `motion=` and `alert=`. With motion off, the output is byte-identical.
+- **Three builds, the agent asks which** ([`AGENTS.md`](AGENTS.md) step 2): *Standard* (the card builders, a style, meaning-carrying motion), *Motion-design* - a full-page designed dashboard with one design language and one hero data device ([skill](skills/motion-design-dashboards/SKILL.md), gate `page_check.py`) - and *Interactive operations* - a digital twin / operations console / mix map driven by native As-of and View slicers and drill on select ([`interactive-ops.md`](skills/motion-design-dashboards/interactive-ops.md); the slicer recipes are doc-based until measured in Desktop).
 - **LTR and RTL**: `DASH_DIR=ltr|rtl` flips the layout. RTL gets bidi isolation of numbers, currency and dates.
 - **UI language**: `DASH_LANG` translates display strings and protects data values and model names, so filters never break.
 - **Direct PBIR authoring**: TMDL measures and `visual.json` are written by script, and Desktop picks them up with *Apply external changes*.
@@ -168,7 +169,7 @@ Requirements: see [Requirements](#requirements). Details: [`tools/pbip-html-pipe
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | The agent's brief: what it is built on, the contract, the honesty rules, the working method |
 | [`reference/`](reference/) | `design-system.md` (measured rules), `build-workflow.md` (Desktop, gates, git), `capabilities.md`, `canvas-and-layout.md`, `pbir-visual-json.md` |
-| [`skills/`](skills/) | pbi-html-dashboard (start here), composite-dashboard, dashboard-shell, html-slicers-filters, navigation-header-menu, rtl-hebrew, colorful-styles, motion |
+| [`skills/`](skills/) | pbi-html-dashboard (start here), composite-dashboard, dashboard-shell, html-slicers-filters, navigation-header-menu, rtl-hebrew, colorful-styles, motion, motion-design-dashboards |
 | [`.claude-plugin/`](.claude-plugin/) | Claude Code plugin + marketplace manifests |
 | [`tools/pbip-html-pipeline/`](tools/pbip-html-pipeline/) | Build, gate, version and write: builders, styles, gates, writer, two worked examples |
 | [`tools/motion-bake/`](tools/motion-bake/) | Experimental motion2code → CSS keyframes |
