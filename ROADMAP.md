@@ -31,6 +31,7 @@ Rule for every step: **the dashboard and the fit between its parts come first.**
 | 13 | Generated custom theme from the palette, so `--pbi-theme-*` and native visuals match | ✅ theme JSON export (`palette.py theme`) and registration in `report.json` (`"report_theme"`, 1.2.0) | `palette.py`, `gen_pbip.py` |
 | 13a | The organization's logo: brand + accent extracted from an SVG/PNG, the logo in the header or rail (never recolored or mirrored, plate at 3:1), and a rule for restyling vs redesigning an existing report | ✅ measured in Desktop, LTR light + RTL dark (1.2.0); a report of native visuals not run | `logo.py`, `skills/colorful-styles/SKILL.md` |
 | 13b | Direction (LTR/RTL, mirrored layout) and UI language (display-string translation with protected data literals) | ✅ | `measures_example_projects.py`, `labels.py` |
+| 13c | Motion-design and interactive operations builds: full-page design languages, a full-page gate (`page_check.py`: fit, contrast at rest, panels, motion frames), multi-page native navigation, single-select slicers | ✅ full-page live-DAX and two-page builds measured in Desktop (1.3.0); interactive slicer recipes gated only | `skills/motion-design-dashboards/`, `page_check.py`, `gen_pbip.py` |
 | 14 | High-contrast mode fallbacks (`#htmlContent.pbi-theme-hc`) in every card | 📋 | capabilities.md |
 
 ## D. Interactivity and reach
