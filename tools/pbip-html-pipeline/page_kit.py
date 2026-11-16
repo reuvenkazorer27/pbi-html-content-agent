@@ -46,8 +46,10 @@ def fluid(html, design_w=1920, design_h=1080):
         root_u = f":root{{--u:min(calc(100vw/{design_w}),calc(100vh/{design_h}))}}"
         # every converted px needs --u: a <style> with attributes, or a page with inline styles only, left it undefined
         html, n = re.subn(r"(<style[^>]*>)", lambda m: m.group(1) + root_u, html, count=1)
-        if not n:
-            html = f"<style>{root_u}</style>" + html
+        if not n:   # no <style> at all: add one inside the root (one root, and the pin below still finds it)
+            html = re.sub(r"^(\s*<div\b[^>]*>)", lambda m: m.group(1) + f"<style>{root_u}</style>", html, count=1)
+            if "--u:min(" not in html:
+                html = f"<style>{root_u}</style>" + html
     if "data-lh='1'" not in html:
         # merge into the root's own style attribute: a second style attribute is dropped by the browser, and a wrapper
         # element makes the fit gate treat the real root as a child touching the edge (both caught on a real page)

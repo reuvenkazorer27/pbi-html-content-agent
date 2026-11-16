@@ -183,7 +183,9 @@ def is_project_file(path, project):
     short name or a redirected Desktop folder."""
     if not path:
         return False
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    _here = os.path.dirname(os.path.abspath(__file__))
+    if _here not in sys.path:
+        sys.path.insert(0, _here)
     from config import ROOT
     want = os.path.join(ROOT, f"{project}.pbip")
     try:

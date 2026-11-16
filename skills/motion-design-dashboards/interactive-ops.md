@@ -1,5 +1,7 @@
 # Interactive operations mode
 
+*A separate file because it is an optional mode: `SKILL.md` and `AGENTS.md` load it only when the user chooses the Interactive operations build, so the common motion-design path stays short.*
+
 An extension of `SKILL.md` for dashboards that feel like an operations product: one **twin** of the thing being managed as the hero, motion driven by what the user does (pick a date, switch a view, select an item) rather than by an autoplay entrance, and dense operational instruments around it. Everything stays inside the Secure edition: the interaction is always a **native** visual (slicer, button, page navigation) and the HTML only redraws from DAX.
 
 Status: the three languages and the page rules below were gated with `page_check.py` on full-page builds (every language, five states each: latest, an earlier as-of month, another view, a drill or filter, empty). The slicer recipes are doc-based until a build in this mode is measured in Desktop with the selection changed.

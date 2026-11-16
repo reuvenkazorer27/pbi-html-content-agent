@@ -68,15 +68,20 @@ const CONTRAST_JS = `
   function lum(c){return [c.r,c.g,c.b].map(function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)}).reduce(function(a,v,i){return a+v*[0.2126,0.7152,0.0722][i]},0);}
   function bgOf(el,win){for(var e=el;e;e=e.parentElement){var c=rgb(win.getComputedStyle(e).backgroundColor); if(c&&c.a>0.5) return c;} return rgb(getComputedStyle(document.body.firstElementChild).backgroundColor)||{r:255,g:255,b:255,a:1};}
   /* SVG <text> sits on an SVG shape (a bubble, a block), not on an HTML background: take the fill of the topmost
-     opaque shape under the text's centre; an HTML element hit first, or no opaque shape, falls back to bgOf */
+     opaque shape of the same <svg>, painted before the text, whose fill contains the text's centre. Found by geometry
+     (isPointInFill), not hit-testing: decorative shapes often carry pointer-events:none. No such shape -> bgOf. */
   function svgBg(el,d,w){
-    var r=el.getBoundingClientRect(), pts=d.elementsFromPoint(r.left+r.width/2, r.top+r.height/2);
-    for(var k=0;k<pts.length;k++){
-      var e=pts[k]; if(e===el||el.contains(e)||e.contains(el)) continue;
-      if(!(e instanceof w.SVGElement)) return null;
-      if(/^(svg|g|text|tspan|defs|clipPath|mask|pattern)$/.test(e.tagName)) continue;
-      var s=w.getComputedStyle(e), c=rgb(s.fill);
-      if(c && c.a>0.5 && parseFloat(s.fillOpacity)>0.5 && parseFloat(s.opacity)>0.5) return c;
+    var svg=el.ownerSVGElement; if(!svg) return null;
+    var r=el.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    var shapes=svg.querySelectorAll('rect,circle,ellipse,polygon,path');
+    for(var k=shapes.length-1;k>=0;k--){
+      var e=shapes[k];
+      if(el.compareDocumentPosition(e) & 4) continue;            /* painted after the text: not under it */
+      if(e.closest('defs,clipPath,mask,pattern,marker')) continue;
+      var s=w.getComputedStyle(e); if(s.display==='none'||s.visibility==='hidden') continue;
+      var c=rgb(s.fill); if(!(c && c.a>0.5 && parseFloat(s.fillOpacity)>0.5 && parseFloat(s.opacity)>0.5)) continue;
+      try{ var m=e.getScreenCTM(); if(!m) continue; var p=new w.DOMPoint(cx,cy).matrixTransform(m.inverse());
+           if(e.isPointInFill(p)) return c; }catch(err){}
     }
     return null;
   }
