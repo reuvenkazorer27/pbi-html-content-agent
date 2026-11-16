@@ -19,6 +19,9 @@ if PAGES[0]["id"] != PAGE_ID:
 _pdir = os.path.join(REPORT_DIR, "definition", "pages")
 _ids = {p["id"] for p in PAGES} | {d for d in os.listdir(_pdir) if os.path.isdir(os.path.join(_pdir, d))}
 for _p in PAGES:
+    for _n, _c, *_r in _p.get("SLICERS", []):   # checked before anything is written
+        if len(_r) not in (4, 5) or (len(_r) == 5 and not isinstance(_r[4], dict)):
+            raise SystemExit(f"slicer {_n}: expected (name, column, x, y, w, h[, options dict such as {{'single': True}}]), got {(_n, _c, *_r)!r} - nothing written")
     for _n, _t, *_r in _p.get("NAV", []):
         if _t not in _ids:
             raise SystemExit(f"nav button {_n} on page {_p['id']} points to page {_t!r}, which is neither in PAGES nor in the report (nothing written)")
@@ -250,7 +253,9 @@ def write_page(pg):
                 "objects": {
                     "data": [{"properties": {"mode": lit("'Dropdown'")}}],
                     "header": [{"properties": {"show": lit("false")}}],
-                    # property names from `powerbi-report-author formatting describe-object slicer selection`
+                    # names from `powerbi-report-author formatting describe-object slicer selection`: strictSingleSelect =
+                    # "Single select" (one item; the FIRST item is chosen when nothing is selected - sort selector tables so
+                    # the default comes first), singleSelect = "Multi-select with CTRL"
                     **({"selection": [{"properties": {"singleSelect": lit("true"), "strictSingleSelect": lit("true")}}]}
                        if opt.get("single") else {}),
                     # palette-driven so a dark page never gets a white dropdown (verified names: items.fontColor / items.background)

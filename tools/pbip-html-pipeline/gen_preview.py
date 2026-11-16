@@ -21,7 +21,7 @@ parts = []
 for name, meas, x, y, w, h in LAYOUT:
     doc = "<!doctype html><html><body style='margin:0'>" + val.get(meas, "") + "</body></html>"
     parts.append(f"<iframe data-name='{name}' title='{name}' style='position:absolute;left:{x}px;top:{y}px;width:{w}px;height:{h}px;border:0' srcdoc=\"{html.escape(doc, quote=True)}\"></iframe>")
-for name, lbl, x, y, w, h in SLICERS:
+for name, lbl, x, y, w, h, *_opt in SLICERS:   # a 7th item = slicer options (gen_pbip.py)
     parts.append(f"<div style='position:absolute;left:{x}px;top:{y}px;width:{w}px;height:{h}px;box-sizing:border-box;padding:0 12px;border:1px solid {PAL['slicer_border']};border-radius:6px;background:{PAL['slicer_bg']};display:flex;align-items:center;justify-content:space-between;font:15px Segoe UI;color:{PAL['slicer_fg']}' dir='{DIR}'>{'הכל' if LANG == 'he' else 'All'} <span>&#9662;</span></div>")  # mock dropdown text: Hebrew 'הכל' = 'All'
 
 from fitjs import FIT_JS   # shared with component_lab_example.py
