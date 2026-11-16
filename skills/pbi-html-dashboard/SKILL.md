@@ -11,7 +11,7 @@ This skill is the entry point of the **PBI HTML Content Agent** kit. The kit's r
 
 1. `${CLAUDE_PLUGIN_ROOT}/AGENTS.md` - what the agent is built on, the contract, the honesty rules, the working method.
 2. `reference/design-system.md` and `reference/build-workflow.md`.
-3. The skill that matches the request: `composite-dashboard` (the default for team dashboards), `dashboard-shell`, `html-slicers-filters`, `navigation-header-menu`, `rtl-hebrew`, `colorful-styles`, `motion`.
+3. The skill that matches the request: `composite-dashboard` (the default for team dashboards), `dashboard-shell`, `html-slicers-filters`, `navigation-header-menu`, `rtl-hebrew`, `colorful-styles`, `motion`, and `motion-design-dashboards` (with `interactive-ops.md`) when the user chooses the Motion-design or Interactive operations build (`AGENTS.md` section 3, step 2).
 
 ## 2. Set the kit up next to the user's report (once per project)
 

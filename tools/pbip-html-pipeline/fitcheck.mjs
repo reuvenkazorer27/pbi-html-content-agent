@@ -67,16 +67,36 @@ const CONTRAST_JS = `
   function rgb(s){var m=s.match(/rgba?\\(([^)]+)\\)/); if(!m) return null; var p=m[1].split(',').map(parseFloat); return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};}
   function lum(c){return [c.r,c.g,c.b].map(function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)}).reduce(function(a,v,i){return a+v*[0.2126,0.7152,0.0722][i]},0);}
   function bgOf(el,win){for(var e=el;e;e=e.parentElement){var c=rgb(win.getComputedStyle(e).backgroundColor); if(c&&c.a>0.5) return c;} return rgb(getComputedStyle(document.body.firstElementChild).backgroundColor)||{r:255,g:255,b:255,a:1};}
+  /* SVG <text> sits on an SVG shape (a bubble, a block), not on an HTML background: take the fill of the topmost
+     opaque shape of the same <svg>, painted before the text, whose fill contains the text's centre. Found by geometry
+     (isPointInFill), not hit-testing: decorative shapes often carry pointer-events:none. No such shape -> bgOf. */
+  function svgBg(el,d,w){
+    var svg=el.ownerSVGElement; if(!svg) return null;
+    var r=el.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    var shapes=svg.querySelectorAll('rect,circle,ellipse,polygon,path');
+    for(var k=shapes.length-1;k>=0;k--){
+      var e=shapes[k];
+      if(el.compareDocumentPosition(e) & 4) continue;            /* painted after the text: not under it */
+      if(e.closest('defs,clipPath,mask,pattern,marker')) continue;
+      var s=w.getComputedStyle(e); if(s.display==='none'||s.visibility==='hidden') continue;
+      var c=rgb(s.fill); if(!(c && c.a>0.5 && parseFloat(s.fillOpacity)>0.5 && parseFloat(s.opacity)>0.5)) continue;
+      try{ var m=e.getScreenCTM(); if(!m) continue; var p=new w.DOMPoint(cx,cy).matrixTransform(m.inverse());
+           if(e.isPointInFill(p)) return c; }catch(err){}
+    }
+    return null;
+  }
   var out=[];
   document.querySelectorAll('iframe[data-name]').forEach(function(f){
     var d=f.contentDocument, w=f.contentWindow; if(!d) return; var worst=null;
     d.querySelectorAll('body *').forEach(function(el){
+      if(el.tagName==='STYLE'||el.tagName==='SCRIPT') return;   /* the CSS text of an inline <style> is not page text */
       var own=[].some.call(el.childNodes,function(n){return n.nodeType===3&&n.textContent.trim().length>1}); if(!own) return;
       // a logo's wordmark is exempt from text contrast (WCAG 1.4.3, logotypes); logo.py gates the logo at 3:1 with a
-      // plate instead. (An SVG <text> also paints with 'fill', not 'color', so reading 'color' here would be wrong.)
+      // plate instead.
       if(el.closest && el.closest('[role=img]')) return;
-      var cs=w.getComputedStyle(el), fg=rgb(cs.color); if(!fg||cs.visibility==='hidden'||parseFloat(cs.opacity)<0.2) return;
-      var bg=bgOf(el,w), l1=lum(fg), l2=lum(bg), ratio=(Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);
+      /* SVG <text> paints with 'fill', not 'color' */
+      var cs=w.getComputedStyle(el), fg=rgb(el instanceof w.SVGElement ? cs.fill : cs.color); if(!fg||cs.visibility==='hidden'||parseFloat(cs.opacity)<0.2) return;
+      var bg=(el instanceof w.SVGElement && svgBg(el,d,w))||bgOf(el,w), l1=lum(fg), l2=lum(bg), ratio=(Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);
       var size=parseFloat(cs.fontSize), bold=parseInt(cs.fontWeight)>=700, large=size>=24||(bold&&size>=18.66), need=large?3:4.5;
       if(ratio<need && (!worst||ratio<worst.r)) worst={r:ratio,need:need,txt:el.textContent.trim().slice(0,30)};
     });

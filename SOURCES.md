@@ -69,3 +69,8 @@ Basis for the build/skip decisions in `research/user-demand.md`. Rule: a compone
 
 - motion2code (lovisdotio, MIT), skills that rebuild a motion-design video as SVG + one GSAP timeline with a seekable page contract (`window.anim.seek(t)`, `data-ready`) - the input format of `tools/motion-bake/`. Reviewed at commit `0f00328`: scripts are local only (ffmpeg, Playwright, a local http server), no outbound calls: https://github.com/lovisdotio/motion2code
 - The motion rules in `skills/motion/SKILL.md` and `reference/design-system.md` section 7 were measured in Power BI Desktop (Secure edition) on 10 Nov 2026; Windows `SPI_GETCLIENTAREAANIMATION` was read to explain the reduced-motion behavior.
+
+## Motion-design dashboards (checked 12 Nov 2026)
+
+- Uiverse.io open-source UI library, github.com/uiverse-io/galaxy - MIT License, Copyright (c) 2023 Uiverse.io (license file read 12 Nov 2026; ~15k stars, last push Sep 2024). Used only as optional textures, surfaces and alert-chip shapes through `tools/pbip-html-pipeline/uiverse.py`, which keeps each element's author comment; loaders and form controls are excluded by the skill.
+- The design languages and motion grammar in `skills/motion-design-dashboards/SKILL.md` are the kit's own, written from building and gating full-page examples on a 500-order sample model and checking them in Power BI Desktop (Secure edition, Nov 2026).
