@@ -202,8 +202,20 @@ Requirements: see [Requirements](#requirements). Details: [`tools/pbip-html-pipe
 
 Through pull requests only; see [`CONTRIBUTING.md`](CONTRIBUTING.md). Every change passes `regress.py`, `fitcheck.mjs` and `stress.py`, and a rule measured in Desktop that holds for everyone goes into the one document it belongs to.
 
+## Credits
+
+This kit is built on other people's work. Thank you to:
+
+- **[HTML Content](https://html-content.com)** by **Daniel Marsh-Patrick** ([source](https://github.com/dm-p/powerbi-visuals-html-content), MIT). This free Power BI custom visual renders every card the kit builds. It is not bundled here; Desktop downloads it from AppSource.
+- **[Kubai Icons](https://github.com/kubai087/kubai-icons)** (MIT) for the 12 SVGs in `library/icons/`. The license is kept in `library/icons/LICENSE-MIT-kubai`.
+- **[Uiverse.io](https://uiverse.io)** ([uiverse-io/galaxy](https://github.com/uiverse-io/galaxy), MIT, © 2023 Uiverse.io) for optional textures, surfaces and chip shapes. `tools/pbip-html-pipeline/uiverse.py` fetches them on demand and keeps each element's author comment, so credit stays with each author.
+- **Gus Bavia** inspired the motion-design build (`skills/motion-design-dashboards/`). The design languages and code in the kit are its own.
+- **[motion2code](https://github.com/lovisdotio/motion2code)** by lovisdotio (MIT). Its seekable page contract is the input format of `tools/motion-bake/`.
+- **Design research, ideas only, no code copied:** [Radix Colors](https://www.radix-ui.com/colors), [Tremor](https://www.tremor.so), [shadcn/ui](https://ui.shadcn.com), [IBM Carbon](https://carbondesignsystem.com) and *Refactoring UI* (Adam Wathan and Steve Schoger) shaped the color roles in `styles.py` and [`design-system.md`](reference/design-system.md).
+- **The Power BI community**, whose questions and requests drove what the library includes: r/PowerBI, Fabric Ideas, SQLBI, Data Goblins and DataChant, all cited in [`SOURCES.md`](SOURCES.md).
+
 ## License
 
 [MIT](LICENSE) © 2026 Reuven Kazorer.
 
-Third-party: the **HTML Content** custom visual is a separate free, open-source project by Daniel Marsh-Patrick ([html-content.com](https://html-content.com), MIT) and is not included here. Icons in `library/icons/` are from Kubai Icons (MIT, see `library/icons/LICENSE-MIT-kubai`). Power BI is a trademark of Microsoft.
+Third-party projects keep their own licenses (see [Credits](#credits)). Power BI is a trademark of Microsoft. This project is not affiliated with or endorsed by Microsoft.
